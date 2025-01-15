@@ -125,9 +125,11 @@ export default function Signup() {
           </View>
           {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
 
-          <TouchableOpacity style={styles.signupButton} onPress={handleSignup}>
-            <Text style={styles.signupButtonText}>Sign Up</Text>
-          </TouchableOpacity>
+          <Link href="/login" asChild>
+            <TouchableOpacity style={styles.signupButton} onPress={handleSignup}>
+              <Text style={styles.signupButtonText}>Sign Up</Text>
+            </TouchableOpacity>
+          </Link>
 
           <View style={styles.dividerContainer}>
             <View style={styles.divider} />
