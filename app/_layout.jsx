@@ -39,6 +39,10 @@ export default function Layout() {
         name="progress/index"
         options={{ headerShown: false }}
       />
+      <Stack.Screen
+        name="notification/index"
+        options={{headerShown: false}}
+      /> 
     </Stack>
   );
 } 
