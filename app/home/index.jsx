@@ -97,7 +97,7 @@ export default function Home() {
                 key={subject.id}
                 style={styles.subjectCard}
                 onPress={() => router.push({
-                  pathname: '/subject/index',
+                  pathname: '/subject',
                   params: { 
                     subjectName: subject.name,
                     subjectColor: subject.color

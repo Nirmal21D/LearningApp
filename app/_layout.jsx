@@ -35,6 +35,10 @@ export default function Layout() {
         name="subject/pdfs/index"
         options={{ headerShown: false }}
       />
+      <Stack.Screen 
+        name="progress/index"
+        options={{ headerShown: false }}
+      />
     </Stack>
   );
 } 
