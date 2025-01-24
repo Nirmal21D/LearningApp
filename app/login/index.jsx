@@ -1,22 +1,50 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { auth } from '../../lib/firebase'; // Import Firebase auth
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth'; // Import signIn and sendPasswordResetEmail functions
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState(''); // State for error messages
 
-  const handleLogin = () => {
-    // Implement login logic here
-    console.log('Login attempted with:', email, password);
+  const handleLogin = async () => {
+    try {
+      if (email === 'admin' && password === 'admin123') {
+        router.push('/admin/dashboard'); // Redirect to admin dashboard
+      } else {
+        // Redirect to home on successful login
+      }
+      await signInWithEmailAndPassword(auth, email, password);
+      console.log('Login successful');
+
+      // Check for admin credentials
+      
+    } catch (error) {
+      console.error('Login error:', error.message);
+      setError('Login failed. Please check your credentials.'); // Set error message
+    }
   };
 
   const handleGoogleLogin = () => {
     // Implement Google login logic here
     console.log('Google login attempted');
+  };
+
+  const handleForgotPassword = () => {
+    sendPasswordResetEmail(auth, email)
+      .then(() => {
+        console.log('Password reset email sent');
+        setError('Check your email for password reset instructions.'); // Inform user
+      })
+      .catch((error) => {
+        console.error('Error sending password reset email:', error.message);
+        setError('Failed to send password reset email. Please try again.'); // Set error message
+      });
   };
 
   return (
@@ -36,6 +64,8 @@ export default function Login() {
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>Enter your credentials to access your account</Text>
         </View>
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null} {/* Display error message */}
 
         <View style={styles.formContainer}>
           <View style={styles.inputContainer}>
@@ -69,11 +99,7 @@ export default function Login() {
           </View>
 
           <View style={styles.optionsContainer}>
-            <TouchableOpacity style={styles.rememberContainer}>
-              <View style={styles.checkbox} />
-              <Text style={styles.rememberText}>Remember me</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => console.log('Forgot password')}>
+            <TouchableOpacity onPress={handleForgotPassword}>
               <Text style={styles.forgotPassword}>Forgot password?</Text>
             </TouchableOpacity>
           </View>
@@ -130,6 +156,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
+  errorText: {
+    color: '#ff3333',
+    fontSize: 12,
+    marginBottom: 10,
+  },
   formContainer: {
     gap: 20,
   },
@@ -160,21 +191,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  rememberContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#666',
-    marginRight: 8,
-  },
-  rememberText: {
-    color: '#666',
   },
   forgotPassword: {
     color: '#2196F3',
