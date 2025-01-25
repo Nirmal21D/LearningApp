@@ -1,6 +1,10 @@
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+
 
 const { width } = Dimensions.get('window');
 
@@ -50,6 +54,43 @@ const reviews = [
 
 export default function Home() {
   const router = useRouter();
+  const [userData, setUserData] = useState(null);
+  const [userInfo, setUserInfo] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // New loading state
+
+  useEffect(() => {
+    const auth = getAuth(); // Get the auth instance
+    const unsubscribe = onAuthStateChanged(auth, async user => {
+      setIsLoggedIn(!!user); // Update login status based on user presence
+      if (user) {
+        const db = getFirestore();
+        const userDocRef = doc(db, "users", user.uid); // Reference to user document
+        const userDocSnap = await getDoc(userDocRef); // Fetch user document
+
+        if (!userDocSnap.exists()) {
+          throw new Error("User data not found");
+        }
+
+        const data = userDocSnap.data(); // Get user data
+        console.log(data)
+        setUserInfo(data); // Set user info
+      } else {
+        setUserInfo(null); // Reset userInfo if not logged in
+      }
+      setIsLoading(false); // Set loading to false after checking auth state
+    });
+
+    return () => unsubscribe(); // Cleanup subscription on unmount
+  }, [router]);
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text style={styles.loadingText}>Loading...</Text>
+      </SafeAreaView>
+    ); // Show loading state
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -69,15 +110,15 @@ export default function Home() {
         {/* Welcome Section */}
         <View style={[styles.welcomeSection, { borderRadius: 0 }]}>
           <Text style={styles.welcomeText}>Welcome,</Text>
-          <Text style={styles.username}>Siddharth Shah</Text>
+          <Text style={styles.username}>{userInfo ? userInfo.username : 'Loading...'}</Text>
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>15</Text>
+              <Text style={styles.statNumber}>{userInfo ? userInfo.coursesCount : '0'}</Text>
               <Text style={styles.statLabel}>Courses</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>85%</Text>
+              <Text style={styles.statNumber}>{userInfo ? userInfo.progress : '0%'} </Text>
               <Text style={styles.statLabel}>Progress</Text>
             </View>
           </View>
@@ -149,6 +190,7 @@ export default function Home() {
             showsHorizontalScrollIndicator={false}
             style={styles.reviewsContainer}
           >
+            {/* Assuming reviews are fetched from another source or hardcoded */}
             {reviews.map((review) => (
               <View key={review.id} style={styles.reviewCard}>
                 <View style={styles.reviewHeader}>

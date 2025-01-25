@@ -1,24 +1,52 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { auth } from '../../lib/firebase'; // Import Firebase auth
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth'; // Import signIn and sendPasswordResetEmail functions
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState(''); // State for error messages
 
-  const handleLogin = () => {
-    // Implement login logic here
-    console.log('Login attempted with:', email, password);
+  const handleLogin = async () => {
+    try {
+      if (email === 'admin' && password === 'admin123') {
+        router.push('/admin/dashboard'); // Redirect to admin dashboard
+      } else {
+        // Redirect to home on successful login
+      }
+      await signInWithEmailAndPassword(auth, email, password);
+      console.log('Login successful');
+
+      // Check for admin credentials
+      
+    } catch (error) {
+      console.error('Login error:', error.message);
+      setError('Login failed. Please check your credentials.'); // Set error message
+    }
   };
 
   const handleGoogleLogin = () => {
     // Implement Google login logic here
     console.log('Google login attempted');
+  };
+
+  const handleForgotPassword = () => {
+    sendPasswordResetEmail(auth, email)
+      .then(() => {
+        console.log('Password reset email sent');
+        setError('Check your email for password reset instructions.'); // Inform user
+      })
+      .catch((error) => {
+        console.error('Error sending password reset email:', error.message);
+        setError('Failed to send password reset email. Please try again.'); // Set error message
+      });
   };
 
   return (
@@ -44,14 +72,53 @@ export default function Login() {
           <BlurView intensity={30} tint="light" style={[styles.backButton, styles.glassEffect]}>
             <TouchableOpacity onPress={() => router.back()}>
               <Ionicons name="arrow-back" size={24} color="#333" />
+          <Ionicons name="arrow-back" size={24} color="#333" />
+        </TouchableOpacity>
+
+        <View style={styles.headerContainer}>
+          <Text style={styles.title}>Welcome Back</Text>
+          <Text style={styles.subtitle}>Enter your credentials to access your account</Text>
+        </View>
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null} {/* Display error message */}
+
+        <View style={styles.formContainer}>
+          <View style={styles.inputContainer}>
+            <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              <Ionicons 
+                name={showPassword ? "eye-outline" : "eye-off-outline"} 
+                size={20} 
+                color="#666" 
+              />
             </TouchableOpacity>
+            </View>
           </BlurView>
 
-          <BlurView intensity={20} tint="light" style={[styles.formContainer, styles.glassEffect]}>
-            <View style={styles.headerContainer}>
-              <Text style={styles.title}>Welcome Back</Text>
-              <Text style={styles.subtitle}>Enter your credentials to access your account</Text>
-            </View>
+          <View style={styles.optionsContainer}>
+            <TouchableOpacity onPress={handleForgotPassword}>
+              <Text style={styles.forgotPassword}>Forgot password?</Text>
+            </TouchableOpacity>
+          </View>
 
             <View style={styles.formContainer}>
               <View style={styles.inputContainer}>
@@ -118,6 +185,7 @@ export default function Login() {
                 </Link>
               </View>
             </View>
+          
           </BlurView>
         </Animated.View>
       </SafeAreaView>
@@ -146,6 +214,11 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: '#666666',
+  },
+  errorText: {
+    color: '#ff3333',
+    fontSize: 12,
+    marginBottom: 10,
   },
   formContainer: {
     gap: 20,
@@ -182,21 +255,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  rememberContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#666',
-    marginRight: 8,
-  },
-  rememberText: {
-    color: '#666',
   },
   forgotPassword: {
     color: '#2196F3',

@@ -41,7 +41,7 @@ export default function Layout() {
       />
       <Stack.Screen
         name="notification/index"
-        options={{headerShown: false}}
+        options={{ headerShown: false }}
       /> 
     </Stack>
   );
