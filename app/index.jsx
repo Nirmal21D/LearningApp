@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { auth } from '../lib/firebase'; // Import Firebase auth
 import { useEffect } from 'react';
+import AdminDashboard from './admin/dashboard';
 
 
 export default function Index() {
