@@ -1,441 +1,420 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
+import React, { useState, useEffect } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
   ScrollView,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
-import * as DocumentPicker from "expo-document-picker";
-import { Picker } from "@react-native-picker/picker";
-import { Ionicons } from "@expo/vector-icons";
-import {
-  collection,
-  addDoc,
-  doc,
-  getDoc,
-  getDocs,
-  where,
-  query,
-  updateDoc,
-  arrayUnion,
-} from "firebase/firestore";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "@/lib/firebase.js";
+  Alert
+} from 'react-native';
+import { Picker } from '@react-native-picker/picker';
+import { 
+  collection, 
+  addDoc, 
+  doc, 
+  getDoc, 
+  getDocs, 
+  query, 
+  where, 
+  updateDoc, 
+  arrayUnion 
+} from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '@/lib/firebase';
+import { useRouter } from 'expo-router';
 
-export default function UploadMaterial() {
+export default function UploadMaterialPage() {
   const [curriculums, setCurriculums] = useState([]);
   const [subjects, setSubjects] = useState([]);
-  const [materials, setMaterials] = useState([]);
+  const [chapters, setChapters] = useState([]);
+  const [selectedCurriculum, setSelectedCurriculum] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState('');
+  const [selectedChapter, setSelectedChapter] = useState('');
+  const [selectedMaterialType, setSelectedMaterialType] = useState('free');
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [notification, setNotification] = useState(null);
+  const router = useRouter();
 
-  const [selectedCurriculum, setSelectedCurriculum] = useState("");
-  const [selectedSubject, setSelectedSubject] = useState("");
-  const [selectedChapter, setSelectedChapter] = useState("");
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const materialTypeOptions = [
+    { label: 'Free', value: 'free' },
+    { label: 'Premium', value: 'premium' }
+  ];
 
   useEffect(() => {
-    const fetchCurriculums = async () => {
-      try {
-        const curriculumQuery = query(collection(db, "curriculums"));
-        const curriculumSnapshot = await getDocs(curriculumQuery);
-
-        const curriculumList = curriculumSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-
-        setCurriculums(curriculumList);
-      } catch (error) {
-        console.error("Error fetching curriculums:", error);
-        Alert.alert("Error", "Could not load curriculums");
-      }
-    };
-
     fetchCurriculums();
   }, []);
 
   useEffect(() => {
-    const fetchSubjects = async () => {
-      if (!selectedCurriculum) {
-        setSubjects([]);
-        setSelectedSubject("");
-        return;
-      }
-
-      try {
-        const subjectQuery = query(
-          collection(db, "subjects"),
-          where("curriculumId", "==", selectedCurriculum)
-        );
-        const subjectSnapshot = await getDocs(subjectQuery);
-
-        const subjectList = subjectSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-
-        setSubjects(subjectList);
-        setSelectedSubject("");
-      } catch (error) {
-        console.error("Error fetching subjects:", error);
-        Alert.alert("Error", "Could not load subjects");
-      }
-    };
-
-    fetchSubjects();
+    if (selectedCurriculum) {
+      fetchSubjects();
+      setSelectedSubject('');
+      setSelectedChapter('');
+    }
   }, [selectedCurriculum]);
 
   useEffect(() => {
-    const fetchMaterials = async () => {
-      if (!selectedSubject) {
-        setMaterials([]);
-        setSelectedChapter("");
-        return;
-      }
-
-      try {
-        const subjectRef = doc(db, "subjects", selectedSubject);
-        const subjectSnap = await getDoc(subjectRef);
-
-        if (subjectSnap.exists()) {
-          const materialsList = subjectSnap.data().materials || [];
-          const chaptersList = subjectSnap.data().chapters || [];
-          
-          setMaterials([
-            ...materialsList.map((material, index) => ({
-              id: `material_${index}`,
-              name: material,
-            })),
-            ...chaptersList.map((chapter, index) => ({
-              id: `chapter_${index}`,
-              name: chapter,
-            })),
-          ]);
-        }
-      } catch (error) {
-        console.error("Error fetching materials:", error);
-        Alert.alert("Error", "Could not load materials");
-      }
-    };
-
-    fetchMaterials();
+    if (selectedSubject) {
+      fetchChapters();
+      setSelectedChapter('');
+    }
   }, [selectedSubject]);
 
-  const pickDocument = async () => {
+  const showNotification = (message, type = 'error') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  const fetchCurriculums = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: [
-          "application/pdf",
-          "application/msword",
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          "image/*",
-        ],
-      });
+      const querySnapshot = await getDocs(collection(db, 'curriculums'));
+      const curriculumList = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().title || 'Unnamed Curriculum'
+      }));
+      setCurriculums(curriculumList);
+    } catch (error) {
+      console.error('Curriculum fetch error:', error);
+      showNotification('Could not fetch curriculums');
+    }
+  };
 
-      if (result.type === "success") {
-        // Get MIME type from file extension
-        const uriParts = result.uri.split(".");
-        const fileExtension = uriParts[uriParts.length - 1];
-        let mimeType = "application/octet-stream";
-        if (fileExtension === "pdf") {
-          mimeType = "application/pdf";
-        } else if (fileExtension === "doc" || fileExtension === "docx") {
-          mimeType = "application/msword";
-        } else if (fileExtension === "jpg" || fileExtension === "jpeg" || fileExtension === "png") {
-          mimeType = "image/*";
-        }
-        result.mimeType = mimeType;
+  const fetchSubjects = async () => {
+    try {
+      const subjectQuery = query(
+        collection(db, 'subjects'), 
+        where('curriculumId', '==', selectedCurriculum)
+      );
+      const querySnapshot = await getDocs(subjectQuery);
+      const subjectList = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name || 'Unnamed Subject'
+      }));
+      setSubjects(subjectList);
+    } catch (error) {
+      console.error('Subjects fetch error:', error);
+      showNotification('Could not fetch subjects');
+    }
+  };
 
-        // Validate file size (e.g., max 50MB)
-        const fileSize = result.size || 0;
-        if (fileSize > 50 * 1024 * 1024) {
-          Alert.alert("Error", "File size exceeds 50MB limit");
-          return;
-        }
-        setSelectedFile(result);
+  const fetchChapters = async () => {
+    try {
+      const subjectRef = doc(db, 'subjects', selectedSubject);
+      const subjectSnap = await getDoc(subjectRef);
+      const chaptersList = subjectSnap.data()?.chapters || [];
+      setChapters(chaptersList.map((chapter, index) => ({
+        id: `chapter_${index}`,
+        name: chapter || `Chapter ${index + 1}`
+      })));
+    } catch (error) {
+      console.error('Chapters fetch error:', error);
+      showNotification('Could not fetch chapters');
+    }
+  };
+
+  const handleFileUpload = (event) => {
+    const selectedFile = event.target.files[0];
+    if (selectedFile) {
+      if (selectedFile.size > 50 * 1024 * 1024) {
+        showNotification('File size exceeds 50MB');
+        return;
       }
-    } catch (err) {
-      console.error("Document pick error:", err);
-      Alert.alert("Error", "Could not pick document");
+      setFile(selectedFile);
     }
   };
 
   const uploadMaterial = async () => {
-    if (!selectedFile || !selectedCurriculum || !selectedSubject || !selectedChapter) {
-      Alert.alert("Error", "Please select all fields");
+    // Comprehensive validation before upload
+    if (!selectedCurriculum) {
+      showNotification('Please select a curriculum');
       return;
     }
-
-    setIsUploading(true);
-
+    if (!selectedSubject) {
+      showNotification('Please select a subject');
+      return;
+    }
+    if (!selectedChapter) {
+      showNotification('Please select a chapter');
+      return;
+    }
+    if (!file) {
+      showNotification('Please select a file to upload');
+      return;
+    }
+    if (!selectedMaterialType) {
+      showNotification('Please select material type');
+      return;
+    }
+  
+    setLoading(true);
+  
     try {
-      const { uri, name, size, mimeType } = selectedFile;
-      const response = await fetch(uri);
-      const blob = await response.blob();
-
-      // Generate unique filename
-      const uniqueFileName = `${Date.now()}_${name}`;
-
-      // Upload file to storage
       const storageRef = ref(
-        storage,
-        `materials/${selectedCurriculum}/${selectedSubject}/${selectedChapter}/${uniqueFileName}`
+        storage, 
+        `materials/${selectedCurriculum}/${selectedSubject}/${selectedChapter}/${file.name}`
       );
-
-      const uploadResult = await uploadBytes(storageRef, blob);
-      const downloadURL = await getDownloadURL(uploadResult.ref);
-
-      // Save material metadata
-      const materialDoc = await addDoc(collection(db, "materials"), {
-        name: uniqueFileName,
-        originalName: name,
+  
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+  
+      await addDoc(collection(db, 'materials'), {
+        name: file.name,
         url: downloadURL,
         subjectId: selectedSubject,
         curriculumId: selectedCurriculum,
         chapterId: selectedChapter,
         uploadedAt: new Date(),
-        fileType: mimeType,
-        fileSize: size,
-        difficulty: "beginner", // Default difficulty
-        description: `Study material for ${selectedChapter}`,
+        fileType: file.type,
+        fileSize: file.size,
+        difficulty: 'beginner',
+        materialType: selectedMaterialType
       });
-
-      // Update subject document to include material
-      const subjectRef = doc(db, "subjects", selectedSubject);
+  
+      const subjectRef = doc(db, 'subjects', selectedSubject);
       await updateDoc(subjectRef, {
-        materials: arrayUnion(name),
+        materials: arrayUnion(downloadURL)
       });
-
-      // Reset form
-      setSelectedFile(null);
-      setIsUploading(false);
-
-      // Success feedback
-      Alert.alert(
-        "Upload Successful",
-        `${name} has been uploaded to ${selectedChapter}`,
-        [{ text: "OK" }]
-      );
+  
+      showNotification('Material uploaded successfully', 'success');
+      
+      setTimeout(() => {
+        router.push('/teacher/view_materials');
+      }, 1500);
+  
+      setFile(null);
+      setLoading(false);
     } catch (error) {
-      console.error("Upload error:", error);
-      setIsUploading(false);
-      Alert.alert(
-        "Upload Failed",
-        "Please check your internet connection and try again",
-        [{ text: "Retry" }]
-      );
+      console.error('Error uploading material:', error);
+      showNotification('Failed to upload material');
+      setLoading(false);
     }
+  };
+
+  const isUploadDisabled = () => {
+    return loading || 
+           !selectedCurriculum || 
+           !selectedSubject || 
+           !selectedChapter || 
+           !file || 
+           !selectedMaterialType;
   };
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Upload Study Material</Text>
-
-      {/* Curriculum Picker */}
-      <View style={styles.pickerContainer}>
-        <Text style={styles.pickerLabel}>Select Curriculum:</Text>
-        <Picker
-          selectedValue={selectedCurriculum}
-          onValueChange={(itemValue) => setSelectedCurriculum(itemValue)}
-          style={styles.picker}
+      {notification && (
+        <View 
+          style={[
+            styles.notificationContainer, 
+            notification.type === 'success' ? styles.successNotification : styles.errorNotification
+          ]}
         >
-          <Picker.Item label="Select Curriculum" value="" />
-          {curriculums.map((curriculum) => (
-            <Picker.Item
-              key={curriculum.id}
-              label={curriculum.title}
-              value={curriculum.id}
-            />
-          ))}
-        </Picker>
-      </View>
-
-      {/* Subject Picker */}
-      <View style={styles.pickerContainer}>
-        <Text style={styles.pickerLabel}>Select Subject:</Text>
-        <Picker
-          selectedValue={selectedSubject}
-          onValueChange={(itemValue) => setSelectedSubject(itemValue)}
-          style={styles.picker}
-          enabled={!!selectedCurriculum}
-        >
-          <Picker.Item label="Select Subject" value="" />
-          {subjects.map((subject) => (
-            <Picker.Item
-              key={subject.id}
-              label={subject.name}
-              value={subject.id}
-            />
-          ))}
-        </Picker>
-      </View>
-
-      {/* Material/Chapter Picker */}
-      <View style={styles.pickerContainer}>
-        <Text style={styles.pickerLabel}>Select Chapter/Material:</Text>
-        <Picker
-          selectedValue={selectedChapter}
-          onValueChange={(itemValue) => setSelectedChapter(itemValue)}
-          style={styles.picker}
-          enabled={!!selectedSubject}
-        >
-          <Picker.Item label="Select Chapter/Material" value="" />
-          {materials.map((material) => (
-            <Picker.Item
-              key={material.id}
-              label={material.name}
-              value={material.name}
-            />
-          ))}
-        </Picker>
-      </View>
-
-      {/* Document Picker */}
-      <TouchableOpacity 
-        style={styles.pickButton} 
-        onPress={pickDocument}
-        disabled={!selectedCurriculum || !selectedSubject || !selectedChapter}
-      >
-        <Text style={styles.pickButtonText}>
-          {selectedFile ? "Change Document" : "Pick a Document"}
-        </Text>
-      </TouchableOpacity>
-
-      {/* File Details */}
-      {selectedFile && (
-        <View style={styles.fileDetailsContainer}>
-          <Ionicons 
-            name={
-              selectedFile.name.toLowerCase().endsWith('.pdf') 
-                ? "document-text" 
-                : selectedFile.name.toLowerCase().match(/\.(jpg|jpeg|png)$/) 
-                  ? "image" 
-                  : "document"
-            } 
-            size={24} 
-            color="#007bff" 
-          />
-          <View style={styles.fileDetailsText}>
-            <Text style={styles.fileName} numberOfLines={1}>
-              {selectedFile.name}
-            </Text>
-            <Text style={styles.fileSize}>
-              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-            </Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => setSelectedFile(null)}
-            style={styles.removeFileButton}
-          >
-            <Ionicons name="close" size={20} color="red" />
-          </TouchableOpacity>
+          <Text style={styles.notificationText}>{notification.message}</Text>
         </View>
       )}
 
-      <TouchableOpacity
-        style={[
-          styles.uploadButton,
-          (!selectedFile || !selectedCurriculum || !selectedSubject || !selectedChapter) && 
-            styles.disabledButton
-        ]}
-        onPress={uploadMaterial}
-        disabled={
-          !selectedFile ||
-          !selectedCurriculum ||
-          !selectedSubject ||
-          !selectedChapter ||
-          isUploading
-        }
-      >
-        {isUploading ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.uploadButtonText}>Upload Material</Text>
+      <Text style={styles.title}>Upload Study Material</Text>
+
+      {/* Curriculum Dropdown */}
+      <View style={styles.pickerContainer}>
+        <Text style={styles.label}>Curriculum</Text>
+        <View style={styles.pickerWrapper}>
+          <Picker
+            style={styles.picker}
+            selectedValue={selectedCurriculum}
+            onValueChange={(itemValue) => {
+              setSelectedCurriculum(itemValue);
+              setSelectedSubject('');
+              setSelectedChapter('');
+            }}
+          >
+            <Picker.Item label="Select Curriculum" value="" />
+            {curriculums.map((curriculum) => (
+              <Picker.Item 
+                key={curriculum.id} 
+                label={curriculum.name} 
+                value={curriculum.id} 
+              />
+            ))}
+          </Picker>
+        </View>
+      </View>
+
+      {/* Subject Dropdown */}
+      <View style={styles.pickerContainer}>
+        <Text style={styles.label}>Subject</Text>
+        <View style={styles.pickerWrapper}>
+          <Picker
+            style={styles.picker}
+            selectedValue={selectedSubject}
+            onValueChange={(itemValue) => {
+              setSelectedSubject(itemValue);
+              setSelectedChapter('');
+            }}
+            enabled={selectedCurriculum !== ''}
+          >
+            <Picker.Item label="Select Subject" value="" />
+            {subjects.map((subject) => (
+              <Picker.Item 
+                key={subject.id} 
+                label={subject.name} 
+                value={subject.id} 
+              />
+            ))}
+          </Picker>
+        </View>
+      </View>
+
+      {/* Chapter Dropdown */}
+      <View style={styles.pickerContainer}>
+        <Text style={styles.label}>Chapter</Text>
+        <View style={styles.pickerWrapper}>
+          <Picker
+            style={styles.picker}
+            selectedValue={selectedChapter}
+            onValueChange={(itemValue) => setSelectedChapter(itemValue)}
+            enabled={selectedSubject !== ''}
+          >
+            <Picker.Item label="Select Chapter" value="" />
+            {chapters.map((chapter) => (
+              <Picker.Item 
+                key={chapter.id} 
+                label={chapter.name} 
+                value={chapter.id} 
+              />
+            ))}
+          </Picker>
+        </View>
+      </View>
+
+      {/* Material Type Dropdown */}
+      <View style={styles.pickerContainer}>
+        <Text style={styles.label}>Material Type</Text>
+        <View style={styles.pickerWrapper}>
+          <Picker
+            style={styles.picker}
+            selectedValue={selectedMaterialType}
+            onValueChange={(itemValue) => setSelectedMaterialType(itemValue)}
+          >
+            {materialTypeOptions.map((type) => (
+              <Picker.Item 
+                key={type.value} 
+                label={type.label} 
+                value={type.value} 
+              />
+            ))}
+          </Picker>
+        </View>
+      </View>
+
+      {/* File Input */}
+      <View style={styles.fileContainer}>
+        <input 
+          type="file" 
+          onChange={handleFileUpload}
+          style={styles.fileInput}
+        />
+        {file && (
+          <Text style={styles.fileName}>
+            {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+          </Text>
         )}
+      </View>
+
+      {/* Upload Button */}
+      <TouchableOpacity 
+        style={[
+          styles.uploadButton, 
+          isUploadDisabled() && styles.disabledUploadButton
+        ]} 
+        onPress={uploadMaterial}
+        disabled={isUploadDisabled()}
+      >
+        <Text style={styles.uploadButtonText}>
+          {loading ? 'Uploading...' : 'Upload Material'}
+        </Text>
       </TouchableOpacity>
     </ScrollView>
   );
 }
 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: "#f4f6f9",
+    backgroundColor: '#f4f6f9'
+  }, uploadButton: {
+    backgroundColor: '#007bff',
+    padding: 15,
+    borderRadius: 5,
+    alignItems: 'center'
+  },
+  disabledUploadButton: {
+    backgroundColor: '#cccccc'
+  },
+  uploadButtonText: {
+    color: 'white',
+    fontWeight: 'bold'
+  },
+  notificationContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    padding: 10,
+    zIndex: 1000
+  },
+  successNotification: {
+    backgroundColor: 'green'
+  },
+  errorNotification: {
+    backgroundColor: 'red'
+  },
+  notificationText: {
+    color: 'white',
+    textAlign: 'center'
   },
   title: {
     fontSize: 22,
-    fontWeight: "700",
+    fontWeight: 'bold',
     marginBottom: 20,
-    textAlign: "center",
-    color: "#333",
+    textAlign: 'center'
   },
   pickerContainer: {
-    backgroundColor: "white",
-    borderRadius: 10,
-    marginBottom: 20,
-    padding: 10,
+    marginBottom: 15
   },
-  pickerLabel: {
-    fontSize: 16,
-    marginBottom: 10,
-    color: "#333",
+  label: {
+    marginBottom: 5,
+    fontWeight: 'bold'
+  },
+  pickerWrapper: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    backgroundColor: 'white'
   },
   picker: {
     height: 50,
-    width: "100%",
+    width: '100%'
   },
-  pickButton: {
-    backgroundColor: "#007bff",
-    padding: 15,
-    borderRadius: 10,
-    alignItems: "center",
-    marginBottom: 20,
+  fileContainer: {
+    marginVertical: 15
   },
-  pickButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  uploadButton: {
-    backgroundColor: "#28a745",
-    padding: 15,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  uploadButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  fileDetailsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f8f9fa",
-    padding: 10,
-    borderRadius: 8,
-    marginVertical: 10,
-  },
-  fileDetailsText: {
-    flex: 1,
-    marginLeft: 10,
+  fileInput: {
+    marginBottom: 10
   },
   fileName: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#333",
+    marginTop: 10,
+    color: '#666'
   },
-  fileSize: {
-    fontSize: 14,
-    color: "#666",
+  uploadButton: {
+    backgroundColor: '#007bff',
+    padding: 15,
+    borderRadius: 5,
+    alignItems: 'center'
   },
-  removeFileButton: {
-    padding: 5,
-  },
-  disabledButton: {
-    backgroundColor: "#cccccc",
-  },
+  uploadButtonText: {
+    color: 'white',
+    fontWeight: 'bold'
+  }
 });
