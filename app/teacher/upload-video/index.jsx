@@ -5,6 +5,7 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   ScrollView,
+  Alert,
   ActivityIndicator
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
@@ -24,7 +25,7 @@ import { db, storage } from '@/lib/firebase';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 
-export default function UploadMaterialPage() {
+export default function UploadVideoPage() {
   const [curriculums, setCurriculums] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
@@ -120,19 +121,26 @@ export default function UploadMaterialPage() {
   const handleFileUpload = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
+        type: 'video/*',
         copyToCacheDirectory: true
       });
 
       if (result.canceled) {
+        // User canceled the picker
         return;
       }
 
       const selectedFile = result.assets[0];
       
-      // Check file size (50MB limit)
-      if (selectedFile.size > 50 * 1024 * 1024) {
-        showNotification('File size exceeds 50MB limit');
+      // Check file size (500MB limit)
+      if (selectedFile.size > 500 * 1024 * 1024) {
+        showNotification('File size exceeds 500MB limit');
+        return;
+      }
+
+      // Verify it's a video file
+      if (!selectedFile.mimeType?.startsWith('video/')) {
+        showNotification('Please select a video file');
         return;
       }
 
@@ -143,7 +151,7 @@ export default function UploadMaterialPage() {
     }
   };
 
-  const uploadMaterial = async () => {
+  const uploadVideo = async () => {
     // Validation
     if (!selectedCurriculum) {
       showNotification('Please select a curriculum');
@@ -158,7 +166,7 @@ export default function UploadMaterialPage() {
       return;
     }
     if (!file) {
-      showNotification('Please select a file');
+      showNotification('Please select a video file');
       return;
     }
     if (!selectedMaterialType) {
@@ -175,15 +183,15 @@ export default function UploadMaterialPage() {
 
       const storageRef = ref(
         storage, 
-        `materials/${selectedCurriculum}/${selectedSubject}/${selectedChapter}/${file.name}`
+        `videos/${selectedCurriculum}/${selectedSubject}/${selectedChapter}/${file.name}`
       );
 
       // Upload blob
       const snapshot = await uploadBytes(storageRef, blob);
       const downloadURL = await getDownloadURL(snapshot.ref);
 
-      // Save material metadata to Firestore
-      await addDoc(collection(db, 'materials'), {
+      // Save video metadata to Firestore
+      await addDoc(collection(db, 'videos'), {
         name: file.name,
         url: downloadURL,
         subjectId: selectedSubject,
@@ -196,22 +204,23 @@ export default function UploadMaterialPage() {
         materialType: selectedMaterialType
       });
 
-      // Update subject with material reference
+      // Update subject with video reference
       const subjectRef = doc(db, 'subjects', selectedSubject);
       await updateDoc(subjectRef, {
-        materials: arrayUnion(downloadURL)
+        videos: arrayUnion(downloadURL)
       });
 
-      showNotification('Material uploaded successfully', 'success');
+      showNotification('Video uploaded successfully', 'success');
       
+      // Navigate after success
       setTimeout(() => {
-        router.push('/teacher/view_materials');
+        router.push('/teacher/dashboard');
       }, 1500);
 
       setFile(null);
     } catch (error) {
-      console.error('Error uploading material:', error);
-      showNotification('Failed to upload material');
+      console.error('Error uploading video:', error);
+      showNotification('Failed to upload video');
     } finally {
       setLoading(false);
     }
@@ -239,7 +248,7 @@ export default function UploadMaterialPage() {
         </View>
       )}
 
-      <Text style={styles.title}>Upload Study Material</Text>
+      <Text style={styles.title}>Upload Video</Text>
 
       {/* Curriculum Picker */}
       <View style={styles.pickerContainer}>
@@ -332,7 +341,7 @@ export default function UploadMaterialPage() {
           style={styles.fileInputButton} 
           onPress={handleFileUpload}
         >
-          <Text style={styles.fileInputButtonText}>Select File</Text>
+          <Text style={styles.fileInputButtonText}>Select Video File</Text>
         </TouchableOpacity>
         {file && (
           <Text style={styles.fileName}>
@@ -347,11 +356,11 @@ export default function UploadMaterialPage() {
           styles.uploadButton, 
           isUploadDisabled() && styles.disabledUploadButton
         ]} 
-        onPress={uploadMaterial}
+        onPress={uploadVideo}
         disabled={isUploadDisabled()}
       >
         <Text style={styles.uploadButtonText}>
-          {loading ? 'Uploading...' : 'Upload Material'}
+          {loading ? 'Uploading...' : 'Upload Video'}
         </Text>
       </TouchableOpacity>
 

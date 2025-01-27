@@ -16,13 +16,13 @@ export default function TeacherPanel() {
             id: 'organize', 
             title: 'Organize Materials', 
             icon: 'folder-open', 
-            onPress: () => router.push('/teacher/organize_materials')
+            onPress: () => router.push('/teacher/view_materials')
         },
         { 
             id: 'create-test', 
             title: 'Create Test', 
             icon: 'create', 
-            onPress: () => router.push('/teacher/create_test')
+            onPress: () => router.push('/teacher/create-test')
         },
         { 
             id: 'attendance', 
@@ -35,6 +35,12 @@ export default function TeacherPanel() {
             title: 'Manage Grades', 
             icon: 'stats-chart', 
             onPress: () => router.push('/teacher/grades')
+        },
+        { 
+            id: 'videos', 
+            title: 'Uplaod Videos', 
+            icon: 'cloud-upload', 
+            onPress: () => router.push('/teacher/upload-video')
         }
     ]);
 
@@ -117,6 +123,9 @@ export default function TeacherPanel() {
                     Send Quick Notification
                 </Text>
             </TouchableOpacity>
+
+       
+            
         </ScrollView>
     );
 }
@@ -204,5 +213,16 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 16,
         fontWeight: '600',
+    },
+    button: {
+        backgroundColor: '#2196F3',
+        padding: 15,
+        borderRadius: 5,
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    buttonText: {
+        color: '#fff',
+        fontSize: 16,
     },
 });

@@ -2,24 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
-
 const { width } = Dimensions.get('window');
-
-const subjects = [
-  { id: 1, name: 'English', icon: 'book-outline', color: '#4CAF50' },
-  { id: 2, name: 'Hindi', icon: 'language-outline', color: '#2196F3' },
-  { id: 3, name: 'Marathi', icon: 'text-outline', color: '#9C27B0' },
-  { id: 4, name: 'Sanskrit', icon: 'library-outline', color: '#FF9800' },
-  { id: 5, name: 'Science-1', icon: 'flask-outline', color: '#F44336' },
-  { id: 6, name: 'Science-2', icon: 'telescope-outline', color: '#3F51B5' },
-  { id: 7, name: 'Maths-1', icon: 'calculator-outline', color: '#009688' },
-  { id: 8, name: 'Maths-2', icon: 'stats-chart-outline', color: '#673AB7' },
-  { id: 9, name: 'History', icon: 'time-outline', color: '#795548' },
-  { id: 10, name: 'Geography', icon: 'earth-outline', color: '#607D8B' },
-];
 
 const courseFilters = [
   { id: 1, name: 'Live Courses', icon: 'videocam-outline' },
@@ -57,31 +43,58 @@ export default function Home() {
   const [userData, setUserData] = useState(null);
   const [userInfo, setUserInfo] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // New loading state
+  const [isLoading, setIsLoading] = useState(true);
+  const [subjects, setSubjects] = useState([]);
 
   useEffect(() => {
-    const auth = getAuth(); // Get the auth instance
+    const fetchSubjects = async () => {
+      try {
+        const db = getFirestore();
+        const subjectsCollection = collection(db, "subjects");
+        const subjectsSnapshot = await getDocs(subjectsCollection);
+        const subjectsList = subjectsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setSubjects(subjectsList);
+        
+      } catch (error) {
+        console.error("Error fetching subjects:", error);
+      }
+    };
+
+    fetchSubjects();
+  }, []);
+
+  useEffect(() => {
+    const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, async user => {
-      setIsLoggedIn(!!user); // Update login status based on user presence
+      setIsLoggedIn(!!user);
       if (user) {
         const db = getFirestore();
-        const userDocRef = doc(db, "users", user.uid); // Reference to user document
-        const userDocSnap = await getDoc(userDocRef); // Fetch user document
+        const userDocRef = doc(db, "users", user.uid);
+        const userDocSnap = await getDoc(userDocRef);
 
         if (!userDocSnap.exists()) {
           throw new Error("User data not found");
         }
 
-        const data = userDocSnap.data(); // Get user data
+        const data = userDocSnap.data();
         console.log(data)
-        setUserInfo(data); // Set user info
+        setUserInfo(data);
+
+        // Redirect teacher to teacher dashboard
+        if (data.userType === 'teacher') {
+          router.replace('/teacher/dashboard');
+          return;
+        }
       } else {
-        setUserInfo(null); // Reset userInfo if not logged in
+        setUserInfo(null);
       }
-      setIsLoading(false); // Set loading to false after checking auth state
+      setIsLoading(false);
     });
 
-    return () => unsubscribe(); // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, [router]);
 
   if (isLoading) {
@@ -89,7 +102,7 @@ export default function Home() {
       <SafeAreaView style={styles.container}>
         <Text style={styles.loadingText}>Loading...</Text>
       </SafeAreaView>
-    ); // Show loading state
+    );
   }
 
   return (
@@ -137,13 +150,17 @@ export default function Home() {
               <TouchableOpacity 
                 key={subject.id}
                 style={styles.subjectCard}
-                onPress={() => router.push({
+                onPress={() => {router.push({
                   pathname: '/subject',
                   params: { 
                     subjectName: subject.name,
-                    subjectColor: subject.color
+                    subjectColor: subject.color,
+                    subjectId: subject.id
                   }
-                })}
+                })
+                
+              }
+              }
               >
                 <View style={[styles.subjectIconContainer, { backgroundColor: subject.color }]}>
                   <Ionicons name={subject.icon} size={32} color="white" />

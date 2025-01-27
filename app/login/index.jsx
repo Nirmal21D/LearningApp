@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { auth } from '../../lib/firebase'; // Import Firebase auth
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth'; // Import signIn and sendPasswordResetEmail functions
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -18,13 +19,22 @@ export default function Login() {
     try {
       if (email === 'admin' && password === 'admin123') {
         router.push('/admin/dashboard'); // Redirect to admin dashboard
-      } else {
-        // Redirect to home on successful login
+        return;
       }
-      await signInWithEmailAndPassword(auth, email, password);
+
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       console.log('Login successful');
 
-      // Check for admin credentials
+      // Get user type from Firestore
+      const db = getFirestore();
+      const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
+      const userData = userDoc.data();
+
+      if (userData.userType === 'teacher') {
+        router.push('/teacher/dashboard');
+      } else {
+        router.push('/home');
+      }
       
     } catch (error) {
       console.error('Login error:', error.message);

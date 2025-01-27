@@ -1,36 +1,116 @@
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-
-// Sample data for videos, tests, and PDFs
-const sampleVideos = [
-  { id: 1, title: 'Chapter 1 - Introduction', duration: '15:30', thumbnail: 'https://example.com/thumb1.jpg' },
-  { id: 2, title: 'Chapter 2 - Basic Concepts', duration: '20:45', thumbnail: 'https://example.com/thumb2.jpg' },
-  { id: 3, title: 'Chapter 3 - Advanced Topics', duration: '18:20', thumbnail: 'https://example.com/thumb3.jpg' },
-];
-
-const sampleTests = [
-  { id: 1, title: 'Practice Test 1', questions: 30, duration: '30 mins' },
-  { id: 2, title: 'Mid-Term Test', questions: 50, duration: '1 hour' },
-  { id: 3, title: 'Final Assessment', questions: 100, duration: '2 hours' },
-];
-
-const samplePDFs = [
-  { id: 1, title: 'Chapter 1 Notes', pages: 15, size: '2.5 MB' },
-  { id: 2, title: 'Quick Reference Guide', pages: 8, size: '1.2 MB' },
-  { id: 3, title: 'Practice Problems', pages: 25, size: '3.8 MB' },
-];
+import { useEffect, useState } from 'react';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 export default function SubjectPage() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { subjectName, subjectColor } = params;
+  const { subjectId, subjectName, subjectColor } = params;
+
+  const [videos, setVideos] = useState([]);
+  const [tests, setTests] = useState([]);
+  const [materials, setMaterials] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [userTests, setUserTests] = useState([]); // State to store user's given tests
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, async currentUser => {
+      setUser(currentUser);
+      if (!currentUser) {
+        router.push('/login');
+        return;
+      }
+
+      const fetchSubjectData = async () => {
+        try {
+          // Fetch videos
+          const videosRef = collection(db, 'videos');
+          console.log(subjectId);
+          const videoQuery = query(videosRef, where('subjectId', '==', subjectId));
+          const videoSnapshot = await getDocs(videoQuery);
+          const videosList = videoSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setVideos(videosList);
+
+          // Fetch tests
+          const testsRef = collection(db, 'tests');
+          const testQuery = query(testsRef, where('subjectId', '==', subjectId));
+          const testSnapshot = await getDocs(testQuery);
+          const testsList = testSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setTests(testsList);
+
+          // Fetch study materials
+          const materialsRef = collection(db, 'materials');
+          const materialQuery = query(materialsRef, where('subjectId', '==', subjectId));
+          const materialSnapshot = await getDocs(materialQuery);
+          const materialsList = materialSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setMaterials(materialsList);
+
+          // Fetch user's given tests
+          const userTestsRef = collection(db, 'userProgress');
+          const userTestsQuery = query(userTestsRef, where('userId', '==', currentUser.uid));
+          const userTestsSnapshot = await getDocs(userTestsQuery);
+          const userTestsList = userTestsSnapshot.docs.map(doc => doc.data().testId);
+          setUserTests(userTestsList);
+
+          setLoading(false);
+        } catch (error) {
+          console.error('Error fetching subject data:', error);
+          setLoading(false);
+        }
+      };
+
+      fetchSubjectData();
+    });
+
+    return () => unsubscribe();
+  }, [subjectId]);
+
+  const handleOpenPDF = async (pdfUrl) => {
+    try {
+      const supported = await Linking.canOpenURL(pdfUrl);
+      if (supported) {
+        await Linking.openURL(pdfUrl);
+      } else {
+        console.log("Cannot open URL: " + pdfUrl);
+      }
+    } catch (error) {
+      console.error("Error opening PDF:", error);
+    }
+  };
+
+  const handleOpenVideo = async (videoUrl) => {
+    try {
+      const supported = await Linking.canOpenURL(videoUrl);
+      if (supported) {
+        await Linking.openURL(videoUrl);
+      } else {
+        console.log("Cannot open URL: " + videoUrl);
+      }
+    } catch (error) {
+      console.error("Error opening video:", error);
+    }
+  };
 
   const renderCarouselItem = (item, type) => {
     switch(type) {
       case 'video':
         return (
-          <TouchableOpacity key={item.id} style={styles.videoCard}>
+          <TouchableOpacity key={item.id} style={styles.videoCard} onPress={() => handleOpenVideo(item.url)}>
             <View style={styles.thumbnailContainer}>
               <View style={[styles.thumbnailOverlay, { backgroundColor: subjectColor }]}>
                 <Ionicons name="play-circle" size={40} color="blue" />
@@ -42,17 +122,19 @@ export default function SubjectPage() {
         );
       
       case 'test':
+        const isTestGiven = userTests.includes(item.id); // Check if the test is given by the user
         return (
           <TouchableOpacity 
             key={item.id} 
-            style={[styles.testCard, { borderColor: subjectColor }]}
+            style={[styles.testCard, { borderColor: subjectColor, backgroundColor: isTestGiven ? '#d4edda' : 'white' }]} // Highlight if test is given
+            onPress={() => router.push(`/test?testId=${item.id}`)}
           >
             <View style={[styles.testIconContainer, { backgroundColor: subjectColor }]}>
               <Ionicons name="document-text" size={24} color="blue" />
             </View>
             <Text style={styles.testTitle}>{item.title}</Text>
             <View style={styles.testInfo}>
-              <Text style={styles.testInfoText}>{item.questions} Questions</Text>
+              <Text style={styles.testInfoText}>{item.questions?.length || 0} Questions</Text>
               <Text style={styles.testInfoText}>{item.duration}</Text>
             </View>
           </TouchableOpacity>
@@ -63,19 +145,32 @@ export default function SubjectPage() {
           <TouchableOpacity 
             key={item.id} 
             style={[styles.pdfCard, { borderColor: subjectColor }]}
+            onPress={() => handleOpenPDF(item.url)}
           >
             <View style={[styles.pdfIconContainer, { backgroundColor: subjectColor }]}>
               <Ionicons name="document" size={24} color="blue" />
             </View>
-            <Text style={styles.pdfTitle}>{item.title}</Text>
+            <Text style={styles.pdfTitle}>{item.name}</Text>
             <View style={styles.pdfInfo}>
               <Text style={styles.pdfInfoText}>{item.pages} Pages</Text>
-              <Text style={styles.pdfInfoText}>{item.size}</Text>
+              
+              <Text style={styles.pdfInfoText}>{item.materialType}</Text>
+              <Text style={styles.pdfInfoText}>{item.difficulty}</Text>
             </View>
           </TouchableOpacity>
         );
     }
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -116,13 +211,17 @@ export default function SubjectPage() {
               <Text style={[styles.viewAllButton, { color: subjectColor }]}>View All</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            style={styles.carousel}
-          >
-            {sampleVideos.map(video => renderCarouselItem(video, 'video'))}
-          </ScrollView>
+          {videos.length > 0 ? (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.carousel}
+            >
+              {videos.map(video => renderCarouselItem(video, 'video'))}
+            </ScrollView>
+          ) : (
+            <Text style={styles.noVideosText}>No videos available for this subject.</Text>
+          )}
         </View>
 
         {/* Tests Section */}
@@ -138,7 +237,7 @@ export default function SubjectPage() {
             showsHorizontalScrollIndicator={false}
             style={styles.carousel}
           >
-            {sampleTests.map(test => renderCarouselItem(test, 'test'))}
+            {tests.map(test => renderCarouselItem(test, 'test'))}
           </ScrollView>
         </View>
 
@@ -155,7 +254,7 @@ export default function SubjectPage() {
             showsHorizontalScrollIndicator={false}
             style={styles.carousel}
           >
-            {samplePDFs.map(pdf => renderCarouselItem(pdf, 'pdf'))}
+            {materials.map(pdf => renderCarouselItem(pdf, 'pdf'))}
           </ScrollView>
         </View>
 
@@ -190,6 +289,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   header: {
     flexDirection: 'row',
@@ -283,6 +387,11 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
   },
+  noVideosText: {
+    paddingHorizontal: 20,
+    fontSize: 16,
+    color: 'gray',
+  },
   testCard: {
     width: 250,
     marginRight: 15,
@@ -338,6 +447,8 @@ const styles = StyleSheet.create({
   pdfInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 5
   },
   pdfInfoText: {
     fontSize: 16,

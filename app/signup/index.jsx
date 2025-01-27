@@ -1,4 +1,4 @@
-import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Alert } from 'react-native';
 import {Picker} from '@react-native-picker/picker';
 import { Link } from 'expo-router';
 import { useState } from 'react';
@@ -22,7 +22,8 @@ export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const router = useRouter();
-  const { user } = useAuth();
+  const authContext = useAuth();
+  const user = authContext?.user;
 
   const validateForm = () => {
     const newErrors = {};
@@ -72,11 +73,15 @@ export default function Signup() {
           userType: formData.userType,
         });
 
-        console.log('Signup successful:', formData);
-        router.push('/home'); // Redirect to home after signup
+        // Redirect based on user type
+        if (formData.userType === 'teacher') {
+          router.push('/teacher/dashboard'); // Redirect to teacher dashboard
+        } else {
+          router.push('/home'); // Redirect to home for students
+        }
       } catch (error) {
         console.error('Signup error:', error.message);
-        setErrors({ ...errors, signup: 'Signup failed. Please try again.' });
+        Alert.alert('Signup Error', error.message);
       }
     }
   };
