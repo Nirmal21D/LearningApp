@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getFirestore, doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import TextExtractor from '@/components/TextExtractor';
 
 const { width } = Dimensions.get('window');
 
@@ -192,6 +193,9 @@ export default function Home() {
               </TouchableOpacity>
             ))}
           </View>
+        </View>
+        <View>
+          <TextExtractor />
         </View>
 
         {/* Reviews Section */}
