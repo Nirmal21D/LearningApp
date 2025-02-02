@@ -1,13 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
+import { 
+    collection, 
+    getDocs, 
+    query, 
+    orderBy, 
+    where, 
+    deleteDoc,
+    doc,
+    writeBatch
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export default function ManageCurriculum() {
     const router = useRouter();
     const [curriculums, setCurriculums] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         fetchCurriculums();
@@ -15,6 +26,7 @@ export default function ManageCurriculum() {
 
     const fetchCurriculums = async () => {
         try {
+            setLoading(true);
             const curriculumsRef = collection(db, 'curriculums');
             const curriculumsQuery = query(curriculumsRef, orderBy('createdAt', 'desc'));
             const curriculumsSnapshot = await getDocs(curriculumsQuery);
@@ -27,8 +39,19 @@ export default function ManageCurriculum() {
             setCurriculums(curriculumsData);
         } catch (error) {
             console.error('Error fetching curriculums:', error);
-            Alert.alert('Error', 'Failed to fetch curriculums');
+            Alert.alert(
+                'Error',
+                'Failed to fetch curriculums. Please check your connection and try again.'
+            );
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
         }
+    };
+
+    const handleRefresh = () => {
+        setRefreshing(true);
+        fetchCurriculums();
     };
 
     const handleViewCurriculum = (curriculumId) => {
@@ -43,11 +66,24 @@ export default function ManageCurriculum() {
         router.push(`/admin/manage_curriculum/manage_subjects?curriculumId=${curriculumId}`);
     };
 
+    const deleteSubjectsForCurriculum = async (curriculumId) => {
+        const subjectsRef = collection(db, 'subjects');
+        const subjectsQuery = query(subjectsRef, where('curriculumId', '==', curriculumId));
+        const subjectsSnapshot = await getDocs(subjectsQuery);
+        
+        const batch = writeBatch(db);
+        subjectsSnapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+        
+        await batch.commit();
+    };
+
     const handleDeleteCurriculum = async (curriculumId) => {
         try {
             Alert.alert(
                 'Confirm Delete',
-                'Are you sure you want to delete this curriculum? This action cannot be undone.',
+                'Are you sure you want to delete this curriculum? This will also delete all associated subjects and cannot be undone.',
                 [
                     {
                         text: 'Cancel',
@@ -57,16 +93,33 @@ export default function ManageCurriculum() {
                         text: 'Delete',
                         style: 'destructive',
                         onPress: async () => {
-                            // Delete curriculum logic here
-                            Alert.alert('Success', 'Curriculum deleted successfully!');
-                            fetchCurriculums(); // Refresh the list
+                            try {
+                                setLoading(true);
+                                // First delete all subjects associated with this curriculum
+                                await deleteSubjectsForCurriculum(curriculumId);
+                                
+                                // Then delete the curriculum itself
+                                const curriculumRef = doc(db, 'curriculums', curriculumId);
+                                await deleteDoc(curriculumRef);
+                                
+                                Alert.alert('Success', 'Curriculum and associated subjects deleted successfully!');
+                                fetchCurriculums(); // Refresh the list
+                            } catch (error) {
+                                console.error('Error during deletion:', error);
+                                Alert.alert(
+                                    'Error',
+                                    'Failed to delete curriculum. Please try again.'
+                                );
+                            } finally {
+                                setLoading(false);
+                            }
                         }
                     }
                 ]
             );
         } catch (error) {
-            console.error('Error deleting curriculum:', error);
-            Alert.alert('Error', 'Failed to delete curriculum');
+            console.error('Error in delete handler:', error);
+            Alert.alert('Error', 'Failed to process deletion request');
         }
     };
 
@@ -109,12 +162,22 @@ export default function ManageCurriculum() {
         </View>
     );
 
+    if (loading && !refreshing) {
+        return (
+            <View style={styles.loaderContainer}>
+                <ActivityIndicator size="large" color="#2196F3" />
+            </View>
+        );
+    }
+
     return (
         <FlatList
             data={curriculums}
             renderItem={renderCurriculumItem}
             keyExtractor={item => item.id}
             contentContainerStyle={styles.container}
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
         />
     );
 }
@@ -122,6 +185,12 @@ export default function ManageCurriculum() {
 const styles = StyleSheet.create({
     container: {
         padding: 20,
+        flexGrow: 1,
+    },
+    loaderContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     curriculumCard: {
         flexDirection: 'row',
@@ -131,6 +200,14 @@ const styles = StyleSheet.create({
         backgroundColor: '#f8f9fa',
         borderRadius: 8,
         marginBottom: 15,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
     },
     curriculumInfo: {
         flex: 1,
@@ -151,14 +228,18 @@ const styles = StyleSheet.create({
     },
     viewButton: {
         marginRight: 15,
+        padding: 5,
     },
     addButton: {
         marginRight: 15,
+        padding: 5,
     },
     manageButton: {
         marginRight: 15,
+        padding: 5,
     },
     deleteButton: {
-        marginRight: 15,
+        marginRight: 0,
+        padding: 5,
     },
-}); 
+});

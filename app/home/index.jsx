@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { getFirestore, doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import TextExtractor from '@/components/TextExtractor';
+import ChatBot from '@/components/Chatbot';
 
 const { width } = Dimensions.get('window');
 
@@ -262,6 +263,7 @@ export default function Home() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      <ChatBot />
     </SafeAreaView>
   );
 }
