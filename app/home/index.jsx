@@ -152,17 +152,15 @@ export default function Home() {
               <TouchableOpacity 
                 key={subject.id}
                 style={styles.subjectCard}
-                onPress={() => {router.push({
-                  pathname: '/subject',
-                  params: { 
-                    subjectName: subject.name,
-                    subjectColor: subject.color,
-                    subjectId: subject.id
-                  }
-                })
-                
-              }
-              }
+                onPress={() => {
+                  router.push({
+                    pathname: `/subject/${subject.id}`,
+                    params: { 
+                      subjectName: subject.name,
+                      subjectId: subject.id
+                    }
+                  });
+                }}
               >
                 <View style={[styles.subjectIconContainer, { backgroundColor: subject.color }]}>
                   <Ionicons name={subject.icon} size={32} color="white" />
