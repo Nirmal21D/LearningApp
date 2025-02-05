@@ -141,6 +141,17 @@ export default function CreateTest() {
             const docRef = await addDoc(testsRef, testData);
             
             console.log('Test saved successfully with ID:', docRef.id);
+            const subjectQuestionsRef = collection(db, 'subject_questions');
+            for (const question of questions) {
+                await addDoc(subjectQuestionsRef, {
+                    ...question,
+                    testId: docRef.id,
+                    subjectId: selectedSubject,
+                    subjectName,
+                    chapter: selectedChapter,
+                    createdAt: serverTimestamp()
+                });
+            }
             
             Alert.alert(
                 'Success',

@@ -317,12 +317,43 @@ export default function ChapterDetail() {
   }, [subjectId, chapterId]);
 
   useEffect(() => {
+    if (subjectId && chapterId) {
+      fetchChapterData();
+      fetchChapterTests();  // Add this line to fetch tests
+    }
+  }, [subjectId, chapterId]);
+
+  useEffect(() => {
     if (selectedVideo) {
       fetchRelatedVideos(selectedVideo);
     }
   }, [selectedVideo]);
   
+  const fetchChapterTests = async () => {
+    try {
+      const testsRef = collection(db, "tests");
+      const q = query(
+        testsRef, 
+        where("subjectId", "==", subjectId)
+      );
   
+      const querySnapshot = await getDocs(q);
+      const tests = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      console.log(tests);
+  
+      setChapterData(prevData => ({
+        ...prevData,
+        tests: tests
+      }));
+    } catch (error) {
+      console.error("Error fetching chapter tests:", error);
+      Alert.alert("Error", "Unable to fetch tests");
+    }
+  };
+
   const fetchChapterData = async () => {
     setLoading(true);
     try {
@@ -359,13 +390,14 @@ export default function ChapterDetail() {
         : [];
   
       console.log("Debug - Extracted Videos:", chapterVideos);
-  
+        
       // Combine data
+      
       setChapterData({
         ...subjectData,
         videos: chapterVideos,
         materials: [], // You'll need to add material fetching logic
-        tests: [], // You'll need to add test fetching logic
+        
       });
   
     } catch (error) {

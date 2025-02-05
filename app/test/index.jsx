@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, TextInput, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -15,7 +15,6 @@ export default function TestPage() {
     const [testData, setTestData] = useState(null);
     const [userAnswers, setUserAnswers] = useState({});
     const [loading, setLoading] = useState(true);
-    const [answerHistory, setAnswerHistory] = useState([]);
     const [previousAttempt, setPreviousAttempt] = useState(null);
     const [score, setScore] = useState(null);
 
@@ -29,7 +28,7 @@ export default function TestPage() {
             }
 
             try {
-                // First check if user has already taken this test
+                // Check if user has already taken this test
                 const userProgressRef = doc(db, 'userProgress', `${currentUser.uid}_${testId}`);
                 const userProgressDoc = await getDoc(userProgressRef);
 
@@ -60,7 +59,7 @@ export default function TestPage() {
                     if (userProgressDoc.exists()) {
                         const progressData = userProgressDoc.data();
                         setPreviousAttempt(progressData);
-                        
+
                         // Calculate score
                         let correctAnswers = 0;
                         questionsWithIds.forEach(question => {
@@ -71,7 +70,7 @@ export default function TestPage() {
                                 if (userAnswer.toLowerCase().trim() === question.answer.toLowerCase().trim()) correctAnswers++;
                             }
                         });
-                        
+
                         setScore({
                             correct: correctAnswers,
                             total: questionsWithIds.length,
@@ -96,63 +95,140 @@ export default function TestPage() {
         return () => unsubscribe();
     }, [testId, router]);
 
+    const saveTestResult = async (userId, testId, answers, score, testData) => {
+        try {
+            const userProgressRef = doc(db, 'userProgress', `${userId}_${testId}`);
+            const resultData = {
+                userId,
+                testId,
+                answers,
+                score,
+                title: testData.title,
+                chapter: testData.chapter,
+                subjectId: testData.subjectId,
+                subjectName: testData.subjectName,
+                timestamp: new Date().toISOString(),
+            };
+            await setDoc(userProgressRef, resultData);
+            console.log('Test result saved successfully!');
+        } catch (error) {
+            console.error('Error saving test result:', error);
+            Alert.alert('Error', 'Failed to save your test results. Please try again.');
+        }
+    };
+
+    const handleSubmitTest = async () => {
+        try {
+            let correctAnswers = 0;
+            testData.questions.forEach(question => {
+                const userAnswer = userAnswers[question.id];
+                if (question.type === 'multiple_choice') {
+                    if (userAnswer === question.correctOption || userAnswer === question.answer) correctAnswers++;
+                } else {
+                    if (userAnswer.toLowerCase().trim() === question.answer.toLowerCase().trim()) correctAnswers++;
+                }
+            });
+
+            const scoreData = {
+                correct: correctAnswers,
+                total: testData.questions.length,
+                percentage: (correctAnswers / testData.questions.length) * 100,
+            };
+
+            // Save to Firestore
+            await saveTestResult(user.uid, testId, userAnswers, scoreData, testData);
+
+            // Update local state
+            setScore(scoreData);
+            setPreviousAttempt({ answers: userAnswers });
+        } catch (error) {
+            console.error('Error submitting test:', error);
+            Alert.alert('Error', 'An error occurred while submitting the test. Please try again.');
+        }
+    };
+
     const renderPreviousAttempt = () => (
-        <ScrollView>
-            <View style={styles.scoreContainer}>
-                <Text style={styles.title}>{testData.title}</Text>
-                <Text style={styles.chapterTitle}>{testData.chapter}</Text>
-                <View style={styles.scoreBox}>
-                    <Text style={styles.scoreText}>Your Score: {score.correct}/{score.total}</Text>
-                    <Text style={styles.percentageText}>{score.percentage.toFixed(1)}%</Text>
+        <ScrollView style={styles.resultsContainer}>
+            <View style={styles.resultHeader}>
+                <Text style={styles.resultHeaderTitle}>{testData.title}</Text>
+                <Text style={styles.resultHeaderSubtitle}>{testData.chapter}</Text>
+            </View>
+    
+            <View style={styles.scoreCard}>
+                <View style={styles.scoreCircle}>
+                    <Text style={styles.scorePercentage}>{score.percentage.toFixed(0)}%</Text>
+                    <Text style={styles.scoreText}>
+                        {score.correct}/{score.total} Correct
+                    </Text>
                 </View>
-                
+            </View>
+    
+            <View style={styles.resultDetails}>
                 {testData.questions.map((question, index) => {
                     const userAnswer = previousAttempt.answers[question.id];
                     const isCorrect = question.type === 'multiple_choice' 
                         ? userAnswer === question.correctOption
                         : userAnswer.toLowerCase().trim() === question.answer.toLowerCase().trim();
-
+    
                     return (
-                        <View key={question.id} style={styles.questionResultContainer}>
-                            <View style={styles.questionHeader}>
-                                <Text style={styles.questionNumber}>{index + 1}.</Text>
-                                <Text style={styles.questionText}>{question.question}</Text>
+                        <View 
+                            key={question.id} 
+                            style={[
+                                styles.questionResultCard, 
+                                isCorrect ? styles.correctQuestionCard : styles.incorrectQuestionCard
+                            ]}
+                        >
+                            <View style={styles.questionResultHeader}>
+                                <Text style={styles.questionResultNumber}>
+                                    Question {index + 1}
+                                </Text>
+                                <Ionicons 
+                                    name={isCorrect ? "checkmark-circle" : "close-circle"} 
+                                    size={24} 
+                                    color={isCorrect ? "#4CAF50" : "#F44336"}
+                                />
                             </View>
                             
-                            <View style={styles.answerContainer}>
-                                <View style={[styles.answerBox, isCorrect ? styles.correctAnswer : styles.wrongAnswer]}>
-                                    <Text style={styles.answerLabel}>Your Answer:</Text>
-                                    <Text style={styles.answerText}>{userAnswer}</Text>
-                                    <Ionicons 
-                                        name={isCorrect ? "checkmark-circle" : "close-circle"} 
-                                        size={24} 
-                                        color={isCorrect ? "#4CAF50" : "#F44336"}
-                                        style={styles.resultIcon}
-                                    />
-                                </View>
-                                
-                                {!isCorrect && (
-                                    <View style={styles.correctAnswerBox}>
-                                        <Text style={styles.answerLabel}>Correct Answer:</Text>
-                                        <Text style={styles.correctAnswerText}>
-                                            {question.type === 'multiple_choice' ? question.correctOption : question.answer}
-                                        </Text>
-                                    </View>
-                                )}
+                            <Text style={styles.questionResultText}>
+                                {question.question}
+                            </Text>
+    
+                            <View style={styles.answerSection}>
+                                <Text style={styles.answerLabel}>Your Answer:</Text>
+                                <Text style={[
+                                    styles.answerText, 
+                                    isCorrect ? styles.correctAnswerText : styles.incorrectAnswerText
+                                ]}>
+                                    {userAnswer}
+                                </Text>
                             </View>
+    
+                            {!isCorrect && (
+                                <View style={styles.correctAnswerSection}>
+                                    <Text style={styles.answerLabel}>Correct Answer:</Text>
+                                    <Text style={styles.correctAnswerText}>
+                                        {question.type === 'multiple_choice' 
+                                            ? question.correctOption 
+                                            : question.answer}
+                                    </Text>
+                                </View>
+                            )}
                         </View>
                     );
                 })}
-                
-                <TouchableOpacity 
-                    style={styles.returnButton}
-                    onPress={() => router.push(`/subject?subjectId=${testData.subjectId}&subjectName=${testData.subjectName}`)}
-                >
-                    <Text style={styles.returnButtonText}>Return to Subject</Text>
-                </TouchableOpacity>
             </View>
+            
+            <TouchableOpacity 
+                style={styles.returnButton}
+                onPress={() => router.push(`/subject?subjectId=${testData.subjectId}&subjectName=${testData.subjectName}`)}
+            >
+                <Text style={styles.returnButtonText}>Return to Subject</Text>
+                <Ionicons name="arrow-forward" size={20} color="white" />
+            </TouchableOpacity>
         </ScrollView>
     );
+    
+  
 
     if (loading) {
         return (
@@ -164,7 +240,6 @@ export default function TestPage() {
         );
     }
 
-    // If user has already taken the test, show results
     if (previousAttempt && score) {
         return (
             <SafeAreaView style={styles.container}>
@@ -173,112 +248,240 @@ export default function TestPage() {
         );
     }
 
-    // Original test-taking UI remains the same...
     return (
         <SafeAreaView style={styles.container}>
-            {/* Your existing test-taking UI code here */}
+            <ScrollView>
+                <View style={styles.testContainer}>
+                    {testData.questions.map((question, index) => (
+                        <View key={question.id} style={styles.questionContainer}>
+                            <Text style={styles.questionText}>{index + 1}. {question.question}</Text>
+                            {question.type === 'multiple_choice' ? (
+                                question.options.map(option => (
+                                    <TouchableOpacity
+                                        key={option}
+                                        style={[
+                                            styles.optionButton,
+                                            userAnswers[question.id] === option ? styles.selectedOption : null,
+                                        ]}
+                                        onPress={() => setUserAnswers(prev => ({ ...prev, [question.id]: option }))}
+                                    >
+                                        <Text style={styles.optionText}>{option}</Text>
+                                    </TouchableOpacity>
+                                ))
+                            ) : (
+                                <TextInput
+                                    style={styles.textInput}
+                                    value={userAnswers[question.id]}
+                                    onChangeText={text => setUserAnswers(prev => ({ ...prev, [question.id]: text }))}
+                                />
+                            )}
+                        </View>
+                    ))}
+                    <TouchableOpacity 
+                        style={styles.submitButton}
+                        onPress={handleSubmitTest}
+                    >
+                        <Text style={styles.submitButtonText}>Submit Test</Text>
+                    </TouchableOpacity>
+                </View>
+            </ScrollView>
         </SafeAreaView>
     );
 }
 
+
 const styles = StyleSheet.create({
-    // ... (keeping your existing styles)
-    
-    // New styles for results view
-    scoreContainer: {
-        padding: 20,
+    container: {
+      flex: 1,
+      backgroundColor: '#f4f4f4',
     },
-    scoreBox: {
-        backgroundColor: '#E3F2FD',
-        padding: 20,
-        borderRadius: 10,
-        marginBottom: 20,
+    testContainer: {
+      padding: 20,
+      backgroundColor: 'white',
+      borderRadius: 15,
+      margin: 15,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    questionContainer: {
+      marginBottom: 20,
+      backgroundColor: '#f9f9f9',
+      padding: 15,
+      borderRadius: 10,
+    },
+    questionText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#333',
+      marginBottom: 10,
+    },
+    optionButton: {
+      backgroundColor: '#f0f0f0',
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    selectedOption: {
+      backgroundColor: '#2196F3',
+      borderColor: '#2196F3',
+    },
+    optionText: {
+      color: '#333',
+      fontSize: 15,
+    },
+    textInput: {
+      backgroundColor: '#f0f0f0',
+      padding: 12,
+      borderRadius: 8,
+      fontSize: 15,
+    },
+    submitButton: {
+      backgroundColor: '#2196F3',
+      padding: 15,
+      borderRadius: 12,
+      alignItems: 'center',
+      marginTop: 10,
+      shadowColor: '#2196F3',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      elevation: 5,
+    },
+    submitButtonText: {
+      color: 'white',
+      fontSize: 18,
+      fontWeight: '600',
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: '#f4f4f4',
+    },
+    loadingText: {
+      fontSize: 16,
+      color: '#666',
+    },
+    resultsContainer: {
+        flex: 1,
+        backgroundColor: '#f4f6f9',
+    },
+    resultHeader: {
+        backgroundColor: '#2196F3',
+        paddingVertical: 20,
+        paddingHorizontal: 15,
         alignItems: 'center',
     },
-    scoreText: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#1976D2',
+    resultHeaderTitle: {
+        color: 'white',
+        fontSize: 22,
+        fontWeight: '600',
     },
-    percentageText: {
-        fontSize: 18,
-        color: '#2196F3',
+    resultHeaderSubtitle: {
+        color: 'rgba(255,255,255,0.8)',
+        fontSize: 16,
         marginTop: 5,
     },
-    questionResultContainer: {
-        backgroundColor: '#fff',
+    scoreCard: {
+        alignItems: 'center',
+        marginVertical: 20,
+    },
+    scoreCircle: {
+        width: 200,
+        height: 200,
+        borderRadius: 100,
+        backgroundColor: '#E3F2FD',
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 3,
+    },
+    scorePercentage: {
+        fontSize: 48,
+        fontWeight: 'bold',
+        color: '#2196F3',
+    },
+    scoreText: {
+        fontSize: 18,
+        color: '#2196F3',
+        marginTop: 10,
+    },
+    resultDetails: {
+        paddingHorizontal: 15,
+    },
+    questionResultCard: {
+        backgroundColor: 'white',
+        borderRadius: 12,
         padding: 15,
-        borderRadius: 10,
         marginBottom: 15,
         elevation: 2,
     },
-    questionHeader: {
+    correctQuestionCard: {
+        borderLeftWidth: 5,
+        borderLeftColor: '#4CAF50',
+    },
+    incorrectQuestionCard: {
+        borderLeftWidth: 5,
+        borderLeftColor: '#F44336',
+    },
+    questionResultHeader: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: 10,
     },
-    questionNumber: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginRight: 8,
+    questionResultNumber: {
+        fontSize: 16,
+        color: '#666',
     },
-    answerContainer: {
+    questionResultText: {
+        fontSize: 16,
+        fontWeight: '500',
+        marginBottom: 10,
+    },
+    answerSection: {
         marginTop: 10,
-    },
-    answerBox: {
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 8,
-    },
-    correctAnswer: {
-        backgroundColor: '#E8F5E9',
-        borderColor: '#4CAF50',
-        borderWidth: 1,
-    },
-    wrongAnswer: {
-        backgroundColor: '#FFEBEE',
-        borderColor: '#F44336',
-        borderWidth: 1,
-    },
-    correctAnswerBox: {
-        backgroundColor: '#E8F5E9',
-        padding: 12,
-        borderRadius: 8,
-        borderColor: '#4CAF50',
-        borderWidth: 1,
     },
     answerLabel: {
         fontSize: 14,
         color: '#666',
-        marginBottom: 4,
+        marginBottom: 5,
     },
     answerText: {
         fontSize: 16,
-        marginRight: 30,
-    },
-    correctAnswerText: {
-        fontSize: 16,
-        color: '#4CAF50',
-    },
-    resultIcon: {
-        position: 'absolute',
-        right: 12,
-        top: 12,
-    },
-    returnButton: {
-        backgroundColor: '#2196F3',
-        padding: 15,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginTop: 20,
-    },
-    returnButtonText: {
-        color: '#fff',
-        fontSize: 18,
         fontWeight: '500',
     },
-    loadingContainer: {
-        flex: 1,
+    correctAnswerText: {
+        color: '#4CAF50',
+    },
+    incorrectAnswerText: {
+        color: '#F44336',
+    },
+    correctAnswerSection: {
+        marginTop: 10,
+        paddingTop: 10,
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
+    },
+    returnButton: {
+        flexDirection: 'row',
+        backgroundColor: '#2196F3',
+        padding: 15,
+        marginHorizontal: 15,
+        marginBottom: 20,
+        borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
+        elevation: 3,
     },
-});
+    returnButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '600',
+        marginRight: 10,
+    },
+  });
