@@ -101,6 +101,8 @@ Additional Features:
     }
   };
 
+  
+
   const animateButton = () => {
     Animated.sequence([
       Animated.timing(scaleAnimation, {
@@ -144,7 +146,7 @@ Additional Features:
       const db = getFirestore();
       const auth = getAuth();
       const user = auth.currentUser;
-
+  
       if (user) {
         await addDoc(collection(db, 'chat_messages'), {
           userId: user.uid,
@@ -171,45 +173,37 @@ const handleImagePicker = async () => {
 
 
   const handleSend = async () => {
-    if (message.trim() === '') return;
-
-    const userMessage = {
-      id: Date.now(),
-      text: message,
-      document: documentUri,
-      sender: 'user',
-      timestamp: new Date().toISOString(),
-    };
-
-    setChatHistory(prev => [...prev, userMessage]);
-    setMessage('');
-    await saveMessageToFirestore(userMessage);
-
-    const aiResponse = await getAIResponse(message);
-    
-    const botMessage = {
-      id: Date.now() + 1,
-      text: aiResponse,
-      sender: 'bot',
-      timestamp: new Date().toISOString(),
-    };
-
-    setChatHistory(prev => [...prev, botMessage]);
-    await saveMessageToFirestore(botMessage);
-    
-    if (!isVisible) {
-      setUnreadCount(prev => prev + 1);
-    }
+  // Create user message
+  const userMessage = {
+    id: Date.now(),
+    text: message,
+    sender: 'user',
+    timestamp: new Date().toISOString(),
   };
 
-  const handleClearHistory = async () => {
-    try {
-      await AsyncStorage.removeItem('chatHistory');
-      setChatHistory([]);
-    } catch (error) {
-      console.error('Error clearing chat history:', error);
-    }
+  // Add user message to chat history
+  setChatHistory(prev => [...prev, userMessage]);
+
+  // Get AI response and add to chat history
+  const aiResponse = await getAIResponse(message);
+  const botMessage = {
+    id: Date.now() + 1,
+    text: aiResponse,
+    sender: 'bot',
+    timestamp: new Date().toISOString(),
   };
+
+  setChatHistory(prev => [...prev, botMessage]);
+};
+
+const handleClearHistory = async () => {
+  try {
+    await AsyncStorage.removeItem('chatHistory');
+    setChatHistory([]);
+  } catch (error) {
+    console.error('Error clearing chat history:', error);
+  }
+};
 
   const formatTimestamp = (timestamp) => {
     const date = new Date(timestamp);
