@@ -1,7 +1,7 @@
 import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Alert } from 'react-native';
 import {Picker} from '@react-native-picker/picker';
 import { Link } from 'expo-router';
-import { useState } from 'react';
+import { useState , useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
@@ -9,7 +9,7 @@ import { auth, db } from '../../lib/firebase'; // Import Firebase auth and db
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../../lib/AuthContext'; // Adjust the import path as necessary
-
+import { getFirestore, collection, getDocs } from 'firebase/firestore';
 export default function Signup() {
   const [formData, setFormData] = useState({
     email: '',
@@ -17,13 +17,34 @@ export default function Signup() {
     password: '',
     confirmPassword: '',
     mobile: '',
-    userType: 'student', // Default user type
+    userType: 'student',
+    selectedSubject: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
+  const [subjects, setSubjects] = useState([]);
   const router = useRouter();
   const authContext = useAuth();
   const user = authContext?.user;
+
+  useEffect(() => {
+    const fetchSubjects = async () => {
+      try {
+        const db = getFirestore();
+        const subjectsCollection = collection(db, "subjects");
+        const subjectsSnapshot = await getDocs(subjectsCollection);
+        const subjectsList = subjectsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setSubjects(subjectsList);
+      } catch (error) {
+        console.error("Error fetching subjects:", error);
+      }
+    };
+
+    fetchSubjects();
+  }, []);
 
   const validateForm = () => {
     const newErrors = {};
@@ -60,17 +81,16 @@ export default function Signup() {
 
   const handleSignup = async () => {
     if (validateForm()) {
-      try {
-        // Create user with email and password
+       try {
         const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
         const user = userCredential.user;
 
-        // Store additional user data in Firestore
         await setDoc(doc(db, 'users', user.uid), {
           username: formData.username,
           email: formData.email,
           mobile: formData.mobile,
           userType: formData.userType,
+          selectedSubject: formData.userType === 'teacher' ? formData.selectedSubject : null,
         });
 
         // Redirect based on user type
@@ -180,23 +200,32 @@ export default function Signup() {
           </View>
           {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
 
+          <View entering={FadeInDown.duration(1000).springify()} style={styles.main}>
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>User Type</Text>
+          <Picker selectedValue={formData.userType} style={styles.picker} onValueChange={(itemValue) => setFormData({ ...formData, userType: itemValue })}>
+            <Picker.Item label="Student" value="student" />
+            <Picker.Item label="Teacher" value="teacher" />
+          </Picker>
+        </View>
+        {formData.userType === 'teacher' && (
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>User Type</Text>
-            <Picker
-              selectedValue={formData.userType}
-              style={styles.picker}
-              onValueChange={(itemValue) => setFormData({...formData, userType: itemValue})}
-            >
-              <Picker.Item label="Student" value="student" />
-              <Picker.Item label="Teacher" value="teacher" />
+            <Text style={styles.label}>Select Subject</Text>
+            <Picker selectedValue={formData.selectedSubject} style={styles.picker} onValueChange={(itemValue) => setFormData({ ...formData, selectedSubject: itemValue })}>
+              <Picker.Item label="Select a subject" value="" />
+              {subjects.map((subject) => (
+                <Picker.Item key={subject.id} label={subject.name} value={subject.name} />
+              ))}
             </Picker>
           </View>
+        )}
+      </View>
 
-          <Link href="/login" asChild>
+        
             <TouchableOpacity style={styles.signupButton} onPress={handleSignup}>
               <Text style={styles.signupButtonText}>Sign Up</Text>
             </TouchableOpacity>
-          </Link>
+          
 
           <View style={styles.dividerContainer}>
             <View style={styles.divider} />
@@ -224,6 +253,7 @@ export default function Signup() {
 }
 
 const styles = StyleSheet.create({
+
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
