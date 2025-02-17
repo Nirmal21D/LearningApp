@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Link } from 'expo-router';
 import { getFirestore, doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import TextExtractor from '@/components/TextExtractor';
 import ChatBot from '@/components/Chatbot';
+
 
 const { width } = Dimensions.get('window');
 
@@ -195,6 +196,11 @@ export default function Home() {
         </View>
         <View>
           <TextExtractor />
+        </View>
+        <View>
+          <Link href="/pomodoro">
+            <Text>Pomodoro</Text>
+          </Link>
         </View>
 
         {/* Reviews Section */}
