@@ -9,6 +9,7 @@ import {
   Alert,
   Dimensions,
   ActivityIndicator,
+  
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -26,6 +27,7 @@ import { WebView } from "react-native-webview";
 import { Video, ResizeMode } from "expo-av";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import { Linking } from "react-native";
 
 // Video Viewer Component (similar to MaterialViewer)
 const VideoViewer = ({ video, onClose }) => {
@@ -46,6 +48,14 @@ const VideoViewer = ({ video, onClose }) => {
       />
     </View>
   );
+};
+const openMaterial = async (url) => {
+  try {
+    await Linking.openURL(url);
+  } catch (error) {
+    console.error("Error opening material:", error);
+    Alert.alert("Error", "Unable to open material");
+  }
 };
 
 const downloadVideo = async (video) => {
@@ -388,6 +398,9 @@ export default function ChapterDetail() {
       const chapterVideos = subjectData.videos && subjectData.videos[matchingChapterKey] 
         ? subjectData.videos[matchingChapterKey] 
         : [];
+        const chapterMaterials = subjectData.materials && subjectData.materials[matchingChapterKey] 
+        ? subjectData.materials[matchingChapterKey] 
+        : [];
   
       console.log("Debug - Extracted Videos:", chapterVideos);
         
@@ -396,7 +409,7 @@ export default function ChapterDetail() {
       setChapterData({
         ...subjectData,
         videos: chapterVideos,
-        materials: [], // You'll need to add material fetching logic
+        materials: chapterMaterials,
         
       });
   
@@ -475,7 +488,15 @@ export default function ChapterDetail() {
                 }}
                 style={styles.actionButton}
               >
-                <Ionicons name="eye-outline" size={24} color="#2196F3" />
+                <Ionicons name="eye-outline" size={24} color="#2196F3"
+                onPress={() => {
+                  if (material.url) {
+                    openMaterial(material.url);
+                  } else {
+                    Alert.alert("Error", "No preview available");
+                  }
+                }}
+                />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => {
@@ -522,9 +543,10 @@ export default function ChapterDetail() {
 
   const openMaterial = async (url) => {
     try {
-      await WebBrowser.openBrowserAsync(url);
+      await Linking.openURL(url);
     } catch (error) {
       console.error("Error opening material:", error);
+      Alert.alert("Error", "Unable to open material");
     }
   };
 

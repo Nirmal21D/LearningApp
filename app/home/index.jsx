@@ -6,6 +6,8 @@ import { getFirestore, doc, getDoc, collection, getDocs } from 'firebase/firesto
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import TextExtractor from '@/components/TextExtractor';
 import ChatBot from '@/components/Chatbot';
+import { signOut } from 'firebase/auth';
+import { Alert } from 'react-native';
 
 
 const { width } = Dimensions.get('window');
@@ -100,6 +102,16 @@ export default function Home() {
     return () => unsubscribe();
   }, [router]);
 
+  const handleLogout = async () => {
+    const auth = getAuth();
+    try {
+      await signOut(auth);
+      router.replace('/'); // Redirect to login page after logout
+    } catch (error) {
+      Alert.alert('Error', 'Failed to logout. Please try again.');
+    }
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -110,18 +122,25 @@ export default function Home() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Navigation Bar */}
+     
       <View style={styles.navbar}>
         <TouchableOpacity style={styles.menuButton}>
           <Ionicons name="menu-outline" size={28} color="#333" />
         </TouchableOpacity>
         <Text style={styles.className}>Std 10</Text>
-        <TouchableOpacity style={styles.notificationButton}>
-          <View style={styles.notificationBadge} />
-          <Ionicons name="notifications-outline" size={24} color="#333" />
-        </TouchableOpacity>
+        <View style={styles.navRight}>
+          <TouchableOpacity style={styles.notificationButton}>
+            <View style={styles.notificationBadge} />
+            <Ionicons name="notifications-outline" size={24} color="#333" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.logoutButton}
+            onPress={handleLogout}
+          >
+            <Ionicons name="log-out-outline" size={24} color="#FF4444" />
+          </TouchableOpacity>
+        </View>
       </View>
-
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Welcome Section */}
         <View style={[styles.welcomeSection, { borderRadius: 0 }]}>
@@ -552,4 +571,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  navRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  logoutButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  
 });

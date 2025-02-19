@@ -1,4 +1,3 @@
-// components/ChatBot/index.js
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -12,12 +11,14 @@ import {
   Platform,
   ActivityIndicator,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFirestore, addDoc, collection } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 
 const ChatBot = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -26,9 +27,9 @@ const ChatBot = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
-  const { GoogleGenerativeAI } = require("@google/generative-ai");
   const [documentUri, setDocumentUri] = useState(null);
-
+  const [fileContent, setFileContent] = useState(null);
+  const { GoogleGenerativeAI } = require("@google/generative-ai");
   
   const scaleAnimation = React.useRef(new Animated.Value(1)).current;
   const flatListRef = React.useRef(null);
@@ -44,25 +45,25 @@ General Response Format:
 
 Subject-Specific Instructions:
 📌 Mathematics:
-
 Solve problems using step-by-step methods.
 Provide formula derivations and proofs where necessary.
 Include alternative methods if applicable.
-📌 Science:
 
+📌 Science:
 Explain concepts with definitions, key points, and real-world applications.
 Use chemical equations, reaction mechanisms, or circuit diagrams where needed.
 Provide practical examples of scientific principles in daily life.
-📌 Social Science:
 
+📌 Social Science:
 Present historical events, geographical concepts, and economic theories with structured breakdowns.
 Highlight key dates, causes, effects, and consequences.
 Use comparative tables for better understanding.
-📌 English:
 
+📌 English:
 Explain grammar rules with examples.
 Break down literary analysis with themes, characters, and summary.
 Provide stepwise writing techniques for essays, letters, and reports.
+
 Additional Features:
 ✔ Clarify vague questions before answering.
 ✔ Include quizzes or thought-provoking questions for engagement.
@@ -101,7 +102,15 @@ Additional Features:
     }
   };
 
-  
+  const readFileContent = async (uri) => {
+    try {
+      const content = await FileSystem.readAsStringAsync(uri);
+      return content;
+    } catch (error) {
+      console.error('Error reading file:', error);
+      return null;
+    }
+  };
 
   const animateButton = () => {
     Animated.sequence([
@@ -120,9 +129,11 @@ Additional Features:
 
   const getAIResponse = async (userMessage) => {
     const genAI = new GoogleGenerativeAI("AIzaSyAKASQbhtjqI22tS55IKcsmuQlnhQivrqM");
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash",
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
       systemInstruction: Doutsolverinfo,
-     });
+    });
+    
     const generationConfig = {
       temperature: 1.8,
       topP: 0.95,
@@ -130,16 +141,20 @@ Additional Features:
       maxOutputTokens: 8192,
       responseMimeType: "text/plain",
     };
+
     try {
-      const result = await model.generateContent(userMessage, generationConfig); // Dynamically use the user message as the prompt
+      let prompt = userMessage;
+      if (fileContent) {
+        prompt = `File Content:\n${fileContent}\n\nUser Question: ${userMessage}`;
+      }
+
+      const result = await model.generateContent(prompt, generationConfig);
       return result.response.text();
     } catch (error) {
       console.error("Error generating AI response:", error);
       return "Sorry, I couldn't generate a response.";
     }
   };
-  
-  
 
   const saveMessageToFirestore = async (message) => {
     try {
@@ -160,50 +175,66 @@ Additional Features:
     }
   };
 
-  // Update the handleImagePicker function
-const handleImagePicker = async () => {
-  const result = await DocumentPicker.getDocumentAsync({
-    type: '*/*', // Allow all types
-  });
-  if (result.type === 'success') {
-    setDocumentUri(result.uri);
-    setMessage(`Document selected: ${result.name}`);  // Display the selected document name in the message field.
-  }
-};
-
+  const handleImagePicker = async () => {
+    console.log('Document Picker');
+    const result = await DocumentPicker.getDocumentAsync({
+      type: '*/*',
+      copyToCacheDirectory: true
+    });
+    console.log(result);
+    
+      const content = await readFileContent(result.uri);
+      console.log(content);
+      setDocumentUri(result.uri);
+      setFileContent(content);
+      setMessage(`Document selected: ${result.name}`);
+      Alert.alert('Document Selected', `Document selected: ${result.name}`);
+    
+  };
 
   const handleSend = async () => {
-  // Create user message
-  const userMessage = {
-    id: Date.now(),
-    text: message,
-    sender: 'user',
-    timestamp: new Date().toISOString(),
+    if (message.trim() === '') return;
+
+    const userMessage = {
+      id: Date.now(),
+      text: message,
+      sender: 'user',
+      timestamp: new Date().toISOString(),
+    };
+
+    setChatHistory(prev => [...prev, userMessage]);
+    setIsTyping(true);
+
+    try {
+      const aiResponse = await getAIResponse(message);
+      const botMessage = {
+        id: Date.now() + 1,
+        text: aiResponse,
+        sender: 'bot',
+        timestamp: new Date().toISOString(),
+      };
+
+      setChatHistory(prev => [...prev, botMessage]);
+      await saveMessageToFirestore(userMessage);
+      await saveMessageToFirestore(botMessage);
+    } catch (error) {
+      console.error('Error handling message:', error);
+    } finally {
+      setIsTyping(false);
+      setMessage('');
+      setDocumentUri(null);
+      setFileContent(null);
+    }
   };
 
-  // Add user message to chat history
-  setChatHistory(prev => [...prev, userMessage]);
-
-  // Get AI response and add to chat history
-  const aiResponse = await getAIResponse(message);
-  const botMessage = {
-    id: Date.now() + 1,
-    text: aiResponse,
-    sender: 'bot',
-    timestamp: new Date().toISOString(),
+  const handleClearHistory = async () => {
+    try {
+      await AsyncStorage.removeItem('chatHistory');
+      setChatHistory([]);
+    } catch (error) {
+      console.error('Error clearing chat history:', error);
+    }
   };
-
-  setChatHistory(prev => [...prev, botMessage]);
-};
-
-const handleClearHistory = async () => {
-  try {
-    await AsyncStorage.removeItem('chatHistory');
-    setChatHistory([]);
-  } catch (error) {
-    console.error('Error clearing chat history:', error);
-  }
-};
 
   const formatTimestamp = (timestamp) => {
     const date = new Date(timestamp);
@@ -292,34 +323,33 @@ const handleClearHistory = async () => {
               </View>
             )}
 
-              <View style={styles.chatInputContainer}>
-                <TextInput
-                  style={styles.chatInput}
-                  value={message}
-                  onChangeText={setMessage}
-                  placeholder="Ask your doubt..."
-                  multiline
-                  maxLength={500}
-                />
-                
-                {/* Show the selected document name if it's available */}
-                {documentUri && (
-                  <Text style={styles.documentInfo}>
-                    Document selected: {documentUri.split('/').pop()}
-                  </Text>
-                )}
+            <View style={styles.chatInputContainer}>
+              <TextInput
+                style={styles.chatInput}
+                value={message}
+                onChangeText={setMessage}
+                placeholder="Ask your doubt..."
+                multiline
+                maxLength={500}
+              />
+              
+              {documentUri && (
+                <Text style={styles.documentInfo}>
+                  Document selected: {documentUri.split('/').pop()}
+                </Text>
+              )}
 
-                <TouchableOpacity onPress={handleImagePicker} style={styles.imageButton}>
-                  <Ionicons name="image" size={24} color="white" />
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={handleSend}
-                  style={[styles.sendButton, { opacity: message.trim() === '' ? 0.5 : 1 }]}
-                  disabled={message.trim() === ''}
-                >
-                  <Ionicons name="send" size={24} color="white" />
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity onPress={handleImagePicker} style={styles.imageButton}>
+                <Ionicons name="image" size={24} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={handleSend}
+                style={[styles.sendButton, { opacity: message.trim() === '' ? 0.5 : 1 }]}
+                disabled={message.trim() === ''}
+              >
+                <Ionicons name="send" size={24} color="white" />
+              </TouchableOpacity>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
