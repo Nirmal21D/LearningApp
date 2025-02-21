@@ -519,4 +519,4 @@ const styles = StyleSheet.create({
     left: Platform.OS === 'web' ? -50 : -30,
     transform: [{ rotate: '15deg' }],
   },
-}); 
+});
