@@ -43,6 +43,18 @@ export default function Layout() {
         name="notification/index"
         options={{ headerShown: false }}
       /> 
+      <Stack.Screen
+        name="teacher/create-test/index"
+        options={{ headerShown: false }}
+      /> 
+      <Stack.Screen
+        name="teacher/dashboard/index"
+        options={{ headerShown: false }}
+      /> 
+      <Stack.Screen
+        name="teacher/upload-video/index"
+        options={{ headerShown: false }}
+      /> 
     </Stack>
   );
 } 
