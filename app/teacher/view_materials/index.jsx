@@ -7,6 +7,8 @@ import {
   StyleSheet,
   Alert,
   Linking,
+  Pressable,
+  SafeAreaView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,6 +21,84 @@ import {
   updateDoc
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import Animated, { 
+    useAnimatedStyle, 
+    withSpring, 
+    useSharedValue,
+    interpolate 
+} from 'react-native-reanimated';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+const InteractiveCard = ({ children, style }) => {
+    const scale = useSharedValue(1);
+    const elevation = useSharedValue(2);
+    
+    const animatedStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }],
+        shadowOpacity: interpolate(elevation.value, [2, 8], [0.1, 0.15]),
+        shadowRadius: elevation.value,
+    }));
+
+    return (
+        <AnimatedPressable 
+            style={[animatedStyle, style]}
+            onPressIn={() => {
+                scale.value = withSpring(0.98);
+                elevation.value = withSpring(8);
+            }}
+            onPressOut={() => {
+                scale.value = withSpring(1);
+                elevation.value = withSpring(2);
+            }}
+        >
+            {children}
+        </AnimatedPressable>
+    );
+};
+
+const MaterialCard = ({ material, onView, onDelete }) => (
+  <InteractiveCard style={styles.card}>
+    <View style={styles.cardHeader}>
+      <View style={styles.titleContainer}>
+        <Text style={styles.materialTitle}>{material.title}</Text>
+        <View style={[styles.typeBadge, { backgroundColor: material.type === 'pdf' ? '#FF9800' : '#4CAF50' }]}>
+          <Text style={styles.typeText}>{material.type.toUpperCase()}</Text>
+        </View>
+      </View>
+      <Text style={styles.description}>{material.description}</Text>
+    </View>
+
+    <View style={styles.cardFooter}>
+      <View style={styles.metadataContainer}>
+        <Text style={styles.metadata}>
+          <Ionicons name="time-outline" size={16} color="#666" /> {material.uploadDate}
+        </Text>
+        <Text style={styles.metadata}>
+          <Ionicons name="document-outline" size={16} color="#666" /> {material.size}
+        </Text>
+      </View>
+
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity 
+          style={[styles.button, styles.viewButton]}
+          onPress={onView}
+        >
+          <Ionicons name="eye-outline" size={20} color="white" />
+          <Text style={styles.buttonText}>View</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.button, styles.deleteButton]}
+          onPress={onDelete}
+        >
+          <Ionicons name="trash-outline" size={20} color="white" />
+          <Text style={styles.buttonText}>Delete</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </InteractiveCard>
+);
 
 export default function ViewMaterials() {
   const router = useRouter();
@@ -208,59 +288,31 @@ export default function ViewMaterials() {
   };
 
   const renderMaterialItem = ({ item }) => (
-    <View style={styles.materialCard}>
-      <Text style={styles.materialTitle}>{item.name}</Text>
-      <Text style={styles.materialDescription}>
-        Description: {item.description || "No description"}
-        {"\n"}Type: {item.materialType || "Unknown"}
-        {"\n"}Size: {(item.fileSize / 1024 / 1024).toFixed(2)} MB
-        {"\n"}Uploaded: {new Date(item.uploadedAt).toLocaleDateString()}
-      </Text>
-      <View style={styles.actionContainer}>
-        <TouchableOpacity
-          style={styles.viewButton}
-          onPress={() => openMaterial(item.url)}
-        >
-          <Ionicons name="eye" size={24} color="#007bff" />
-          <Text style={styles.actionButtonText}>View</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => handleDeleteMaterial(item)}
-        >
-          <Ionicons name="trash" size={24} color="#ff4444" />
-          <Text style={styles.actionButtonText}>Delete</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    <MaterialCard
+      material={{
+        title: item.name,
+        description: item.description || "No description",
+        type: item.materialType || "Unknown",
+        size: ((item.fileSize / 1024 / 1024).toFixed(2) + " MB"),
+        uploadDate: new Date(item.uploadedAt).toLocaleDateString(),
+      }}
+      onView={() => openMaterial(item.url)}
+      onDelete={() => handleDeleteMaterial(item)}
+    />
   );
 
   const renderVideoItem = ({ item }) => (
-    <View style={styles.videoCard}>
-      <Text style={styles.videoTitle}>{item.name}</Text>
-      <Text style={styles.videoDescription}>
-        Description: {item.description || "No description"}
-        {"\n"}Type: {item.videoType || "Unknown"}
-        {"\n"}Size: {(item.fileSize / 1024 / 1024).toFixed(2)} MB
-        {"\n"}Uploaded: {new Date(item.uploadedAt).toLocaleDateString()}
-      </Text>
-      <View style={styles.actionContainer}>
-        <TouchableOpacity
-          style={styles.viewButton}
-          onPress={() => openVideo(item.url)}
-        >
-          <Ionicons name="eye" size={24} color="#007bff" />
-          <Text style={styles.actionButtonText}>View</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => handleDeleteVideo(item)}
-        >
-          <Ionicons name="trash" size={24} color="#ff4444" />
-          <Text style={styles.actionButtonText}>Delete</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    <MaterialCard
+      material={{
+        title: item.name,
+        description: item.description || "No description",
+        type: item.videoType || "Unknown",
+        size: ((item.fileSize / 1024 / 1024).toFixed(2) + " MB"),
+        uploadDate: new Date(item.uploadedAt).toLocaleDateString(),
+      }}
+      onView={() => openVideo(item.url)}
+      onDelete={() => handleDeleteVideo(item)}
+    />
   );
 
   if (loading) {
@@ -272,24 +324,55 @@ export default function ViewMaterials() {
   }
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={materials}
-        renderItem={renderMaterialItem}
-        keyExtractor={(item, index) => item.url || index.toString()}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No materials uploaded yet</Text>
-        }
-      />
-      <FlatList
-        data={videos}
-        renderItem={renderVideoItem}
-        keyExtractor={(item, index) => item.url || index.toString()}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No videos uploaded yet</Text>
-        }
-      />
-    </View>
+    <SafeAreaView style={styles.container}>
+      {/* Navbar */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <InteractiveCard 
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#333" />
+          </InteractiveCard>
+          <Text style={styles.headerTitle}>Materials</Text>
+        </View>
+      </View>
+
+      {/* Content Container */}
+      <View style={styles.listsContainer}>
+        {/* Section Headers */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Study Materials</Text>
+        </View>
+        
+        {/* Materials List */}
+        <FlatList
+          contentContainerStyle={styles.listContent}
+          data={materials}
+          renderItem={renderMaterialItem}
+          keyExtractor={(item, index) => item.url || index.toString()}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No materials uploaded yet</Text>
+          }
+        />
+
+        {/* Videos Section Header */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Video Materials</Text>
+        </View>
+
+        {/* Videos List */}
+        <FlatList
+          contentContainerStyle={styles.listContent}
+          data={videos}
+          renderItem={renderVideoItem}
+          keyExtractor={(item, index) => item.url || index.toString()}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No videos uploaded yet</Text>
+          }
+        />
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -298,76 +381,148 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f4f6f9",
   },
-  materialCard: {
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 15,
+    elevation: 2,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 15,
+  },
+  backButton: {
+    width: 45,
+    height: 45,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#333',
+    letterSpacing: -0.5,
+  },
+  listsContainer: {
+    flex: 1,
+    padding: 10,
+  },
+  sectionHeader: {
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    letterSpacing: -0.5,
+  },
+  listContent: {
+    paddingBottom: 10,
+  },
+  card: {
     backgroundColor: "white",
-    borderRadius: 8,
-    padding: 15,
-    marginVertical: 8,
-    marginHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    padding: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 8,
     elevation: 3,
+  },
+  cardHeader: {
+    marginBottom: 8,
+  },
+  titleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
   },
   materialTitle: {
     fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 10,
+    fontWeight: "600",
+    color: "#333",
+    flex: 1,
+    marginRight: 12,
   },
-  materialDescription: {
+  typeBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  typeText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  description: {
     fontSize: 14,
     color: "#666",
-    marginBottom: 10,
+    lineHeight: 20,
   },
-  actionContainer: {
+  cardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 15,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+  },
+  metadataContainer: {
+    flexDirection: "column",
+    gap: 8,
+  },
+  metadata: {
+    fontSize: 13,
+    color: "#666",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  button: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 6,
   },
   viewButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#e6f2ff",
-    padding: 10,
-    borderRadius: 5,
+    backgroundColor: "#2196F3",
   },
   deleteButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ffebee",
-    padding: 10,
-    borderRadius: 5,
+    backgroundColor: "#FF5252",
   },
-  actionButtonText: {
-    marginLeft: 5,
-    color: "#333",
+  buttonText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
   },
   emptyText: {
     textAlign: "center",
     marginTop: 50,
     fontSize: 16,
     color: "#666",
-  },
-  videoCard: {
-    backgroundColor: "white",
-    borderRadius: 8,
-    padding: 15,
-    marginVertical: 8,
-    marginHorizontal: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  videoTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
-  videoDescription: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 10,
   },
 });
