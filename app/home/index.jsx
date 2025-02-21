@@ -11,6 +11,12 @@ import { Alert } from 'react-native';
 import LearningStyleAssessment from '@/components/LearningStyleAssessment';
 
 
+import { auth } from '@/lib/firebase';
+import JoinSession from '@/components/JoinSession';
+// Add this import
+import TeamsFeature from '@/components/TeamsFeature';
+// Add this import
+import SessionNotification from '@/components/SessionNotification';
 const { width } = Dimensions.get('window');
 
 const courseFilters = [
@@ -74,7 +80,6 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, async user => {
       setIsLoggedIn(!!user);
       if (user) {
@@ -156,12 +161,14 @@ export default function Home() {
           <Text style={styles.username}>{userInfo ? userInfo.username : 'Loading...'}</Text>
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{userInfo ? userInfo.coursesCount : '0'}</Text>
-              <Text style={styles.statLabel}>Courses</Text>
+              {/* <Text style={styles.statNumber}>{userInfo ? userInfo.coursesCount : '0'}</Text> */}
+              <Text style={styles.statNumber}>{subjects.length}</Text>
+              <Text style={styles.statLabel}>Subjects</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{userInfo ? userInfo.progress : '0%'} </Text>
+              {/* <Text style={styles.statNumber}>{userInfo ? userInfo.progress : '100%'} </Text> */}
+              <Text style={styles.statNumber}>89%</Text>
               <Text style={styles.statLabel}>Progress</Text>
             </View>
           </View>
@@ -232,6 +239,15 @@ export default function Home() {
           <Link href="/pomodoro">
             <Text>Pomodoro</Text>
           </Link>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Teams & Communication</Text>
+          <TeamsFeature />
+        </View>
+
+        <View>
+          <JoinSession />
         </View>
 
         {/* Reviews Section */}

@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { ref, set } from 'firebase/database';
+import { db, database } from '@/lib/firebase';
 
 export default function AddSubject() {
     const { curriculumId } = useLocalSearchParams();
@@ -16,6 +17,72 @@ export default function AddSubject() {
     });
     const [loading, setLoading] = useState(false);
 
+    const createSubjectGroupChat = async (subjectId, subjectData, teacherId) => {
+        try {
+            console.log('Creating group chat for subject:', subjectData.name);
+
+            // Get all students
+            const studentsSnapshot = await getDocs(
+                query(collection(db, 'users'), where('userType', '==', 'student'))
+            );
+
+            // Create participants object with teacher
+            const participants = {};
+            participants[teacherId] = {
+                userType: 'teacher',
+                joined: Date.now(),
+                username: 'Teacher'
+            };
+
+            // Add all students to participants
+            studentsSnapshot.forEach((doc) => {
+                const studentData = doc.data();
+                participants[doc.id] = {
+                    userType: 'student',
+                    joined: Date.now(),
+                    username: studentData.username || 'Student'
+                };
+            });
+
+            // Create group chat directly with subject ID
+            const chatId = `subject_${subjectId}`;
+            const groupChatRef = ref(database, `groupChats/${chatId}`);
+
+            const groupChatData = {
+                subjectId,
+                subjectName: subjectData.name,
+                description: subjectData.description,
+                createdAt: Date.now(),
+                participants,
+                teacherId,
+                curriculumId,
+                lastMessage: {
+                    text: `Welcome to ${subjectData.name} group chat!`,
+                    senderId: 'system',
+                    senderName: 'System',
+                    timestamp: Date.now()
+                },
+                messages: {
+                    welcome: {
+                        text: `Welcome to ${subjectData.name} group chat!`,
+                        senderId: 'system',
+                        senderName: 'System',
+                        timestamp: Date.now()
+                    }
+                }
+            };
+
+            // Set the group chat data
+            await set(groupChatRef, groupChatData);
+            console.log('Group chat created with ID:', chatId);
+
+            return chatId;
+        } catch (error) {
+            console.error('Error creating group chat:', error);
+            throw error;
+        }
+    };
+
     const handleCreateSubject = async () => {
         try {
             setLoading(true);
@@ -24,20 +91,52 @@ export default function AddSubject() {
                 return;
             }
 
+            // Find teacher for this subject
+            const teachersSnapshot = await getDocs(
+                query(collection(db, 'users'), 
+                where('userType', '==', 'teacher'),
+                where('selectedSubject', '==', subject.name))
+            );
+
+            if (teachersSnapshot.empty) {
+                Alert.alert('Error', 'No teacher found for this subject');
+                return;
+            }
+
+            const teacherId = teachersSnapshot.docs[0].id;
+
+            // First create the subject in Firestore
             const subjectData = {
                 ...subject,
                 createdAt: serverTimestamp(),
                 totalChapters: subject.chapters.length,
                 materials: [],
-                curriculumId: curriculumId
+                curriculumId,
+                teacherId
             };
 
-            const docRef = await addDoc(collection(db, 'subjects'), subjectData);
-            Alert.alert('Success', 'Subject created successfully!');
+            // Add subject to Firestore first
+            const subjectRef = await addDoc(collection(db, 'subjects'), subjectData);
+            const subjectId = subjectRef.id;
+
+            // Create group chat using the actual subject ID
+            const groupChatId = await createSubjectGroupChat(
+                subjectId,
+                subjectData,
+                teacherId
+            );
+
+            // Update subject with group chat ID
+            await updateDoc(doc(db, 'subjects', subjectId), {
+                groupChatId
+            });
+
+            Alert.alert('Success', 'Subject and group chat created successfully!');
             router.push(`/admin/manage_curriculum/subjects?curriculumId=${curriculumId}`);
+
         } catch (error) {
-            console.error('Error creating subject:', error);
-            Alert.alert('Error', 'Failed to create subject');
+            console.error('Error:', error);
+            Alert.alert('Error', 'Failed to create subject and group chat');
         } finally {
             setLoading(false);
         }
