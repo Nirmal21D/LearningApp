@@ -16,7 +16,7 @@ export default function Login() {
   const [error, setError] = useState(''); // State for error messages
 
   const handleLogin = async () => {
-    try {
+    try { 
       if (email === 'admin' && password === 'admin123') {
         router.push('/admin/dashboard'); // Redirect to admin dashboard
         return;
@@ -62,7 +62,7 @@ export default function Login() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#FFE0F0', '#F5E6FF', '#FFE5F5']}
+        colors={['#E3F2FD', '#BBDEFB', '#E3F2FD']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFillObject}
@@ -163,21 +163,27 @@ const styles = StyleSheet.create({
   },
   main: {
     flex: 1,
-    padding: 20,
+    padding: Platform.OS === 'web' ? 20 : 16,
     justifyContent: 'center',
+    maxWidth: 500, // Limit maximum width on larger screens
+    width: '100%',
+    alignSelf: 'center',
   },
   headerContainer: {
-    marginBottom: 40,
+    marginBottom: Platform.OS === 'web' ? 40 : 30,
+    paddingHorizontal: Platform.OS === 'web' ? 0 : 10,
   },
   title: {
-    fontSize: 32,
+    fontSize: Platform.OS === 'web' ? 34 : 28,
     fontWeight: 'bold',
-    color: '#333333',
-    marginBottom: 10,
+    color: '#1A237E',
+    marginBottom: 12,
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666666',
+    fontSize: Platform.OS === 'web' ? 17 : 15,
+    color: '#666',
+    lineHeight: 24,
   },
   errorText: {
     color: '#ff3333',
@@ -186,34 +192,45 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     gap: 20,
-    padding: 20,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    backdropFilter: Platform.OS === 'web' ? 'blur(20px)' : undefined,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    padding: Platform.OS === 'web' ? 25 : 20,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(3px)' : undefined,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.8)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.06,
+    shadowRadius: 24,
+    elevation: 4,
+    borderTopColor: 'rgba(255, 255, 255, 0.9)',
+    borderLeftColor: 'rgba(255, 255, 255, 0.9)',
+    borderRightColor: 'rgba(255, 255, 255, 0.7)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.7)',
+    marginHorizontal: Platform.OS === 'web' ? 0 : 10,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 12,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    borderRadius: 16,
+    padding: Platform.OS === 'web' ? 16 : 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.85)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.02,
+    shadowRadius: 12,
+    elevation: 2,
   },
   inputIcon: {
     marginRight: 10,
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: Platform.OS === 'web' ? 16 : 14,
     color: '#333',
+    marginLeft: 12,
   },
   optionsContainer: {
     flexDirection: 'row',
@@ -223,14 +240,20 @@ const styles = StyleSheet.create({
   forgotPassword: {
     color: '#2196F3',
     fontWeight: '600',
+    fontSize: 15,
   },
   loginButton: {
-    backgroundColor: 'rgba(255, 192, 203, 0.4)',
-    padding: 15,
-    borderRadius: 25,
+    backgroundColor: 'rgba(33, 150, 243, 0.95)',
+    padding: Platform.OS === 'web' ? 16 : 14,
+    borderRadius: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 5,
   },
   loginButtonText: {
     color: '#333333',
@@ -279,13 +302,14 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   signupLink: {
-    color: '#FF69B4',
+    color: '#2196F3',
     fontWeight: '600',
+    fontSize: 15,
   },
   backButton: {
     position: 'absolute',
-    top: 20,
-    left: 20,
+    top: Platform.OS === 'web' ? 20 : 40,
+    left: Platform.OS === 'web' ? 20 : 10,
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -308,24 +332,27 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   blurCircle1: {
-    width: 300,
-    height: 300,
-    backgroundColor: 'rgba(255, 192, 203, 0.5)',
-    top: -50,
-    left: -100,
+    width: Platform.OS === 'web' ? 300 : 200,
+    height: Platform.OS === 'web' ? 300 : 200,
+    backgroundColor: 'rgba(33, 150, 243, 0.15)',
+    top: Platform.OS === 'web' ? -50 : -30,
+    left: Platform.OS === 'web' ? -150 : -100,
+    transform: [{ rotate: '-15deg' }],
   },
   blurCircle2: {
-    width: 250,
-    height: 250,
-    backgroundColor: 'rgba(230, 190, 255, 0.5)',
+    width: Platform.OS === 'web' ? 200 : 150,
+    height: Platform.OS === 'web' ? 200 : 150,
+    backgroundColor: 'rgba(100, 181, 246, 0.2)',
     top: '30%',
-    right: -50,
+    right: Platform.OS === 'web' ? -30 : -20,
+    transform: [{ rotate: '30deg' }],
   },
   blurCircle3: {
-    width: 200,
-    height: 200,
-    backgroundColor: 'rgba(255, 182, 193, 0.5)',
-    bottom: '10%',
-    left: -30,
+    width: Platform.OS === 'web' ? 300 : 200,
+    height: Platform.OS === 'web' ? 300 : 200,
+    backgroundColor: 'rgba(33, 150, 243, 0.2)',
+    bottom: Platform.OS === 'web' ? -100 : -50,
+    left: Platform.OS === 'web' ? -50 : -30,
+    transform: [{ rotate: '15deg' }],
   },
-}); 
+});

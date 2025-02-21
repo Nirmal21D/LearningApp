@@ -1,4 +1,4 @@
-import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Alert } from 'react-native';
+import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Alert, Platform } from 'react-native';
 import {Picker} from '@react-native-picker/picker';
 import { Link } from 'expo-router';
 import { useState , useEffect } from 'react';
@@ -10,6 +10,8 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../../lib/AuthContext'; // Adjust the import path as necessary
 import { getFirestore, collection, getDocs } from 'firebase/firestore';
+import { LinearGradient } from 'expo-linear-gradient';
+
 export default function Signup() {
   const [formData, setFormData] = useState({
     email: '',
@@ -114,6 +116,17 @@ export default function Signup() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <LinearGradient
+        colors={['#E3F2FD', '#BBDEFB', '#E3F2FD']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+      
+      <View style={[styles.blurCircle, styles.blurCircle1]} />
+      <View style={[styles.blurCircle, styles.blurCircle2]} />
+      <View style={[styles.blurCircle, styles.blurCircle3]} />
+
       <Animated.View 
         entering={FadeInDown.duration(1000).springify()} 
         style={styles.main}
@@ -200,32 +213,37 @@ export default function Signup() {
           </View>
           {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
 
-          <View entering={FadeInDown.duration(1000).springify()} style={styles.main}>
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>User Type</Text>
-          <Picker selectedValue={formData.userType} style={styles.picker} onValueChange={(itemValue) => setFormData({ ...formData, userType: itemValue })}>
-            <Picker.Item label="Student" value="student" />
-            <Picker.Item label="Teacher" value="teacher" />
-          </Picker>
-        </View>
-        {formData.userType === 'teacher' && (
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Select Subject</Text>
-            <Picker selectedValue={formData.selectedSubject} style={styles.picker} onValueChange={(itemValue) => setFormData({ ...formData, selectedSubject: itemValue })}>
-              <Picker.Item label="Select a subject" value="" />
-              {subjects.map((subject) => (
-                <Picker.Item key={subject.id} label={subject.name} value={subject.name} />
-              ))}
+          <View style={styles.pickerContainer}>
+            <Ionicons name="person-outline" size={24} color="#666" style={styles.inputIcon} />
+            <Picker
+              selectedValue={formData.userType}
+              style={styles.picker}
+              onValueChange={(itemValue) => setFormData({ ...formData, userType: itemValue })}
+            >
+              <Picker.Item label="Student" value="student" />
+              <Picker.Item label="Teacher" value="teacher" />
             </Picker>
           </View>
-        )}
-      </View>
 
-        
-            <TouchableOpacity style={styles.signupButton} onPress={handleSignup}>
-              <Text style={styles.signupButtonText}>Sign Up</Text>
-            </TouchableOpacity>
-          
+          {formData.userType === 'teacher' && (
+            <View style={styles.pickerContainer}>
+              <Ionicons name="book-outline" size={24} color="#666" style={styles.inputIcon} />
+              <Picker
+                selectedValue={formData.selectedSubject}
+                style={styles.picker}
+                onValueChange={(itemValue) => setFormData({ ...formData, selectedSubject: itemValue })}
+              >
+                <Picker.Item label="Select a subject" value="" />
+                {subjects.map((subject) => (
+                  <Picker.Item key={subject.id} label={subject.name} value={subject.name} />
+                ))}
+              </Picker>
+            </View>
+          )}
+
+          <TouchableOpacity style={styles.signupButton} onPress={handleSignup}>
+            <Text style={styles.signupButtonText}>Sign Up</Text>
+          </TouchableOpacity>
 
           <View style={styles.dividerContainer}>
             <View style={styles.divider} />
@@ -253,142 +271,252 @@ export default function Signup() {
 }
 
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   main: {
     flex: 1,
-    padding: 20,
+    padding: Platform.OS === 'web' ? 20 : 16,
     justifyContent: 'center',
+    maxWidth: 500,
+    width: '100%',
+    alignSelf: 'center',
   },
+
+  headerSection: {
+    position: 'absolute',
+    top: Platform.OS === 'web' ? 20 : 40,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: Platform.OS === 'web' ? 20 : 10,
+    zIndex: 1,
+  },
+
   headerContainer: {
-    marginBottom: 40,
+    marginLeft: 15,
+    paddingTop: 8,
   },
+
   title: {
-    fontSize: 32,
+    fontSize: Platform.OS === 'web' ? 34 : 28,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
+    color: '#1A237E',
+    letterSpacing: -0.5,
   },
+
   subtitle: {
-    fontSize: 16,
+    fontSize: Platform.OS === 'web' ? 17 : 15,
     color: '#666',
+    lineHeight: 24,
   },
+
   formContainer: {
-    paddingBottom: 20,
+    marginTop: 20,
+    gap: 20,
+    padding: Platform.OS === 'web' ? 25 : 20,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(3px)' : undefined,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.8)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.06,
+    shadowRadius: 24,
+    elevation: 4,
+    borderTopColor: 'rgba(255, 255, 255, 0.9)',
+    borderLeftColor: 'rgba(255, 255, 255, 0.9)',
+    borderRightColor: 'rgba(255, 255, 255, 0.7)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.7)',
+    marginHorizontal: Platform.OS === 'web' ? 0 : 10,
   },
+
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    borderRadius: 16,
+    padding: Platform.OS === 'web' ? 16 : 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.85)',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.02,
+    shadowRadius: 12,
+    elevation: 2,
   },
+
   inputIcon: {
     marginRight: 10,
   },
+
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: Platform.OS === 'web' ? 16 : 14,
     color: '#333',
+    marginLeft: 12,
   },
+
   label: {
     fontSize: 16,
     color: '#333',
     marginBottom: 5,
   },
+
+  pickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    borderRadius: 16,
+    padding: Platform.OS === 'web' ? 16 : 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.85)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.02,
+    shadowRadius: 12,
+    elevation: 2,
+    height: 55,
+  },
+
   picker: {
     flex: 1,
     height: 50,
     color: '#333',
+    marginLeft: 12,
+    backgroundColor: 'transparent',
   },
+
   errorText: {
     color: '#ff3333',
     fontSize: 12,
     marginTop: -10,
     marginLeft: 5,
   },
+
   signupButton: {
-    backgroundColor: '#2196F3',
-    padding: 15,
-    borderRadius: 12,
+    backgroundColor: 'rgba(33, 150, 243, 0.95)',
+    padding: Platform.OS === 'web' ? 16 : 14,
+    borderRadius: 16,
     alignItems: 'center',
-    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 5,
   },
+
   signupButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: Platform.OS === 'web' ? 17 : 16,
     fontWeight: '600',
+    letterSpacing: 0.5,
   },
+
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: 20,
   },
+
   divider: {
     flex: 1,
     height: 1,
     backgroundColor: '#ddd',
   },
+
   dividerText: {
     color: '#666',
     paddingHorizontal: 10,
   },
+
   googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    padding: Platform.OS === 'web' ? 16 : 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.85)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.02,
+    shadowRadius: 12,
+    elevation: 2,
   },
+
   googleButtonText: {
     marginLeft: 10,
     color: '#666',
     fontSize: 16,
   },
+
   loginContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 20,
   },
+
   loginText: {
     color: '#666',
   },
+
   loginLink: {
     color: '#2196F3',
     fontWeight: '600',
+    fontSize: 15,
   },
+
   backButton: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'white',
+    width: 45,
+    height: 45,
+    borderRadius: 23,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.85)',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-    zIndex: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 10,
+    elevation: 2,
   },
-}); 
+
+  blurCircle: {
+    position: 'absolute',
+    borderRadius: 999,
+  },
+
+  blurCircle1: {
+    width: Platform.OS === 'web' ? 300 : 200,
+    height: Platform.OS === 'web' ? 300 : 200,
+    backgroundColor: 'rgba(33, 150, 243, 0.15)',
+    top: Platform.OS === 'web' ? -50 : -30,
+    left: Platform.OS === 'web' ? -150 : -100,
+    transform: [{ rotate: '-15deg' }],
+  },
+
+  blurCircle2: {
+    width: Platform.OS === 'web' ? 200 : 150,
+    height: Platform.OS === 'web' ? 200 : 150,
+    backgroundColor: 'rgba(100, 181, 246, 0.2)',
+    top: '30%',
+    right: Platform.OS === 'web' ? -30 : -20,
+    transform: [{ rotate: '30deg' }],
+  },
+
+  blurCircle3: {
+    width: Platform.OS === 'web' ? 300 : 200,
+    height: Platform.OS === 'web' ? 300 : 200,
+    backgroundColor: 'rgba(33, 150, 243, 0.2)',
+    bottom: Platform.OS === 'web' ? -100 : -50,
+    left: Platform.OS === 'web' ? -50 : -30,
+    transform: [{ rotate: '15deg' }],
+  },
+});
