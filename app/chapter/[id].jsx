@@ -29,7 +29,7 @@ import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Linking } from "react-native";
 
-// Video Viewer Component (similar to MaterialViewer)
+// Video Viewer Component
 const VideoViewer = ({ video, onClose }) => {
   return (
     <View style={styles.modalContainer}>

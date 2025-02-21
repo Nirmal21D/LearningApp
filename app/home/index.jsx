@@ -8,6 +8,7 @@ import TextExtractor from '@/components/TextExtractor';
 import ChatBot from '@/components/Chatbot';
 import { signOut } from 'firebase/auth';
 import { Alert } from 'react-native';
+import LearningStyleAssessment from '@/components/LearningStyleAssessment';
 
 
 const { width } = Dimensions.get('window');
@@ -50,6 +51,7 @@ export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [subjects, setSubjects] = useState([]);
+  const [showTagForm,setShowTagForm] = useState();
 
   useEffect(() => {
     const fetchSubjects = async () => {
@@ -79,6 +81,7 @@ export default function Home() {
         const db = getFirestore();
         const userDocRef = doc(db, "users", user.uid);
         const userDocSnap = await getDoc(userDocRef);
+       
 
         if (!userDocSnap.exists()) {
           throw new Error("User data not found");
@@ -122,7 +125,12 @@ export default function Home() {
 
   return (
     <SafeAreaView style={styles.container}>
-     
+     { userInfo && (
+        <LearningStyleAssessment
+          userId={getAuth().currentUser.uid}
+          onClose={() => setShowTagForm(false)}
+        />
+      )}
       <View style={styles.navbar}>
         <TouchableOpacity style={styles.menuButton}>
           <Ionicons name="menu-outline" size={28} color="#333" />
@@ -200,17 +208,21 @@ export default function Home() {
             </TouchableOpacity>
           </View>
           <View style={styles.filterGrid}>
-            {courseFilters.map((filter) => (
               <TouchableOpacity 
-                key={filter.id}
+               
                 style={styles.filterCard}
+                onPress={() => {
+                  router.push({
+                    pathname: `/labs`,
+                   })
+                }}
               >
                 <View style={styles.filterIconContainer}>
-                  <Ionicons name={filter.icon} size={28} color="#2196F3" />
+                 
                 </View>
-                <Text style={styles.filterName}>{filter.name}</Text>
+                <Text style={styles.filterName}>Labs</Text>
               </TouchableOpacity>
-            ))}
+           
           </View>
         </View>
         <View>
