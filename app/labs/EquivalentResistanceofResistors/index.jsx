@@ -78,7 +78,7 @@ const ExperimentScreen = () => {
 
   return (
     <View style={styles.container}>
-      <WebView source={{ html: "experiment.html"  }} 
+      <WebView source={{ uri : "http://192.168.0.165:5173/"  }} 
       originWhitelist={["*"]}
       allowFileAccess={true}
       allowUniversalAccessFromFileURLs={true}

@@ -227,8 +227,8 @@ export default function TeacherDashboard() {
       console.log("Processed sessions:", sessions);
       setApprovedSessions(sessions);
     } catch (error) {
-      console.error("Error fetching approved sessions:", error);
-      Alert.alert("Error", "Failed to load upcoming sessions");
+      /* console.error("Error fetching approved sessions:", error);
+      Alert.alert("Error", "Failed to load upcoming sessions"); */
     } finally {
       setLoading(false);
     }

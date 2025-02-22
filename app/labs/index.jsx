@@ -49,9 +49,9 @@ const Labs = () => {
       </View>
 
       <View style={styles.subjectsGrid}>
-        {subjects.map((subject) => (
+     
           <TouchableOpacity
-            key={subject.id}
+         
             style={styles.subjectCard}
             onPress={() =>{
                 router.push({
@@ -60,12 +60,29 @@ const Labs = () => {
                   });
             }}
           >
-            <View style={[styles.subjectIconContainer, { backgroundColor: subject.color || "#3498db" }]}>
-              <Ionicons name={subject.icon || "book"} size={32} color="white" />
+            <View style={[styles.subjectIconContainer, { backgroundColor:  "#3498db" }]}>
+              <Ionicons name={ "book"} size={32} color="white" />
             </View>
-            <Text style={styles.subjectName}>{subject.name}</Text>
+            <Text style={styles.subjectName}> EquivalentResistanceofResistors</Text>
           </TouchableOpacity>
-        ))}
+
+          
+          <TouchableOpacity
+        
+            style={styles.subjectCard}
+            onPress={() =>{
+                router.push({
+                    pathname: `/labs/Magnet`,
+                
+                  });
+            }}
+          >
+            <View style={[styles.subjectIconContainer, { backgroundColor:  "#3498db" }]}>
+              <Ionicons name={ "book"} size={32} color="white" />
+            </View>
+            <Text style={styles.subjectName}>Magnet</Text>
+          </TouchableOpacity>
+     
       </View>
     </View>
   );
