@@ -78,7 +78,7 @@ const ExperimentScreen = () => {
 
   return (
     <View style={styles.container}>
-      <WebView source={{ uri : "https://magnetic-field-simulator.vercel.app/"  }} 
+      <WebView source={{ uri : "https://light-refraction-simulator.vercel.app/"  }} 
       originWhitelist={["*"]}
       allowFileAccess={true}
       allowUniversalAccessFromFileURLs={true}

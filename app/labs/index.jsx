@@ -98,6 +98,24 @@ const Labs = () => {
             </View>
             <Text style={styles.subjectName}>EquivalentResistanceofResistors</Text>
           </TouchableOpacity>
+
+
+
+          <TouchableOpacity
+        
+            style={styles.subjectCard}
+            onPress={() =>{
+                router.push({
+                    pathname: `/labs/reflection`,
+                
+                  });
+            }}
+          >
+            <View style={[styles.subjectIconContainer, { backgroundColor:  "#3498db" }]}>
+              <Ionicons name={ "book"} size={32} color="white" />
+            </View>
+            <Text style={styles.subjectName}>Snell's Law of Refraction</Text>
+          </TouchableOpacity>
      
       </View>
     </View>
