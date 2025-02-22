@@ -7,13 +7,16 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
-  Modal
+  Modal,
+  FlatList
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { doc, updateDoc, getFirestore, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { doc, updateDoc, getFirestore, serverTimestamp, onSnapshot, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import { database, firestore, auth } from '@/lib/firebase';
+import { ref, push, get, query, orderByChild, equalTo, update } from 'firebase/database';
 
 const VideoCallComponent = ({ roomId, sessionId, isTeacher, studentName, teacherName, topic, onClose }) => {
   const webViewRef = useRef(null);
@@ -22,8 +25,10 @@ const VideoCallComponent = ({ roomId, sessionId, isTeacher, studentName, teacher
   const [webViewError, setWebViewError] = useState(null);
   const [pendingParticipants, setPendingParticipants] = useState([]);
   const [showAdmitModal, setShowAdmitModal] = useState(false);
+  const [showChatSelector, setShowChatSelector] = useState(false);
+  const [availableChats, setAvailableChats] = useState([]);
+  const [loading, setLoading] = useState(false);
   const db = getFirestore();
-  const auth = getAuth();
 
   // More robust room ID generation
   const generateRoomId = () => {
@@ -375,6 +380,162 @@ const VideoCallComponent = ({ roomId, sessionId, isTeacher, studentName, teacher
     }
   };
 
+  const fetchUserInfo = async (userId) => {
+    try {
+      // Get Firestore instance
+      const firestore = getFirestore();
+      const userDocRef = doc(firestore, 'users', userId);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (userDoc.exists()) {
+        return userDoc.data();
+      }
+      console.log('No user data found for:', userId);
+      return null;
+    } catch (error) {
+      console.error('Error fetching user info:', error);
+      return null;
+    }
+  };
+
+  const fetchAvailableChats = async () => {
+    try {
+      setLoading(true);
+      const privateChatsRef = ref(database, 'privateChats');
+      const snapshot = await get(privateChatsRef);
+      
+      if (snapshot.exists()) {
+        const chats = [];
+        const chatPromises = [];
+
+        snapshot.forEach((childSnapshot) => {
+          const chatData = childSnapshot.val();
+          
+          if (chatData.participants && 
+              chatData.participants[auth.currentUser.uid] === true) {
+            
+            const studentId = Object.keys(chatData.participants).find(
+              id => id !== auth.currentUser.uid
+            );
+
+            // Create a promise for each chat's user info
+            const chatPromise = fetchUserInfo(studentId).then(userInfo => ({
+              id: childSnapshot.key,
+              createdAt: chatData.createdAt,
+              studentId: studentId,
+              studentInfo: userInfo || {},
+              lastMessage: chatData.lastMessage,
+            }));
+
+            chatPromises.push(chatPromise);
+          }
+        });
+
+        // Wait for all user info to be fetched
+        const resolvedChats = await Promise.all(chatPromises);
+        
+        // Sort chats by creation time
+        resolvedChats.sort((a, b) => b.createdAt - a.createdAt);
+        setAvailableChats(resolvedChats);
+      } else {
+        setAvailableChats([]);
+      }
+    } catch (error) {
+      console.error('Error fetching chats:', error);
+      Alert.alert('Error', 'Failed to load chats');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const shareToChatHandler = async (selectedChatId) => {
+    try {
+      const meetingLink = `https://meet.jit.si/${roomId}`;
+      
+      const messageData = {
+        text: meetingLink,
+        senderId: auth.currentUser.uid,
+        senderName: auth.currentUser.displayName || auth.currentUser.email,
+        isTeacher: true,
+        timestamp: Date.now(),
+        type: 'meeting'
+      };
+
+      // Send to private chat messages
+      const messagesRef = ref(database, `privateChats/${selectedChatId}/messages`);
+      await push(messagesRef, messageData);
+
+      Alert.alert('Success', 'Meeting link shared to chat');
+      setShowChatSelector(false);
+    } catch (error) {
+      console.error('Error sharing to chat:', error);
+      Alert.alert('Error', 'Failed to share meeting link');
+    }
+  };
+
+  const renderChatItem = ({ item }) => {
+    const userInfo = item.studentInfo;
+    
+    return (
+      <TouchableOpacity 
+        style={styles.chatItem} 
+        onPress={() => shareToChatHandler(item.id)}
+      >
+        <View style={styles.chatItemContent}>
+          <Text style={styles.chatItemName}>
+            {userInfo.username || userInfo.email || 'Student'}
+          </Text>
+          
+          {userInfo.mobile && (
+            <Text style={styles.chatItemDetail}>
+              📱 {userInfo.mobile}
+            </Text>
+          )}
+
+          {userInfo.learningProfile?.details?.learningSpeed && (
+            <Text style={styles.chatItemDetail}>
+              {userInfo.learningProfile.details.learningSpeed}
+            </Text>
+          )}
+
+          {userInfo.selectedSubject && (
+            <Text style={styles.chatItemSubject}>
+              📚 {userInfo.selectedSubject}
+            </Text>
+          )}
+        </View>
+        
+        <Text style={styles.chatItemTime}>
+          {new Date(item.createdAt).toLocaleDateString()}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <View style={styles.headerInfo}>
+        <Text style={styles.sessionInfo}>{topic || 'Video Session'}</Text>
+        <Text style={styles.codeInfo}>Room: {cleanRoomId}</Text>
+      </View>
+      <TouchableOpacity style={styles.endButton} onPress={onClose}>
+        <Ionicons name="call" size={24} color="white" style={{ transform: [{ rotate: '135deg' }] }} />
+      </TouchableOpacity>
+      {isTeacher && (
+        <TouchableOpacity 
+          style={styles.chatShareButton} 
+          onPress={() => {
+            fetchAvailableChats();
+            setShowChatSelector(true);
+          }}
+        >
+          <Ionicons name="chatbubble-outline" size={24} color="white" />
+          <Text style={styles.shareText}>Share to Chat</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
   if (webViewError) {
     return (
       <View style={styles.errorContainer}>
@@ -389,15 +550,7 @@ const VideoCallComponent = ({ roomId, sessionId, isTeacher, studentName, teacher
   return (
     <View style={styles.container}>
       <StatusBar hidden />
-      <View style={styles.header}>
-        <View style={styles.headerInfo}>
-          <Text style={styles.sessionInfo}>{topic || 'Video Session'}</Text>
-          <Text style={styles.codeInfo}>Room: {cleanRoomId}</Text>
-        </View>
-        <TouchableOpacity style={styles.endButton} onPress={onClose}>
-          <Ionicons name="call" size={24} color="white" style={{ transform: [{ rotate: '135deg' }] }} />
-        </TouchableOpacity>
-      </View>
+      {renderHeader()}
 
       {isLoading && (
         <View style={styles.loadingContainer}>
@@ -492,6 +645,40 @@ const VideoCallComponent = ({ roomId, sessionId, isTeacher, studentName, teacher
           )}
         </TouchableOpacity>
       )}
+
+      <Modal
+        visible={showChatSelector}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowChatSelector(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Chat</Text>
+              <TouchableOpacity 
+                onPress={() => setShowChatSelector(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="black" />
+              </TouchableOpacity>
+            </View>
+            
+            {loading ? (
+              <ActivityIndicator size="large" color="#0066CC" />
+            ) : (
+              <FlatList
+                data={availableChats}
+                renderItem={renderChatItem}
+                keyExtractor={item => item.id}
+                ListEmptyComponent={
+                  <Text style={styles.emptyText}>No chats available</Text>
+                }
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -573,18 +760,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.7)',
   },
   modalContent: {
-    width: '80%',
-    backgroundColor: '#2a2a2a',
-    borderRadius: 12,
+    backgroundColor: 'white',
+    borderRadius: 10,
     padding: 20,
-    maxHeight: '70%',
+    width: '90%',
+    maxHeight: '80%',
   },
   modalTitle: {
-    color: 'white',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
+    color: '#333',
+    marginBottom: 5,
   },
   participantItem: {
     flexDirection: 'row',
@@ -666,6 +852,69 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
+  chatShareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    padding: 8,
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    marginRight: 10,
+  },
+  shareText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  closeButton: {
+    padding: 5,
+  },
+  chatItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    backgroundColor: '#fff',
+  },
+  chatItemContent: {
+    flex: 1,
+  },
+  chatItemName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  chatItemDetail: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 2,
+  },
+  chatItemSubject: {
+    fontSize: 14,
+    color: '#0066cc',
+    marginTop: 2,
+  },
+  chatItemTime: {
+    fontSize: 12,
+    color: '#999',
+    alignSelf: 'flex-start',
+    marginLeft: 10,
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 20,
+    padding: 20,
+    color: '#666',
+    fontSize: 16,
+  }
 });
 
 export default VideoCallComponent;

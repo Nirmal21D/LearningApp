@@ -234,6 +234,84 @@ export default function TeacherDashboard() {
     }
   };
 
+  // Replace your existing fetchApprovedSessions function with this enhanced version
+
+
+//   const fetchApprovedSessions = async () => {
+//   try {
+//     console.log("Starting fetchApprovedSessions...");
+//     console.log("Current teacher ID:", auth.currentUser?.uid);
+
+//     const sessionsRef = collection(db, "sessionRequests");
+//     const q = query(
+//       sessionsRef,
+//       where("teacherId", "==", auth.currentUser.uid),
+//       where("status", "==", "approved"),
+//       orderBy("requestedDate", "desc")
+//     );
+
+//     console.log("Executing Firebase query...");
+//     const snapshot = await getDocs(q);
+//     console.log(`Found ${snapshot.docs.length} total sessions`);
+
+//     // Log each session for debugging
+//     snapshot.docs.forEach((doc, index) => {
+//       const data = doc.data();
+//       console.log(`Session ${index + 1}:`, {
+//         id: doc.id,
+//         topic: data.topic,
+//         status: data.status,
+//         teacherId: data.teacherId,
+//         requestedDate: data.requestedDate?.toDate(),
+//       });
+//     });
+
+//     const sessions = snapshot.docs
+//       .map((doc) => {
+//         const data = doc.data();
+//         const session = {
+//           id: doc.id,
+//           ...data,
+//           requestedDate: data.requestedDate?.toDate() || new Date(),
+//           createdAt: data.createdAt?.toDate() || new Date(),
+//           updatedAt: data.updatedAt?.toDate() || new Date(),
+//         };
+//         console.log("Processed session:", session);
+//         return session;
+//       })
+//       .filter((session) => {
+//         const isUpcoming = new Date(session.requestedDate) > new Date();
+//         console.log(
+//           `Session ${session.id} - Date check:`,
+//           session.requestedDate,
+//           'Is upcoming:', isUpcoming
+//         );
+//         return isUpcoming;
+//       });
+
+//     console.log("Final filtered sessions:", sessions);
+//     setApprovedSessions(sessions);
+//     setLoading(false);
+//   } catch (error) {
+//     console.error("Error in fetchApprovedSessions:", error);
+//     setLoading(false);
+//   }
+// };
+
+// Add this useEffect to check the current state
+useEffect(() => {
+  console.log("Current approvedSessions state:", approvedSessions);
+}, [approvedSessions]);
+// Add this temporary check in your component
+useEffect(() => {
+  const checkSession = async () => {
+    const docRef = doc(db, "sessionRequests", "YOUR_SESSION_ID");
+    const docSnap = await getDoc(docRef);
+    console.log("Direct session check:", docSnap.data());
+  };
+  checkSession();
+}, []);
+
   const handleStartSession = async (session) => {
     try {
       // First, validate that we have a valid session with an ID
@@ -291,6 +369,44 @@ export default function TeacherDashboard() {
       Alert.alert("Error", errorMessage);
     }
   };
+
+  // const handleStartSession = async (session) => {
+  //   try {
+  //     if (!session || !session.id) {
+  //       console.error("Invalid session data", session);
+  //       Alert.alert("Error", "Session data is invalid");
+  //       return;
+  //     }
+  
+  //     // Generate a safe room ID
+  //     const safeRoomId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+  
+  //     // Update the session document
+  //     const sessionRef = doc(db, "sessionRequests", session.id);
+  //     await updateDoc(sessionRef, {
+  //       roomId: safeRoomId,
+  //       status: "in-progress",
+  //       startTime: new Date(),
+  //     });
+  
+  //     // Navigate to video call screen
+  //     router.push({
+  //       pathname: "/screens/video-call",
+  //       params: {
+  //         roomId: safeRoomId,
+  //         sessionId: session.id,
+  //         isTeacher: true,
+  //         studentName: session.studentName || "Student",
+  //         teacherName: teacherInfo?.name || "Teacher",
+  //         topic: session.topic || "Video Session",
+  //       },
+  //     });
+  
+  //   } catch (error) {
+  //     console.error("Error starting session:", error);
+  //     Alert.alert("Error", "Failed to start session");
+  //   }
+  // };
 
   const handleViewActiveSessions = () => {
     if (activeSession) {
@@ -384,18 +500,17 @@ export default function TeacherDashboard() {
         </View>
       );
     }
-
-    if (approvedSessions.length === 0) {
+  
+    if (!approvedSessions || approvedSessions.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="calendar-outline" size={48} color="#666" />
           <Text style={styles.emptyText}>No upcoming sessions</Text>
         </View>
       );
     }
-
+  
     return (
-      <View style={styles.sessionsContainer}>
+      <ScrollView style={styles.sessionsContainer}>
         {approvedSessions.map((session) => (
           <View key={session.id} style={styles.sessionCard}>
             <View style={styles.sessionInfo}>
@@ -408,10 +523,14 @@ export default function TeacherDashboard() {
               </Text>
 
               {session.description && (
-                <Text style={styles.sessionDescription} numberOfLines={2}>
+                <Text style={styles.sessionDescription}>
                   {session.description}
                 </Text>
               )}
+
+              <Text style={styles.sessionTeacher}>
+                Teacher: {session.teacherName || "Not specified"}
+              </Text>
 
               <Text style={styles.sessionStudent}>
                 Student ID: {session.studentId || "No student assigned"}
@@ -445,12 +564,12 @@ export default function TeacherDashboard() {
               style={styles.startButton}
               onPress={() => handleStartSession(session)}
             >
-              <Ionicons name="videocam" size={24} color="white" />
+              <Ionicons name="play" size={20} color="white" />
               <Text style={styles.startButtonText}>Start</Text>
             </TouchableOpacity>
           </View>
         ))}
-      </View>
+      </ScrollView>
     );
   };
 
