@@ -8,6 +8,7 @@ import {
   Alert,
   SafeAreaView,
   ActivityIndicator,
+  Linking,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,9 +21,12 @@ import {
   updateDoc,
   addDoc,
   orderBy,
+  onSnapshot,
+  Timestamp,
 } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
+import { db, auth, database } from "@/lib/firebase";
 import CallButton from "@/components/CallButton";
+import { ref, push } from 'firebase/database';
 
 export default function TeacherDashboard() {
   const router = useRouter();
@@ -59,6 +63,7 @@ export default function TeacherDashboard() {
 
     debugSessions();
   }, []);
+
   const [quickActions] = useState([
     {
       id: "session-requests",
@@ -314,99 +319,144 @@ useEffect(() => {
 
   const handleStartSession = async (session) => {
     try {
-      // First, validate that we have a valid session with an ID
       if (!session || !session.id) {
         console.error("Invalid session data", session);
         Alert.alert("Error", "Session data is invalid");
         return;
       }
 
-      // Generate a valid room ID that won't cause issues
-      const safeRoomId = session.roomId
-        ? session.roomId.toString().replace(/[^a-zA-Z0-9]/g, "")
-        : `session${Date.now()}${Math.random().toString(36).substr(2, 5)}`;
+      // Generate a safe room ID with teacher prefix
+      const safeRoomId = `teacher_${auth.currentUser.uid}_${Date.now()}`;
+      const teacherName = encodeURIComponent(auth.currentUser.displayName || auth.currentUser.email || 'Teacher');
+      
+      // Use meet.jit.si with advanced configuration
+      const jitsiUrl = `https://meet.jit.si/${safeRoomId}#config.prejoinPageEnabled=false&userInfo.displayName=${teacherName}&config.startWithAudioMuted=false&config.startWithVideoMuted=false&config.disableModeratorIndicator=false&config.enableLobbyChat=true&config.enableWelcomePage=false&config.enableClosePage=false&config.disableDeepLinking=true&config.p2p.enabled=true&config.resolution=720&config.constraints.video.height.ideal=720&config.constraints.video.width.ideal=1280`;
 
-      console.log("Starting session with room ID:", safeRoomId);
-
-      // First update the session document
+      // Update the session document with new meeting details
       const sessionRef = doc(db, "sessionRequests", session.id);
       await updateDoc(sessionRef, {
         roomId: safeRoomId,
         status: "in-progress",
         startTime: new Date(),
+        meetingUrl: jitsiUrl,
+        platform: "meet.jit.si",
+        teacherName: auth.currentUser.displayName || auth.currentUser.email
       });
 
-      console.log("Session document updated successfully");
+      // Share meeting link with student
+      const studentMessageData = {
+        text: jitsiUrl,
+        senderId: auth.currentUser.uid,
+        senderName: auth.currentUser.displayName || auth.currentUser.email,
+        senderEmail: auth.currentUser.email,
+        isTeacher: true,
+        timestamp: Date.now(),
+        type: 'meeting',
+        platform: 'meet.jit.si',
+        sessionId: session.id,
+        topic: session.topic || 'Online Session'
+      };
 
-      // Then navigate to the video call
-      router.push({
-        pathname: "/screens/video-call",
-        params: {
-          roomId: safeRoomId,
-          sessionId: session.id,
-          isTeacher: true,
-          studentName: session.studentName || "Student",
-          teacherName: teacherInfo?.name || "Teacher",
-          topic: session.topic || "Video Session",
-        },
-      });
+      // Create chat ID by sorting and joining IDs
+      const chatId = [auth.currentUser.uid, session.studentId].sort().join('_');
+      
+      // Get reference to the chat messages
+      const messagesRef = ref(database, `privateChats/${chatId}/messages`);
+      
+      // Share the meeting link in chat
+      await push(messagesRef, studentMessageData);
+
+      // Open meeting in browser for teacher
+      await Linking.openURL(jitsiUrl);
+
     } catch (error) {
-      console.error(
-        "Detailed error starting session:",
-        error.message,
-        error.code,
-        error.stack
+      console.error("Error starting session:", error);
+      Alert.alert(
+        "Error", 
+        "Failed to start session. Please check your internet connection and try again."
       );
-
-      // More descriptive error message
-      let errorMessage = "Failed to start session";
-      if (error.code === "permission-denied") {
-        errorMessage = "Permission denied - check your login status";
-      } else if (error.code === "not-found") {
-        errorMessage = "Session document not found";
-      }
-
-      Alert.alert("Error", errorMessage);
     }
   };
 
-  // const handleStartSession = async (session) => {
-  //   try {
-  //     if (!session || !session.id) {
-  //       console.error("Invalid session data", session);
-  //       Alert.alert("Error", "Session data is invalid");
-  //       return;
-  //     }
-  
-  //     // Generate a safe room ID
-  //     const safeRoomId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-  
-  //     // Update the session document
-  //     const sessionRef = doc(db, "sessionRequests", session.id);
-  //     await updateDoc(sessionRef, {
-  //       roomId: safeRoomId,
-  //       status: "in-progress",
-  //       startTime: new Date(),
-  //     });
-  
-  //     // Navigate to video call screen
-  //     router.push({
-  //       pathname: "/screens/video-call",
-  //       params: {
-  //         roomId: safeRoomId,
-  //         sessionId: session.id,
-  //         isTeacher: true,
-  //         studentName: session.studentName || "Student",
-  //         teacherName: teacherInfo?.name || "Teacher",
-  //         topic: session.topic || "Video Session",
-  //       },
-  //     });
-  
-  //   } catch (error) {
-  //     console.error("Error starting session:", error);
-  //     Alert.alert("Error", "Failed to start session");
-  //   }
-  // };
+  // Add a helper function to check if a session can be started
+  const canStartSession = (session) => {
+    const sessionTime = new Date(session.requestedDate.seconds * 1000);
+    const now = new Date();
+    const timeDiff = Math.abs(sessionTime - now) / 1000 / 60; // difference in minutes
+    
+    return session.status === 'approved' && timeDiff < 30; // Can start within 30 minutes of scheduled time
+  };
+
+  const renderSession = ({ item }) => {
+    const sessionDate = item.requestedDate 
+      ? new Date(item.requestedDate.seconds * 1000) 
+      : new Date();
+
+    const canStart = canStartSession(item);
+
+    return (
+      <View style={styles.sessionCard}>
+        <View style={styles.sessionHeader}>
+          <Text style={styles.subject}>
+            {item.teacherSubject || 'No Subject'}
+          </Text>
+          <Text style={[
+            styles.status,
+            { color: item.status === 'approved' ? '#4CAF50' : '#FFA000' }
+          ]}>
+            {item.status || 'Pending'}
+          </Text>
+        </View>
+
+        <Text style={styles.topic} numberOfLines={2}>
+          Topic: {item.topic || 'No Topic'}
+        </Text>
+
+        {item.description && (
+          <Text style={styles.description} numberOfLines={2}>
+            {item.description}
+          </Text>
+        )}
+
+        <View style={styles.timeContainer}>
+          <Ionicons name="time-outline" size={20} color="#666" />
+          <Text style={styles.time}>
+            {sessionDate.toLocaleString('en-US', {
+              month: 'short',
+              day: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            })}
+          </Text>
+        </View>
+
+        <View style={styles.studentInfo}>
+          <Ionicons name="person-outline" size={20} color="#666" />
+          <Text style={styles.studentText}>
+            Student: {item.studentId || 'No Student ID'}
+          </Text>
+        </View>
+
+        {canStart && (
+          <TouchableOpacity 
+            style={[
+              styles.startButton,
+              !canStart && styles.startButtonDisabled
+            ]}
+            onPress={() => handleStartSession(item)}
+            disabled={!canStart}
+          >
+            <Ionicons name="videocam" size={24} color="#fff" />
+            <Text style={styles.buttonText}>
+              {canStart ? 'Start Session' : 'Not Yet Time'}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
 
   const handleViewActiveSessions = () => {
     if (activeSession) {
@@ -990,5 +1040,9 @@ const styles = StyleSheet.create({
   sessionsContainer: {
     padding: 10,
   },
+  startButtonDisabled: {
+    backgroundColor: '#BDBDBD',
+    opacity: 0.7
+  }
 });
 

@@ -132,41 +132,34 @@ const ChatComponent = ({ chatId, teacherName, teacherSubject }) => {
   };
 
   const handleMeetingLink = (message) => {
-    if (message.includes("/session") || message.includes("meet.jit.si")) {
+    if (message.includes('https://meet.jit.si/')) {
       try {
-        let roomId;
-        if (message.includes("/session")) {
-          roomId = message.split("/session")[1];
-        } else {
-          const url = new URL(message);
-          roomId = url.pathname.slice(1);
-        }
+        // Extract the room name from the Jitsi meet link
+        const url = new URL(message);
+        const roomName = url.pathname.slice(1); // Remove the leading slash
 
         router.push({
-          pathname: "/screens/video-call",
+          pathname: '/screens/video-call',
           params: {
-            roomId: roomId,
-            sessionId: roomId,
+            roomId: roomName,
+            sessionId: roomName,
             studentName: auth.currentUser.displayName || auth.currentUser.email,
             isTeacher: false,
-            topic: message.includes("/session") ? "Joined Session" : "Jitsi Meeting",
-            isJitsi: message.includes("meet.jit.si"),
-            jitsiUrl: message.includes("meet.jit.si") ? message : null,
-          },
+            topic: 'Teacher\'s Meeting',
+            isJitsi: true, // Flag to indicate this is an external Jitsi meeting
+            jitsiUrl: message // Pass the full Jitsi URL
+          }
         });
       } catch (error) {
-        console.error("Error joining meeting:", error);
-        Alert.alert("Error", "Failed to join meeting");
+        console.error('Error joining Jitsi meeting:', error);
+        Alert.alert('Error', 'Failed to join meeting');
       }
     }
   };
 
   const renderMessage = ({ item }) => {
     const isOwnMessage = item.senderId === auth.currentUser.uid;
-    const isMeetingLink = item.text && (
-      item.text.includes('https://meet.jit.si/session') || 
-      item.text.includes('/session')
-    );
+    const isMeetingLink = (item.text && item.text.includes('https://meet.jit.si/')) || item.type === 'meeting';
 
     return (
       <View style={[
@@ -176,59 +169,68 @@ const ChatComponent = ({ chatId, teacherName, teacherSubject }) => {
         {!isOwnMessage && (
           <Text style={styles.senderEmail}>
             {item.senderEmail || item.senderName}
+            {item.isTeacher && ' (Teacher)'}
           </Text>
         )}
         
-        <View style={[
-          styles.messageContent,
-          isOwnMessage ? styles.ownMessageContent : styles.otherMessageContent,
-          isMeetingLink && styles.meetingLinkContainer
-        ]}>
-          {isMeetingLink ? (
-            <TouchableOpacity 
-              onPress={() => handleMeetingLink(item.text)}
-              style={styles.linkButton}
-            >
-              <View style={styles.linkContent}>
-                <Ionicons 
-                  name="videocam" 
-                  size={20} 
-                  color={isOwnMessage ? "#fff" : "#2196F3"} 
-                  style={styles.linkIcon}
-                />
-                <Text style={[
-                  styles.linkText,
-                  isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
-                ]}>
-                  Join Video Call
-                </Text>
-              </View>
+        {isMeetingLink ? (
+          <TouchableOpacity 
+            onPress={() => handleMeetingLink(item.text)}
+            style={[
+              styles.meetingLinkContainer,
+              isOwnMessage ? styles.ownMeetingLink : styles.otherMeetingLink
+            ]}
+          >
+            <View style={styles.meetingHeader}>
+              <Ionicons 
+                name="videocam" 
+                size={24} 
+                color={isOwnMessage ? "#fff" : "#2196F3"} 
+              />
               <Text style={[
-                styles.urlText,
-                isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
-              ]} numberOfLines={1}>
-                {item.text}
+                styles.meetingTitle,
+                isOwnMessage ? styles.ownMeetingText : styles.otherMeetingText
+              ]}>
+                {item.isTeacher ? "Join Teacher's Meeting" : "Join Meeting"}
               </Text>
-            </TouchableOpacity>
-          ) : (
+            </View>
+            
+            <View style={styles.meetingInfo}>
+              <Ionicons 
+                name="time-outline" 
+                size={16} 
+                color={isOwnMessage ? "#E3F2FD" : "#666"} 
+              />
+              <Text style={[
+                styles.meetingTime,
+                isOwnMessage ? styles.ownMeetingText : styles.otherMeetingText
+              ]}>
+                {new Date(item.timestamp).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ) : (
+          <View style={[
+            styles.messageContent,
+            isOwnMessage ? styles.ownMessageContent : styles.otherMessageContent
+          ]}>
             <Text style={[
               styles.messageText,
               isOwnMessage ? styles.ownMessageText : styles.otherMessageText
             ]}>
               {item.text}
             </Text>
-          )}
-        </View>
-        
-        <Text style={[
-          styles.timestamp,
-          isOwnMessage ? styles.ownTimestamp : styles.otherTimestamp
-        ]}>
-          {new Date(item.timestamp).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit'
-          })}
-        </Text>
+            <Text style={styles.timestamp}>
+              {new Date(item.timestamp).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </Text>
+          </View>
+        )}
       </View>
     );
   };
@@ -324,7 +326,7 @@ const styles = StyleSheet.create({
   },
   messageContent: {
     borderRadius: 16,
-    padding: 8,
+    padding: 12,
     maxWidth: '80%',
   },
   ownMessageContent: {
@@ -332,30 +334,6 @@ const styles = StyleSheet.create({
   },
   otherMessageContent: {
     backgroundColor: '#E8E8E8',
-  },
-  meetingLinkContainer: {
-    padding: 0,
-    overflow: 'hidden',
-  },
-  linkButton: {
-    padding: 12,
-  },
-  linkContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  linkIcon: {
-    marginRight: 8,
-  },
-  linkText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  urlText: {
-    fontSize: 12,
-    opacity: 0.8,
-    textDecorationLine: 'underline',
   },
   messageText: {
     fontSize: 15,
@@ -376,14 +354,50 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginTop: 4,
-  },
-  ownTimestamp: {
     alignSelf: 'flex-end',
-    marginRight: 4,
   },
-  otherTimestamp: {
-    alignSelf: 'flex-start',
+  meetingLinkContainer: {
+    borderRadius: 16,
+    padding: 12,
+    maxWidth: '80%',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
+  },
+  ownMeetingLink: {
+    backgroundColor: '#1976D2', // Darker blue for meetings
+  },
+  otherMeetingLink: {
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#2196F3',
+  },
+  meetingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  meetingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  meetingInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  meetingTime: {
+    fontSize: 12,
     marginLeft: 4,
+  },
+  ownMeetingText: {
+    color: '#FFFFFF',
+  },
+  otherMeetingText: {
+    color: '#2196F3',
   },
   inputContainer: {
     flexDirection: "row",
