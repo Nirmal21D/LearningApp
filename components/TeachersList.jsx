@@ -1,3 +1,5 @@
+
+// components/TeachersList.jsx
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -10,8 +12,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
+import { ref, onValue } from 'firebase/database';
 import { Ionicons } from '@expo/vector-icons';
-import {auth,db} from '@/lib/firebase.js';
+import { auth, db, database } from '@/lib/firebase';
 
 export default function TeachersList() {
   const [teachers, setTeachers] = useState([]);
@@ -19,39 +22,54 @@ export default function TeachersList() {
   const router = useRouter();
 
   useEffect(() => {
+    if (!auth.currentUser) return;
     fetchTeachers();
   }, []);
 
   const fetchTeachers = async () => {
     try {
-      console.log('Fetching teachers...'); // Debug log
       setLoading(true);
       
-      // Create a query against the users collection
+      // Query teachers from Firestore
       const teachersRef = collection(db, 'users');
       const teachersQuery = query(
         teachersRef,
         where('role', '==', 'teacher')
       );
 
-      // Get the teachers
       const querySnapshot = await getDocs(teachersQuery);
-      console.log('Snapshot received:', !querySnapshot.empty); // Debug log
-
-      const teacherList = [];
-      querySnapshot.forEach((doc) => {
-        teacherList.push({
-          id: doc.id,
-          ...doc.data()
+      
+      // Get chat data from Realtime Database
+      const chatsRef = ref(database, 'chats');
+      const unsubscribe = onValue(chatsRef, (snapshot) => {
+        const chatsData = snapshot.val() || {};
+        
+        const teacherList = [];
+        querySnapshot.forEach((doc) => {
+          const teacherData = doc.data();
+          const teacherId = doc.id;
+          const chatId = [auth.currentUser.uid, teacherId].sort().join('_');
+          const chatData = chatsData[chatId];
+          
+          teacherList.push({
+            id: teacherId,
+            username: teacherData.username,
+            email: teacherData.email,
+            selectedSubject: teacherData.selectedSubject,
+            lastMessage: chatData?.lastMessage?.text,
+            unreadCount: chatData?.unreadCount?.[auth.currentUser.uid] || 0,
+            timestamp: chatData?.lastMessage?.timestamp
+          });
         });
+
+        setTeachers(teacherList);
+        setLoading(false);
       });
 
-      console.log('Teachers found:', teacherList.length); // Debug log
-      setTeachers(teacherList);
+      return () => unsubscribe();
     } catch (error) {
       console.error('Error fetching teachers:', error);
       setTeachers([]);
-    } finally {
       setLoading(false);
     }
   };
@@ -68,7 +86,7 @@ export default function TeachersList() {
       params: {
         chatId,
         teacherId: teacher.id,
-        teacherName: teacher.username || 'Unknown Teacher',
+        teacherName: teacher.username,
         teacherSubject: teacher.selectedSubject
       }
     });
@@ -84,6 +102,7 @@ export default function TeachersList() {
           {(item.username || '?')[0].toUpperCase()}
         </Text>
       </View>
+      
       <View style={styles.teacherInfo}>
         <Text style={styles.teacherName}>
           {item.username || 'Unknown Teacher'}
@@ -91,10 +110,21 @@ export default function TeachersList() {
         <Text style={styles.teacherSubject}>
           {item.selectedSubject || 'Subject not specified'}
         </Text>
-        <Text style={styles.teacherEmail}>
-          {item.email || 'No email provided'}
-        </Text>
+        {item.lastMessage && (
+          <Text style={styles.lastMessage} numberOfLines={1}>
+            {item.lastMessage}
+          </Text>
+        )}
       </View>
+
+      {item.unreadCount > 0 && (
+        <View style={styles.unreadBadge}>
+          <Text style={styles.unreadCount}>
+            {item.unreadCount}
+          </Text>
+        </View>
+      )}
+      
       <Ionicons name="chatbubble-outline" size={24} color="#2196F3" />
     </TouchableOpacity>
   );
@@ -195,10 +225,21 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 2,
   },
-  teacherEmail: {
+  lastMessage: {
     fontSize: 12,
     color: '#888',
     marginTop: 2,
+  },
+  unreadBadge: {
+    backgroundColor: '#FF4081',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginRight: 8,
+  },
+  unreadCount: {
+    color: '#fff',
+    fontSize: 12,
   },
   loadingContainer: {
     flex: 1,
