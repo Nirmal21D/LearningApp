@@ -9,7 +9,6 @@ const TeamsFeature = () => {
 
   const handlePrivateChat = () => {
     if (!auth.currentUser) {
-      // Handle authentication check
       router.push('/login');
       return;
     }
@@ -29,7 +28,27 @@ const TeamsFeature = () => {
       router.push('/login');
       return;
     }
-    router.push('/session/request');
+    router.push('/session/request');  
+  };
+
+  const handleChatPress = () => {
+    if (!auth.currentUser) {
+      console.error('No authenticated user');
+      return;
+    }
+
+    const chatId = [auth.currentUser.uid, teacherId].sort().join('_');
+
+    router.push({
+      pathname: '/chat/student-chat',
+      params: {
+        chatId,
+        teacherName,
+        teacherSubject,
+        recipientId: teacherId,
+        isTeacher: false
+      }
+    });
   };
 
   return (
@@ -84,5 +103,4 @@ const styles = StyleSheet.create({
     color: '#666',
   },
 });
-
 export default TeamsFeature;

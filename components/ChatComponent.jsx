@@ -1,274 +1,242 @@
-  const ChatComponent = ({ sessionId, isTeacher, studentName, teacherName }) => {
-    const [messages, setMessages] = useState([]);
-    const [messageText, setMessageText] = useState('');
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+} from 'react-native';
+import { ref, onValue, push, serverTimestamp } from 'firebase/database';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { auth, database, db } from '@/lib/firebase';
+import { Ionicons } from '@expo/vector-icons';
 
-    useEffect(() => {
-      if (!sessionId || !auth.currentUser) return;
+const ChatComponent = ({ chatId, teacherName, teacherSubject }) => {
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [userType, setUserType] = useState(null);
+  const flatListRef = useRef(null);
 
-      // Reference to the specific chat
-      const chatRef = ref(database, `chats/${sessionId}`);
-      
-      const unsubscribe = onValue(chatRef, (snapshot) => {
-        const chatData = snapshot.val();
-        if (chatData?.messages) {
-          const messageList = Object.entries(chatData.messages)
-            .map(([id, message]) => ({
-              id,
-              ...message
-            }))
-            .sort((a, b) => b.timestamp - a.timestamp);
-          
-          setMessages(messageList);
-          
-          // Mark messages as read
-          const updates = {};
-          messageList.forEach(message => {
-            if (!message.read && message.senderId !== auth.currentUser.uid) {
-              updates[`chats/${sessionId}/messages/${message.id}/read`] = true;
-            }
+  useEffect(() => {
+    // Get user type from Firestore
+    const getUserType = async () => {
+      try {
+        const userQuery = query(
+          collection(db, 'users'),
+          where('email', '==', auth.currentUser.email)
+        );
+        const userSnapshot = await getDocs(userQuery);
+        if (!userSnapshot.empty) {
+          setUserType(userSnapshot.docs[0].data().userType);
+        }
+      } catch (error) {
+        console.error('Error getting user type:', error);
+      }
+    };
+    getUserType();
+  }, []);
+
+  useEffect(() => {
+    if (!chatId) return;
+
+    const chatRef = ref(database, `privateChats/${chatId}/messages`);
+    
+    const unsubscribe = onValue(chatRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const messagesData = [];
+        snapshot.forEach((childSnapshot) => {
+          messagesData.push({
+            id: childSnapshot.key,
+            ...childSnapshot.val()
           });
-          
-          if (Object.keys(updates).length > 0) {
-            update(ref(database), updates);
-          }
-        }
+        });
+        setMessages(messagesData.sort((a, b) => b.timestamp - a.timestamp));
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [chatId]);
+
+  const sendMessage = async () => {
+    if (!newMessage.trim()) return;
+
+    try {
+      const messagesRef = ref(database, `privateChats/${chatId}/messages`);
+      await push(messagesRef, {
+        text: newMessage,
+        senderId: auth.currentUser.uid,
+        senderName: userType === 'teacher' ? 'Teacher' : 'Student',
+        isTeacher: userType === 'teacher',
+        timestamp: serverTimestamp()
       });
+      setNewMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  };
 
-      return () => unsubscribe();
-    }, [sessionId]);
-
-    const handleSendMessage = async () => {
-      if (!messageText.trim()) return;
-
-      try {
-        const messagesRef = ref(database, `chats/${sessionId}/messages`);
-        const newMessageRef = push(messagesRef);
-        
-        const messageData = {
-          text: messageText.trim(),
-          senderId: auth.currentUser.uid,
-          senderName: isTeacher ? teacherName : studentName,
-          isTeacher: isTeacher,
-          timestamp: Date.now(),
-          read: false
-        };
-
-        await set(newMessageRef, messageData);
-        
-        // Update last message
-        await set(ref(database, `chats/${sessionId}/lastMessage`), messageData);
-        
-        setMessageText('');
-      } catch (error) {
-        console.error('Error sending message:', error);
-      }
-    };
-
-    const handleOpenLink = async (url) => {
-      try {
-        if (Platform.OS === 'web') {
-          window.open(url, '_blank');
-        } else {
-          await WebBrowser.openBrowserAsync(url);
-        }
-      } catch (error) {
-        console.error('Error opening link:', error);
-        Alert.alert('Error', 'Failed to open link');
-      }
-    };
-
-    const handleShareMeeting = () => {
-      const meetingLink = generateMeetingLink();
-      setMessageText(`Join video session: ${meetingLink}`);
-      handleSendMessage();
-    };
-
-    const renderMessage = ({ item }) => {
-      const isCurrentUser = item.senderId === auth.currentUser.uid;
-      const meetingLink = item.text.match(/https:\/\/meet\.jit\.si\/[^\s]+/);
-
-      return (
-        <View style={[
-          styles.messageContainer,
-          isCurrentUser ? styles.currentUserMessage : styles.otherUserMessage
-        ]}>
-          <Text style={styles.senderName}>
-            {item.senderName} {item.isTeacher ? '(Teacher)' : '(Student)'}
-          </Text>
-          
-          {meetingLink ? (
-            <View>
-              <Text style={styles.messageText}>Video Session Link:</Text>
-              <TouchableOpacity 
-                onPress={() => handleOpenLink(meetingLink[0])}
-                style={styles.linkButton}
-              >
-                <Text style={styles.linkText}>Join Meeting</Text>
-                <Ionicons name="videocam" size={20} color="#2196F3" />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <Text style={styles.messageText}>{item.text}</Text>
-          )}
-          
-          <Text style={styles.timestamp}>
-            {new Date(item.timestamp).toLocaleTimeString()}
-          </Text>
-        </View>
-      );
-    };
+  const renderMessage = ({ item }) => {
+    const isMyMessage = item.senderId === auth.currentUser.uid;
 
     return (
-      <SafeAreaView style={styles.container}>
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.container}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-        >
-          <FlatList
-            data={messages}
-            renderItem={renderMessage}
-            keyExtractor={(item) => item.id}
-            style={styles.messageList}
-            inverted={true}
-          />
-
-          {isTeacher && (
-            <View style={styles.actionContainer}>
-              <TouchableOpacity 
-                style={styles.shareButton} 
-                onPress={handleShareMeeting}
-              >
-                <Ionicons name="videocam" size={24} color="white" />
-                <Text style={styles.shareButtonText}>Share Meeting Link</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              value={messageText}
-              onChangeText={setMessageText}
-              placeholder="Type a message..."
-              multiline
-              maxLength={500}
-            />
-            <TouchableOpacity 
-              style={styles.sendButton}
-              onPress={handleSendMessage}
-              disabled={!messageText.trim()}
-            >
-              <Ionicons 
-                name="send" 
-                size={24} 
-                color="white"
-                style={!messageText.trim() ? { opacity: 0.5 } : null}
-              />
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+      <View style={[
+        styles.messageContainer,
+        isMyMessage ? styles.myMessage : styles.otherMessage
+      ]}>
+        <Text style={[
+          styles.senderName,
+          isMyMessage ? styles.myMessageText : styles.otherMessageText
+        ]}>
+          {item.senderName}
+        </Text>
+        <Text style={[
+          styles.messageText,
+          isMyMessage ? styles.myMessageText : styles.otherMessageText
+        ]}>
+          {item.text}
+        </Text>
+        <Text style={[
+          styles.timestamp,
+          isMyMessage ? styles.myMessageText : styles.otherMessageText
+        ]}>
+          {new Date(item.timestamp).toLocaleTimeString()}
+        </Text>
+      </View>
     );
   };
 
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: '#f5f5f5',
-    },
-    messageList: {
-      flex: 1,
-      padding: 10,
-    },
-    actionContainer: {
-      padding: 10,
-      borderTopWidth: 1,
-      borderTopColor: '#eee',
-      backgroundColor: '#fff',
-    },
-    shareButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: '#2196F3',
-      padding: 12,
-      borderRadius: 8,
-    },
-    shareButtonText: {
-      color: 'white',
-      marginLeft: 8,
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    messageContainer: {
-      padding: 10,
-      marginVertical: 5,
-      borderRadius: 8,
-      maxWidth: '80%',
-    },
-    currentUserMessage: {
-      alignSelf: 'flex-end',
-      backgroundColor: '#DCF8C6',
-    },
-    otherUserMessage: {
-      alignSelf: 'flex-start',
-      backgroundColor: '#fff',
-    },
-    senderName: {
-      fontSize: 12,
-      color: '#666',
-      marginBottom: 4,
-    },
-    messageText: {
-      fontSize: 16,
-      color: '#333',
-    },
-    timestamp: {
-      fontSize: 10,
-      color: '#999',
-      marginTop: 4,
-      alignSelf: 'flex-end',
-    },
-    linkButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: '#f0f0f0',
-      padding: 8,
-      borderRadius: 4,
-      marginTop: 4,
-    },
-    linkText: {
-      color: '#2196F3',
-      marginRight: 8,
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    inputContainer: {
-      flexDirection: 'row',
-      padding: 10,
-      backgroundColor: '#fff',
-      borderTopWidth: 1,
-      borderTopColor: '#eee',
-    },
-    input: {
-      flex: 1,
-      backgroundColor: '#f0f0f0',
-      borderRadius: 20,
-      paddingHorizontal: 15,
-      paddingVertical: 8,
-      marginRight: 10,
-      fontSize: 16,
-      maxHeight: 100,
-    },
-    sendButton: {
-      backgroundColor: '#2196F3',
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-  });
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2196F3" />
+      </View>
+    );
+  }
 
-  export default ChatComponent;
+  return (
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>{teacherName}</Text>
+        <Text style={styles.headerSubtitle}>{teacherSubject}</Text>
+      </View>
+
+      <FlatList
+        ref={flatListRef}
+        data={messages}
+        renderItem={renderMessage}
+        keyExtractor={item => item.id}
+        contentContainerStyle={styles.messagesList}
+        inverted
+      />
+      
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          value={newMessage}
+          onChangeText={setNewMessage}
+          placeholder="Type a message..."
+          multiline
+        />
+        <TouchableOpacity 
+          style={styles.sendButton}
+          onPress={sendMessage}
+        >
+          <Ionicons name="send" size={24} color="#2196F3" />
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  header: {
+    padding: 15,
+    backgroundColor: '#2196F3',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: '#fff',
+    opacity: 0.8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  messagesList: {
+    padding: 15,
+  },
+  messageContainer: {
+    maxWidth: '80%',
+    padding: 10,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  myMessage: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#2196F3',
+  },
+  otherMessage: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#E8E8E8',
+  },
+  senderName: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  messageText: {
+    fontSize: 16,
+  },
+  myMessageText: {
+    color: '#fff',
+  },
+  otherMessageText: {
+    color: '#000',
+  },
+  timestamp: {
+    fontSize: 10,
+    alignSelf: 'flex-end',
+    marginTop: 4,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    padding: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#E8E8E8',
+    alignItems: 'center',
+  },
+  input: {
+    flex: 1,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    marginRight: 10,
+    maxHeight: 100,
+  },
+  sendButton: {
+    padding: 8,
+  },
+});
+
+export default ChatComponent;
