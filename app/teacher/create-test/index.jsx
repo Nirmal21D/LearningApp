@@ -96,8 +96,8 @@ export default function CreateTest() {
                 type: 'multiple_choice',
                 question: '',
                 options: ['', '', '', ''],
-                correctOption: 0,
-              }
+                answer: '' // Single answer storing the option value
+            }
             : {
                 type: 'text',
                 question: '',
@@ -108,7 +108,17 @@ export default function CreateTest() {
 
     const handleUpdateOption = (questionIndex, optionIndex, text) => {
         const newQuestions = [...questions];
-        newQuestions[questionIndex].options[optionIndex] = text;
+        const question = newQuestions[questionIndex];
+        const oldOption = question.options[optionIndex];
+        
+        // Update the option
+        question.options[optionIndex] = text;
+        
+        // If this option was the answer, update it
+        if (question.answer === oldOption) {
+            question.answer = text;
+        }
+        
         setQuestions(newQuestions);
     };
 
@@ -136,17 +146,16 @@ export default function CreateTest() {
             } else {
                 return q.question.trim() && 
                        q.options.every(opt => opt.trim()) && 
-                       typeof q.correctOption === 'number';
+                       q.answer.trim(); // Check for single answer
             }
         });
 
         if (!isValid) {
-            Alert.alert('Error', 'Please fill in all question fields');
+            Alert.alert('Error', 'Please fill in all question fields and select a correct answer for each MCQ');
             return;
         }
 
         try {
-            // Get the selected subject's name
             const selectedSubjectData = subjects.find(s => s.id === selectedSubject);
             const subjectName = selectedSubjectData?.name || '';
 
@@ -156,35 +165,19 @@ export default function CreateTest() {
                 questions: questions.map(q => ({
                     ...q,
                     question: q.question.trim(),
-                    ...(q.type === 'text' 
-                        ? { answer: q.answer.trim() }
-                        : { options: q.options.map(opt => opt.trim()) }
-                    )
+                    options: q.type === 'multiple_choice' ? q.options.map(opt => opt.trim()) : undefined,
+                    answer: q.answer.trim()
                 })),
                 subjectId: selectedSubject,
-                subjectName, // Add subject name for easier querying
+                subjectName,
                 chapter: selectedChapter,
                 createdAt: serverTimestamp(),
             };
 
-            console.log('Saving test data:', testData);
-
-            // Create the test document
             const testsRef = collection(db, 'tests');
             const docRef = await addDoc(testsRef, testData);
             
             console.log('Test saved successfully with ID:', docRef.id);
-            const subjectQuestionsRef = collection(db, 'subject_questions');
-            for (const question of questions) {
-                await addDoc(subjectQuestionsRef, {
-                    ...question,
-                    testId: docRef.id,
-                    subjectId: selectedSubject,
-                    subjectName,
-                    chapter: selectedChapter,
-                    createdAt: serverTimestamp()
-                });
-            }
             
             Alert.alert(
                 'Success',
@@ -232,15 +225,15 @@ export default function CreateTest() {
                                 <TouchableOpacity 
                                     style={[
                                         styles.radioButton,
-                                        question.correctOption === optionIndex && styles.radioButtonSelected
+                                        question.correctOption === option && styles.radioButtonSelected
                                     ]}
                                     onPress={() => {
                                         const newQuestions = [...questions];
-                                        newQuestions[index].correctOption = optionIndex;
+                                        newQuestions[index].correctOption = option;
                                         setQuestions(newQuestions);
                                     }}
                                 >
-                                    {question.correctOption === optionIndex && (
+                                    {question.correctOption === option && (
                                         <Ionicons name="checkmark" size={16} color="white" />
                                     )}
                                 </TouchableOpacity>

@@ -1,76 +1,106 @@
-import React, { useState } from 'react';
-import { View, Text, PanResponder, Animated, Dimensions } from 'react-native';
-import Svg, { Line, Circle } from 'react-native-svg';
+import React from "react";
+import { View, StyleSheet } from "react-native";
+import { WebView } from "react-native-webview";
 
-const { width, height } = Dimensions.get('window');
+const ExperimentScreen = () => {
 
-const MagneticFieldSimulator = () => {
-  const [magnetPosition, setMagnetPosition] = useState({ x: width / 2, y: height / 2 });
-  const [needleRotation, setNeedleRotation] = useState(new Animated.Value(0));
+    const customHTML = `
+   
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Equivalent Resistance Experiment</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script type="module">
+        import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.158/build/three.module.js";
 
-  // PanResponder to handle the dragging of the magnet
-  const panResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onPanResponderMove: (_, gestureState) => {
-      const { dx, dy } = gestureState;
-      setMagnetPosition({
-        x: magnetPosition.x + dx,
-        y: magnetPosition.y + dy,
-      });
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
 
-      // Update the compass needle direction based on the magnet's position
-      const angle = Math.atan2(dy, dx) * (180 / Math.PI); // Angle between magnet and compass
-      Animated.timing(needleRotation, {
-        toValue: angle,
-        duration: 50,
-        useNativeDriver: true,
-      }).start();
-    },
-    onPanResponderRelease: () => {},
-  });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Light
+        const light = new THREE.PointLight(0xffffff, 1, 100);
+        light.position.set(10, 10, 10);
+        scene.add(light);
+
+        // Battery
+        const batteryGeometry = new THREE.CylinderGeometry(0.5, 0.5, 2, 32);
+        const batteryMaterial = new THREE.MeshStandardMaterial({ color: "black" });
+        const battery = new THREE.Mesh(batteryGeometry, batteryMaterial);
+        battery.position.set(-3, 0, 0);
+        scene.add(battery);
+
+        // Resistors
+        const resistorGeometry = new THREE.BoxGeometry(2, 0.5, 0.5);
+        const resistorMaterial = new THREE.MeshStandardMaterial({ color: "orange" });
+
+        const resistor1 = new THREE.Mesh(resistorGeometry, resistorMaterial);
+        resistor1.position.set(0, 0, 0);
+        scene.add(resistor1);
+
+        const resistor2 = new THREE.Mesh(resistorGeometry, resistorMaterial);
+        resistor2.position.set(3, 0, 0);
+        scene.add(resistor2);
+
+        // Wires
+        function createWire(start, end) {
+            const points = [new THREE.Vector3(...start), new THREE.Vector3(...end)];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ color: "black" });
+            const wire = new THREE.Line(geometry, material);
+            scene.add(wire);
+        }
+
+        createWire([-3, 0, 0], [0, 0, 0]);
+        createWire([0, 0, 0], [3, 0, 0]);
+        createWire([3, 0, 0], [5, 0, 0]);
+
+        camera.position.z = 5;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
+`;
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f0f0' }}>
-      {/* Magnetic field lines */}
-      <Svg height={height} width={width}>
-        <Circle cx={magnetPosition.x} cy={magnetPosition.y} r="5" fill="red" />
-        {/* Optionally draw some lines to simulate magnetic field */}
-        <Line x1={magnetPosition.x} y1={magnetPosition.y} x2={magnetPosition.x + 100} y2={magnetPosition.y} stroke="blue" strokeWidth="1" />
-        <Line x1={magnetPosition.x} y1={magnetPosition.y} x2={magnetPosition.x} y2={magnetPosition.y + 100} stroke="blue" strokeWidth="1" />
-      </Svg>
-
-      {/* Compass */}
-      <View style={{ position: 'absolute', top: height / 2 - 50 }}>
-        <Svg height="100" width="100">
-          <Circle cx="50" cy="50" r="45" stroke="black" strokeWidth="3" fill="white" />
-          <Animated.Line
-            x1="50"
-            y1="10"
-            x2="50"
-            y2="50"
-            stroke="black"
-            strokeWidth="3"
-            transform={[{ rotate: needleRotation.interpolate({ inputRange: [-180, 180], outputRange: ['-180deg', '180deg'] }) }]}
-          />
-        </Svg>
-        <Text style={{ textAlign: 'center', marginTop: 10 }}>Compass</Text>
-      </View>
-
-      {/* Draggable magnet */}
-      <Animated.View
-        style={{
-          width: 60,
-          height: 20,
-          backgroundColor: 'red',
-          position: 'absolute',
-          top: magnetPosition.y - 10,
-          left: magnetPosition.x - 30,
-          borderRadius: 5,
-        }}
-        {...panResponder.panHandlers}
+    <View style={styles.container}>
+      <WebView source={{ uri : "http://192.168.0.165:5174/"  }} 
+      originWhitelist={["*"]}
+      allowFileAccess={true}
+      allowUniversalAccessFromFileURLs={true}
+      javaScriptEnabled={true}
+      domStorageEnabled={true}
+      onMessage={(event) => console.log(event.nativeEvent.data)}
+      onError={(syntheticEvent) => {
+        const { nativeEvent } = syntheticEvent;
+        console.warn("WebView error: ", nativeEvent);
+      }}
       />
     </View>
+    
+  
+   
+  
   );
 };
 
-export default MagneticFieldSimulator;
+const styles = StyleSheet.create({
+  container: { flex: 1 }
+});
+
+export default ExperimentScreen;
+

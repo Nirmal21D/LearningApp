@@ -123,7 +123,8 @@ export default function TestPage() {
             testData.questions.forEach(question => {
                 const userAnswer = userAnswers[question.id];
                 if (question.type === 'multiple_choice') {
-                    if (userAnswer === question.correctOption || userAnswer === question.answer) correctAnswers++;
+                    const US = parseInt(userAnswer);
+                    if (US == question.correctOption || userAnswer === question.answer) correctAnswers++;
                 } else {
                     if (userAnswer.toLowerCase().trim() === question.answer.toLowerCase().trim()) correctAnswers++;
                 }
@@ -208,7 +209,7 @@ export default function TestPage() {
                                     <Text style={styles.answerLabel}>Correct Answer:</Text>
                                     <Text style={styles.correctAnswerText}>
                                         {question.type === 'multiple_choice' 
-                                            ? question.correctOption 
+                                            ? question.correctOption
                                             : question.answer}
                                     </Text>
                                 </View>

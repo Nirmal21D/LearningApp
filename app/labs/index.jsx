@@ -63,10 +63,10 @@ const Labs = () => {
             <View style={[styles.subjectIconContainer, { backgroundColor:  "#3498db" }]}>
               <Ionicons name={ "book"} size={32} color="white" />
             </View>
-            <Text style={styles.subjectName}> EquivalentResistanceofResistors</Text>
+            <Text style={styles.subjectName}> Breadboard</Text>
           </TouchableOpacity>
 
-          
+
           <TouchableOpacity
         
             style={styles.subjectCard}
@@ -81,6 +81,22 @@ const Labs = () => {
               <Ionicons name={ "book"} size={32} color="white" />
             </View>
             <Text style={styles.subjectName}>Magnet</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+        
+            style={styles.subjectCard}
+            onPress={() =>{
+                router.push({
+                    pathname: `/labs/exp3`,
+                
+                  });
+            }}
+          >
+            <View style={[styles.subjectIconContainer, { backgroundColor:  "#3498db" }]}>
+              <Ionicons name={ "book"} size={32} color="white" />
+            </View>
+            <Text style={styles.subjectName}>EquivalentResistanceofResistors</Text>
           </TouchableOpacity>
      
       </View>
