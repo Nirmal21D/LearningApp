@@ -8,6 +8,7 @@ import {
   Alert,
   SafeAreaView,
   ActivityIndicator,
+  Linking,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,9 +21,12 @@ import {
   updateDoc,
   addDoc,
   orderBy,
+  onSnapshot,
+  Timestamp,
 } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
+import { db, auth, database } from "@/lib/firebase";
 import CallButton from "@/components/CallButton";
+import { ref, push } from 'firebase/database';
 
 export default function TeacherDashboard() {
   const router = useRouter();
@@ -59,6 +63,7 @@ export default function TeacherDashboard() {
 
     debugSessions();
   }, []);
+
   const [quickActions] = useState([
     {
       id: "session-requests",
@@ -234,62 +239,223 @@ export default function TeacherDashboard() {
     }
   };
 
+  // Replace your existing fetchApprovedSessions function with this enhanced version
+
+
+//   const fetchApprovedSessions = async () => {
+//   try {
+//     console.log("Starting fetchApprovedSessions...");
+//     console.log("Current teacher ID:", auth.currentUser?.uid);
+
+//     const sessionsRef = collection(db, "sessionRequests");
+//     const q = query(
+//       sessionsRef,
+//       where("teacherId", "==", auth.currentUser.uid),
+//       where("status", "==", "approved"),
+//       orderBy("requestedDate", "desc")
+//     );
+
+//     console.log("Executing Firebase query...");
+//     const snapshot = await getDocs(q);
+//     console.log(`Found ${snapshot.docs.length} total sessions`);
+
+//     // Log each session for debugging
+//     snapshot.docs.forEach((doc, index) => {
+//       const data = doc.data();
+//       console.log(`Session ${index + 1}:`, {
+//         id: doc.id,
+//         topic: data.topic,
+//         status: data.status,
+//         teacherId: data.teacherId,
+//         requestedDate: data.requestedDate?.toDate(),
+//       });
+//     });
+
+//     const sessions = snapshot.docs
+//       .map((doc) => {
+//         const data = doc.data();
+//         const session = {
+//           id: doc.id,
+//           ...data,
+//           requestedDate: data.requestedDate?.toDate() || new Date(),
+//           createdAt: data.createdAt?.toDate() || new Date(),
+//           updatedAt: data.updatedAt?.toDate() || new Date(),
+//         };
+//         console.log("Processed session:", session);
+//         return session;
+//       })
+//       .filter((session) => {
+//         const isUpcoming = new Date(session.requestedDate) > new Date();
+//         console.log(
+//           `Session ${session.id} - Date check:`,
+//           session.requestedDate,
+//           'Is upcoming:', isUpcoming
+//         );
+//         return isUpcoming;
+//       });
+
+//     console.log("Final filtered sessions:", sessions);
+//     setApprovedSessions(sessions);
+//     setLoading(false);
+//   } catch (error) {
+//     console.error("Error in fetchApprovedSessions:", error);
+//     setLoading(false);
+//   }
+// };
+
+// Add this useEffect to check the current state
+useEffect(() => {
+  console.log("Current approvedSessions state:", approvedSessions);
+}, [approvedSessions]);
+// Add this temporary check in your component
+useEffect(() => {
+  const checkSession = async () => {
+    const docRef = doc(db, "sessionRequests", "YOUR_SESSION_ID");
+    const docSnap = await getDoc(docRef);
+    console.log("Direct session check:", docSnap.data());
+  };
+  checkSession();
+}, []);
+
   const handleStartSession = async (session) => {
     try {
-      // First, validate that we have a valid session with an ID
       if (!session || !session.id) {
         console.error("Invalid session data", session);
         Alert.alert("Error", "Session data is invalid");
         return;
       }
 
-      // Generate a valid room ID that won't cause issues
-      const safeRoomId = session.roomId
-        ? session.roomId.toString().replace(/[^a-zA-Z0-9]/g, "")
-        : `session${Date.now()}${Math.random().toString(36).substr(2, 5)}`;
+      // Generate a safe room ID with teacher prefix
+      const safeRoomId = `teacher_${auth.currentUser.uid}_${Date.now()}`;
+      const teacherName = encodeURIComponent(auth.currentUser.displayName || auth.currentUser.email || 'Teacher');
+      
+      // Use meet.jit.si with advanced configuration
+      const jitsiUrl = `https://meet.jit.si/${safeRoomId}#config.prejoinPageEnabled=false&userInfo.displayName=${teacherName}&config.startWithAudioMuted=false&config.startWithVideoMuted=false&config.disableModeratorIndicator=false&config.enableLobbyChat=true&config.enableWelcomePage=false&config.enableClosePage=false&config.disableDeepLinking=true&config.p2p.enabled=true&config.resolution=720&config.constraints.video.height.ideal=720&config.constraints.video.width.ideal=1280`;
 
-      console.log("Starting session with room ID:", safeRoomId);
-
-      // First update the session document
+      // Update the session document with new meeting details
       const sessionRef = doc(db, "sessionRequests", session.id);
       await updateDoc(sessionRef, {
         roomId: safeRoomId,
         status: "in-progress",
         startTime: new Date(),
+        meetingUrl: jitsiUrl,
+        platform: "meet.jit.si",
+        teacherName: auth.currentUser.displayName || auth.currentUser.email
       });
 
-      console.log("Session document updated successfully");
+      // Share meeting link with student
+      const studentMessageData = {
+        text: jitsiUrl,
+        senderId: auth.currentUser.uid,
+        senderName: auth.currentUser.displayName || auth.currentUser.email,
+        senderEmail: auth.currentUser.email,
+        isTeacher: true,
+        timestamp: Date.now(),
+        type: 'meeting',
+        platform: 'meet.jit.si',
+        sessionId: session.id,
+        topic: session.topic || 'Online Session'
+      };
 
-      // Then navigate to the video call
-      router.push({
-        pathname: "/screens/video-call",
-        params: {
-          roomId: safeRoomId,
-          sessionId: session.id,
-          isTeacher: true,
-          studentName: session.studentName || "Student",
-          teacherName: teacherInfo?.name || "Teacher",
-          topic: session.topic || "Video Session",
-        },
-      });
+      // Create chat ID by sorting and joining IDs
+      const chatId = [auth.currentUser.uid, session.studentId].sort().join('_');
+      
+      // Get reference to the chat messages
+      const messagesRef = ref(database, `privateChats/${chatId}/messages`);
+      
+      // Share the meeting link in chat
+      await push(messagesRef, studentMessageData);
+
+      // Open meeting in browser for teacher
+      await Linking.openURL(jitsiUrl);
+
     } catch (error) {
-      console.error(
-        "Detailed error starting session:",
-        error.message,
-        error.code,
-        error.stack
+      console.error("Error starting session:", error);
+      Alert.alert(
+        "Error", 
+        "Failed to start session. Please check your internet connection and try again."
       );
-
-      // More descriptive error message
-      let errorMessage = "Failed to start session";
-      if (error.code === "permission-denied") {
-        errorMessage = "Permission denied - check your login status";
-      } else if (error.code === "not-found") {
-        errorMessage = "Session document not found";
-      }
-
-      Alert.alert("Error", errorMessage);
     }
+  };
+
+  // Add a helper function to check if a session can be started
+  const canStartSession = (session) => {
+    const sessionTime = new Date(session.requestedDate.seconds * 1000);
+    const now = new Date();
+    const timeDiff = Math.abs(sessionTime - now) / 1000 / 60; // difference in minutes
+    
+    return session.status === 'approved' && timeDiff < 30; // Can start within 30 minutes of scheduled time
+  };
+
+  const renderSession = ({ item }) => {
+    const sessionDate = item.requestedDate 
+      ? new Date(item.requestedDate.seconds * 1000) 
+      : new Date();
+
+    const canStart = canStartSession(item);
+
+    return (
+      <View style={styles.sessionCard}>
+        <View style={styles.sessionHeader}>
+          <Text style={styles.subject}>
+            {item.teacherSubject || 'No Subject'}
+          </Text>
+          <Text style={[
+            styles.status,
+            { color: item.status === 'approved' ? '#4CAF50' : '#FFA000' }
+          ]}>
+            {item.status || 'Pending'}
+          </Text>
+        </View>
+
+        <Text style={styles.topic} numberOfLines={2}>
+          Topic: {item.topic || 'No Topic'}
+        </Text>
+
+        {item.description && (
+          <Text style={styles.description} numberOfLines={2}>
+            {item.description}
+          </Text>
+        )}
+
+        <View style={styles.timeContainer}>
+          <Ionicons name="time-outline" size={20} color="#666" />
+          <Text style={styles.time}>
+            {sessionDate.toLocaleString('en-US', {
+              month: 'short',
+              day: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            })}
+          </Text>
+        </View>
+
+        <View style={styles.studentInfo}>
+          <Ionicons name="person-outline" size={20} color="#666" />
+          <Text style={styles.studentText}>
+            Student: {item.studentId || 'No Student ID'}
+          </Text>
+        </View>
+
+        {canStart && (
+          <TouchableOpacity 
+            style={[
+              styles.startButton,
+              !canStart && styles.startButtonDisabled
+            ]}
+            onPress={() => handleStartSession(item)}
+            disabled={!canStart}
+          >
+            <Ionicons name="videocam" size={24} color="#fff" />
+            <Text style={styles.buttonText}>
+              {canStart ? 'Start Session' : 'Not Yet Time'}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
   };
 
   const handleViewActiveSessions = () => {
@@ -384,18 +550,17 @@ export default function TeacherDashboard() {
         </View>
       );
     }
-
-    if (approvedSessions.length === 0) {
+  
+    if (!approvedSessions || approvedSessions.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="calendar-outline" size={48} color="#666" />
           <Text style={styles.emptyText}>No upcoming sessions</Text>
         </View>
       );
     }
-
+  
     return (
-      <View style={styles.sessionsContainer}>
+      <ScrollView style={styles.sessionsContainer}>
         {approvedSessions.map((session) => (
           <View key={session.id} style={styles.sessionCard}>
             <View style={styles.sessionInfo}>
@@ -408,10 +573,14 @@ export default function TeacherDashboard() {
               </Text>
 
               {session.description && (
-                <Text style={styles.sessionDescription} numberOfLines={2}>
+                <Text style={styles.sessionDescription}>
                   {session.description}
                 </Text>
               )}
+
+              <Text style={styles.sessionTeacher}>
+                Teacher: {session.teacherName || "Not specified"}
+              </Text>
 
               <Text style={styles.sessionStudent}>
                 Student ID: {session.studentId || "No student assigned"}
@@ -445,12 +614,12 @@ export default function TeacherDashboard() {
               style={styles.startButton}
               onPress={() => handleStartSession(session)}
             >
-              <Ionicons name="videocam" size={24} color="white" />
+              <Ionicons name="play" size={20} color="white" />
               <Text style={styles.startButtonText}>Start</Text>
             </TouchableOpacity>
           </View>
         ))}
-      </View>
+      </ScrollView>
     );
   };
 
@@ -871,5 +1040,9 @@ const styles = StyleSheet.create({
   sessionsContainer: {
     padding: 10,
   },
+  startButtonDisabled: {
+    backgroundColor: '#BDBDBD',
+    opacity: 0.7
+  }
 });
 
