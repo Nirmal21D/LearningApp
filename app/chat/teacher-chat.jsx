@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { ref, get } from 'firebase/database';
 import { db, database, auth } from '@/lib/firebase';
 
@@ -19,125 +19,101 @@ const TeacherChatsScreen = () => {
   const router = useRouter();
   const [chatSessions, setChatSessions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeChats, setActiveChats] = useState([]);
 
   useEffect(() => {
-    fetchChatSessions();
-    subscribeToActiveChats();
-    
-    return () => {
-      // Cleanup subscriptions if needed
-    };
+    loadChatSessions();
   }, []);
 
-  const fetchChatSessions = async () => {
+  const loadChatSessions = async () => {
     try {
-      // Fetch sessions where the teacher is involved
-      const sessionsRef = collection(db, 'sessionRequests');
-      const q = query(
-        sessionsRef,
-        where('teacherId', '==', auth.currentUser.uid),
-        where('status', 'in', ['approved', 'in-progress', 'completed'])
+      if (!auth.currentUser) {
+        console.error('No authenticated user');
+        return;
+      }
+
+      // Get all students
+      const studentsQuery = query(
+        collection(db, 'users'),
+        where('userType', '==', 'student')
       );
 
-      const snapshot = await getDocs(q);
-      const sessions = snapshot.docs.map(doc => ({
+      const studentsSnapshot = await getDocs(studentsQuery);
+      const students = studentsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
 
-      // Check for messages in each session
-      const sessionsWithMessages = await Promise.all(
-        sessions.map(async (session) => {
-          const messagesRef = ref(database, `privateChats/${session.id}/messages`);
-          const messagesSnapshot = await get(messagesRef);
-          const hasMessages = messagesSnapshot.exists();
-          const lastMessage = hasMessages ? 
-            Object.values(messagesSnapshot.val()).sort((a, b) => b.timestamp - a.timestamp)[0] : 
-            null;
-
+      // For each student, check if there's a chat with the current teacher
+      const chatPromises = students.map(async (student) => {
+        const chatId = `${student.id}_${auth.currentUser.uid}`;
+        const chatRef = ref(database, `privateChats/${chatId}/messages`);
+        const chatSnapshot = await get(chatRef);
+        
+        if (chatSnapshot.exists()) {
+          // Get the last message
+          const messages = Object.values(chatSnapshot.val());
+          const lastMessage = messages[messages.length - 1];
+          
           return {
-            ...session,
-            hasMessages,
-            lastMessage
+            id: chatId,
+            studentName: student.username,
+            studentId: student.id,
+            lastMessage,
+            timestamp: lastMessage.timestamp
           };
-        })
-      );
+        }
+        return null;
+      });
 
-      setChatSessions(sessionsWithMessages.filter(session => session.hasMessages));
+      const chats = (await Promise.all(chatPromises)).filter(chat => chat !== null);
+      
+      // Sort chats by timestamp
+      chats.sort((a, b) => b.timestamp - a.timestamp);
+      
+      setChatSessions(chats);
       setIsLoading(false);
     } catch (error) {
-      console.error('Error fetching chat sessions:', error);
+      console.error('Error loading chat sessions:', error);
       Alert.alert('Error', 'Failed to load chat sessions');
       setIsLoading(false);
     }
   };
 
-  const subscribeToActiveChats = () => {
-    // Subscribe to real-time updates for active chats
-    const activeChatsRef = collection(db, 'activeChats');
-    const q = query(
-      activeChatsRef,
-      where('teacherId', '==', auth.currentUser.uid),
-      where('status', '==', 'active')
-    );
-
-    return onSnapshot(q, (snapshot) => {
-      const activeChatsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setActiveChats(activeChatsData);
-    });
-  };
-
   const handleOpenChat = (session) => {
     router.push({
-      pathname: '/screens/private-chat',
+      pathname: '/chat/private',
       params: {
-        sessionId: session.id,
-        isTeacher: true,
-        studentName: session.studentName || 'Student',
-        teacherName: session.teacherName || 'Teacher'
+        chatId: session.id,
+        studentName: session.studentName,
+        recipientId: session.studentId,
+        isTeacher: true
       }
     });
   };
 
-  const renderChatItem = ({ item }) => {
-    const lastMessageTime = item.lastMessage ? 
-      new Date(item.lastMessage.timestamp).toLocaleTimeString() : 
-      'No messages';
-
-    return (
-      <TouchableOpacity
-        style={styles.chatItem}
-        onPress={() => handleOpenChat(item)}
-      >
-        <View style={styles.chatIcon}>
-          <Ionicons name="chatbubbles" size={24} color="#2196F3" />
-        </View>
-        <View style={styles.chatInfo}>
-          <Text style={styles.studentName}>
-            {item.studentName || 'Unnamed Student'}
+  const renderChatItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.chatItem}
+      onPress={() => handleOpenChat(item)}
+    >
+      <View style={styles.chatIcon}>
+        <Ionicons name="person-circle-outline" size={40} color="#2196F3" />
+      </View>
+      <View style={styles.chatInfo}>
+        <Text style={styles.studentName}>{item.studentName}</Text>
+        {item.lastMessage && (
+          <Text style={styles.lastMessage} numberOfLines={1}>
+            {item.lastMessage.text}
           </Text>
-          <Text style={styles.topicText}>Topic: {item.topic}</Text>
-          <Text style={styles.lastMessage}>
-            {item.lastMessage ? 
-              (item.lastMessage.text.length > 30 ? 
-                `${item.lastMessage.text.substring(0, 30)}...` : 
-                item.lastMessage.text) : 
-              'No messages yet'}
-          </Text>
-        </View>
-        <View style={styles.chatMeta}>
-          <Text style={styles.timeText}>{lastMessageTime}</Text>
-          {item.status === 'in-progress' && (
-            <View style={styles.activeIndicator} />
-          )}
-        </View>
-      </TouchableOpacity>
-    );
-  };
+        )}
+      </View>
+      {item.lastMessage && (
+        <Text style={styles.timestamp}>
+          {new Date(item.lastMessage.timestamp).toLocaleTimeString()}
+        </Text>
+      )}
+    </TouchableOpacity>
+  );
 
   if (isLoading) {
     return (
@@ -150,12 +126,7 @@ const TeacherChatsScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Student Chats</Text>
-        {activeChats.length > 0 && (
-          <Text style={styles.activeChatsText}>
-            {activeChats.length} Active Chat{activeChats.length !== 1 ? 's' : ''}
-          </Text>
-        )}
+        <Text style={styles.headerTitle}>Student Messages</Text>
       </View>
 
       {chatSessions.length > 0 ? (
@@ -166,12 +137,9 @@ const TeacherChatsScreen = () => {
           contentContainerStyle={styles.listContainer}
         />
       ) : (
-        <View style={styles.noChatsContainer}>
+        <View style={styles.emptyContainer}>
           <Ionicons name="chatbubbles-outline" size={48} color="#757575" />
-          <Text style={styles.noChatsText}>No chat sessions found</Text>
-          <Text style={styles.noChatsSubtext}>
-            Chat sessions will appear here once you start communicating with students
-          </Text>
+          <Text style={styles.emptyText}>No chat sessions yet</Text>
         </View>
       )}
     </SafeAreaView>
@@ -199,11 +167,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  activeChatsText: {
-    fontSize: 14,
-    color: '#2196F3',
-    marginTop: 4,
-  },
   listContainer: {
     padding: 16,
   },
@@ -213,6 +176,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
+    alignItems: 'center',
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -220,13 +184,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   chatIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#e3f2fd',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   chatInfo: {
     flex: 1,
@@ -237,47 +195,25 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 4,
   },
-  topicText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
   lastMessage: {
     fontSize: 14,
-    color: '#757575',
+    color: '#666',
   },
-  chatMeta: {
-    alignItems: 'flex-end',
-  },
-  timeText: {
+  timestamp: {
     fontSize: 12,
-    color: '#9e9e9e',
-    marginBottom: 8,
+    color: '#999',
   },
-  activeIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#4caf50',
-  },
-  noChatsContainer: {
+  emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: 20,
   },
-  noChatsText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#757575',
+  emptyText: {
     marginTop: 16,
+    fontSize: 16,
+    color: '#757575',
     textAlign: 'center',
-  },
-  noChatsSubtext: {
-    fontSize: 14,
-    color: '#9e9e9e',
-    textAlign: 'center',
-    marginTop: 8,
   },
 });
 
