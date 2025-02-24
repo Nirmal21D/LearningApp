@@ -160,14 +160,18 @@ export default function Login() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    position: 'relative',
+    backgroundColor: 'transparent',
+    overflow: 'hidden',
   },
   main: {
     flex: 1,
     padding: Platform.OS === 'web' ? 20 : 16,
     justifyContent: 'center',
-    maxWidth: 500, // Limit maximum width on larger screens
+    maxWidth: 500,
     width: '100%',
     alignSelf: 'center',
+    zIndex: 1,
   },
   headerContainer: {
     marginBottom: Platform.OS === 'web' ? 40 : 30,
@@ -330,29 +334,39 @@ const styles = StyleSheet.create({
   blurCircle: {
     position: 'absolute',
     borderRadius: 999,
+    zIndex: 0,
   },
   blurCircle1: {
-    width: Platform.OS === 'web' ? 300 : 200,
-    height: Platform.OS === 'web' ? 300 : 200,
-    backgroundColor: 'rgba(33, 150, 243, 0.15)',
-    top: Platform.OS === 'web' ? -50 : -30,
-    left: Platform.OS === 'web' ? -150 : -100,
-    transform: [{ rotate: '-15deg' }],
+    width: Platform.OS === 'web' ? 250 : 200,
+    height: Platform.OS === 'web' ? 250 : 200,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    top: Platform.OS === 'web' ? 20 : 10,
+    left: Platform.OS === 'web' ? -80 : -60,
+    transform: [
+      { scale: 1.2 },
+      { rotate: '-15deg' }
+    ],
   },
   blurCircle2: {
-    width: Platform.OS === 'web' ? 200 : 150,
-    height: Platform.OS === 'web' ? 200 : 150,
-    backgroundColor: 'rgba(100, 181, 246, 0.2)',
-    top: '30%',
-    right: Platform.OS === 'web' ? -30 : -20,
-    transform: [{ rotate: '30deg' }],
+    width: Platform.OS === 'web' ? 220 : 180,
+    height: Platform.OS === 'web' ? 220 : 180,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    top: Platform.OS === 'web' ? 340 : 30,
+    right: Platform.OS === 'web' ? -40 : -30,
+    transform: [
+      { scale: 1.1 },
+      { rotate: '30deg' }
+    ],
   },
   blurCircle3: {
-    width: Platform.OS === 'web' ? 300 : 200,
-    height: Platform.OS === 'web' ? 300 : 200,
-    backgroundColor: 'rgba(33, 150, 243, 0.2)',
-    bottom: Platform.OS === 'web' ? -100 : -50,
-    left: Platform.OS === 'web' ? -50 : -30,
-    transform: [{ rotate: '15deg' }],
+    width: Platform.OS === 'web' ? 200 : 160,
+    height: Platform.OS === 'web' ? 200 : 160,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    bottom: Platform.OS === 'web' ? 30 : 80,
+    left: Platform.OS === 'web' ? -60 : -40,
+    transform: [
+      { scale: 1 },
+      { rotate: '15deg' }
+    ],
   },
 });

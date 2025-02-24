@@ -530,6 +530,7 @@ useEffect(() => {
     );
   };
 
+
   const renderQuickAction = (action) => (
     <TouchableOpacity
       key={action.id}
@@ -609,7 +610,6 @@ useEffect(() => {
                 )}
               </View>
             </View>
-
             <TouchableOpacity
               style={styles.startButton}
               onPress={() => handleStartSession(session)}
@@ -1045,4 +1045,3 @@ const styles = StyleSheet.create({
     opacity: 0.7
   }
 });
-
