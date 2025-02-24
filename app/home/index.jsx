@@ -9,6 +9,7 @@ import ChatBot from '@/components/Chatbot';
 import { signOut } from 'firebase/auth';
 import { Alert } from 'react-native';
 import LearningStyleAssessment from '@/components/LearningStyleAssessment';
+import RecommendedVideos from '@/components/RecommendedVideos';
 
 
 import { auth } from '@/lib/firebase';
@@ -204,6 +205,18 @@ export default function Home() {
               </TouchableOpacity>
             ))}
           </View>
+        </View>
+
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recommended Videos</Text>
+            <TouchableOpacity 
+              onPress={() => router.push('/videos')}
+            >
+              <Text style={styles.seeAllButton}>See All</Text>
+            </TouchableOpacity>
+          </View>
+          <RecommendedVideos />
         </View>
 
         {/* Course Categories */}

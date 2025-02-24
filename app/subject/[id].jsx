@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { collection, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import RecommendedVideos from '../../components/RecommendedVideos';
 
 const { width } = Dimensions.get('window');
 
@@ -99,7 +100,10 @@ export default function SubjectDetail() {
           </TouchableOpacity>
         ))}
       </View>
+
+      <RecommendedVideos subjectId={id} />
     </ScrollView>
+    
   );
 }
 

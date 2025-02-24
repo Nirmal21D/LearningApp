@@ -518,28 +518,39 @@ export default function ChapterDetail() {
   };
 
   const fetchRelatedVideos = async (currentVideo) => {
-    if (!currentVideo || !currentVideo.tags || currentVideo.tags.length === 0)
+    if (!currentVideo || !currentVideo.learningStyleTags || currentVideo.learningStyleTags.length === 0)
       return;
-
+  
     try {
-      const videosRef = collection(db, "videos");
-      const q = query(
-        videosRef,
-        where("tags", "array-contains-any", currentVideo.tags),
-        where("id", "!=", currentVideo.id)
-      );
-
-      const querySnapshot = await getDocs(q);
-      const videos = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-
-      setRelatedVideos(videos);
+      const subjectsRef = collection(db, "subjects");
+      const querySnapshot = await getDocs(subjectsRef);
+      
+      let relatedVideos = [];
+  
+      querySnapshot.forEach((doc) => {
+        const subjectData = doc.data();
+        if (subjectData.chapters) {
+          Object.values(subjectData.chapters).forEach((chapter) => {
+            if (chapter.videos) {
+              Object.values(chapter.videos).forEach((video) => {
+                if (
+                  video.id !== currentVideo.id &&
+                  video.learningStyleTags.some(tag => currentVideo.learningStyleTags.includes(tag))
+                ) {
+                  relatedVideos.push({ id: video.id, ...video });
+                }
+              });
+            }
+          });
+        }
+      });
+  
+      setRelatedVideos(relatedVideos);
     } catch (error) {
       console.error("Error fetching related videos:", error);
     }
   };
+  
 
   const openMaterial = async (url) => {
     try {

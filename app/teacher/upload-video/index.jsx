@@ -1,360 +1,452 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
+"use client"
+
+import { useState, useEffect } from "react"
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   ScrollView,
   TextInput,
   ActivityIndicator,
-  SafeAreaView
-} from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import { 
-  collection, 
-  addDoc, 
-  doc, 
-  getDoc, 
-  getDocs, 
-  query, 
-  where, 
-  updateDoc, 
-  arrayUnion 
-} from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
-import { useRouter } from 'expo-router';
-import * as DocumentPicker from 'expo-document-picker';
-import * as VideoThumbnails from 'expo-video-thumbnails';
-import { Ionicons } from '@expo/vector-icons';
-import Animated, { 
-    useAnimatedStyle, 
-    withSpring, 
-    useSharedValue,
-    interpolate
-} from 'react-native-reanimated';
+  SafeAreaView,
+} from "react-native"
+import { Picker } from "@react-native-picker/picker"
+import { collection, doc, getDoc, getDocs, query, where, updateDoc, arrayUnion } from "firebase/firestore"
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
+import { db, storage } from "@/lib/firebase"
+import { useRouter } from "expo-router"
+import * as DocumentPicker from "expo-document-picker"
+import * as VideoThumbnails from "expo-video-thumbnails"
+import { Ionicons } from "@expo/vector-icons"
+import Animated, { useAnimatedStyle, withSpring, useSharedValue, interpolate } from "react-native-reanimated"
 
 const InteractiveCard = ({ children, style }) => {
-    const scale = useSharedValue(1);
-    const elevation = useSharedValue(2);
-    
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: scale.value }],
-        shadowOpacity: interpolate(elevation.value, [2, 8], [0.1, 0.15]),
-        shadowRadius: elevation.value,
-    }));
+  const scale = useSharedValue(1)
+  const elevation = useSharedValue(2)
 
-    return (
-        <Animated.View 
-            style={[animatedStyle, style]}
-            onTouchStart={() => {
-                scale.value = withSpring(0.995);
-                elevation.value = withSpring(8);
-            }}
-            onTouchEnd={() => {
-                scale.value = withSpring(1);
-                elevation.value = withSpring(2);
-            }}
-        >
-            {children}
-        </Animated.View>
-    );
-};
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    shadowOpacity: interpolate(elevation.value, [2, 8], [0.1, 0.15]),
+    shadowRadius: elevation.value,
+  }))
+
+  return (
+    <Animated.View
+      style={[animatedStyle, style]}
+      onTouchStart={() => {
+        scale.value = withSpring(0.995)
+        elevation.value = withSpring(8)
+      }}
+      onTouchEnd={() => {
+        scale.value = withSpring(1)
+        elevation.value = withSpring(2)
+      }}
+    >
+      {children}
+    </Animated.View>
+  )
+}
 
 const InteractiveInput = ({ children, style }) => {
-    const scale = useSharedValue(1);
-    const backgroundColor = useSharedValue('rgba(33, 150, 243, 0.04)');
-    const borderColor = useSharedValue('rgba(33, 150, 243, 0.08)');
-    
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: scale.value }],
-        backgroundColor: backgroundColor.value,
-        borderColor: borderColor.value,
-    }));
+  const scale = useSharedValue(1)
+  const backgroundColor = useSharedValue("rgba(33, 150, 243, 0.04)")
+  const borderColor = useSharedValue("rgba(33, 150, 243, 0.08)")
 
-    return (
-        <Animated.View 
-            style={[animatedStyle, style]}
-            onTouchStart={() => {
-                scale.value = withSpring(0.98, { damping: 15 });
-                backgroundColor.value = withSpring('rgba(33, 150, 243, 0.08)');
-                borderColor.value = withSpring('rgba(33, 150, 243, 0.15)');
-            }}
-            onTouchEnd={() => {
-                scale.value = withSpring(1, { damping: 15 });
-                backgroundColor.value = withSpring('rgba(33, 150, 243, 0.04)');
-                borderColor.value = withSpring('rgba(33, 150, 243, 0.08)');
-            }}
-        >
-            {children}
-        </Animated.View>
-    );
-};
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    backgroundColor: backgroundColor.value,
+    borderColor: borderColor.value,
+  }))
+
+  return (
+    <Animated.View
+      style={[animatedStyle, style]}
+      onTouchStart={() => {
+        scale.value = withSpring(0.98, { damping: 15 })
+        backgroundColor.value = withSpring("rgba(33, 150, 243, 0.08)")
+        borderColor.value = withSpring("rgba(33, 150, 243, 0.15)")
+      }}
+      onTouchEnd={() => {
+        scale.value = withSpring(1, { damping: 15 })
+        backgroundColor.value = withSpring("rgba(33, 150, 243, 0.04)")
+        borderColor.value = withSpring("rgba(33, 150, 243, 0.08)")
+      }}
+    >
+      {children}
+    </Animated.View>
+  )
+}
 
 const InteractiveButton = ({ children, style, onPress, disabled }) => {
-    const scale = useSharedValue(1);
-    const opacity = useSharedValue(1);
-    
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: scale.value }],
-        opacity: opacity.value,
-    }));
+  const scale = useSharedValue(1)
+  const opacity = useSharedValue(1)
 
-    return (
-        <Animated.View style={[animatedStyle, style]}>
-            <TouchableOpacity 
-                onPress={onPress}
-                disabled={disabled}
-                onPressIn={() => {
-                    scale.value = withSpring(0.95);
-                    opacity.value = withSpring(0.9);
-                }}
-                onPressOut={() => {
-                    scale.value = withSpring(1);
-                    opacity.value = withSpring(1);
-                }}
-                style={styles.buttonTouchable}
-            >
-                {children}
-            </TouchableOpacity>
-        </Animated.View>
-    );
-};
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }))
+
+  return (
+    <Animated.View style={[animatedStyle, style]}>
+      <TouchableOpacity
+        onPress={onPress}
+        disabled={disabled}
+        onPressIn={() => {
+          scale.value = withSpring(0.95)
+          opacity.value = withSpring(0.9)
+        }}
+        onPressOut={() => {
+          scale.value = withSpring(1)
+          opacity.value = withSpring(1)
+        }}
+        style={styles.buttonTouchable}
+      >
+        {children}
+      </TouchableOpacity>
+    </Animated.View>
+  )
+}
 
 const CurriculumInput = ({ children, style }) => {
-    const scale = useSharedValue(1);
-    const backgroundColor = useSharedValue('rgba(33, 150, 243, 0.02)');
-    const borderColor = useSharedValue('rgba(33, 150, 243, 0.04)');
-    
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: scale.value }],
-        backgroundColor: backgroundColor.value,
-        borderColor: borderColor.value,
-    }));
+  const scale = useSharedValue(1)
+  const backgroundColor = useSharedValue("rgba(33, 150, 243, 0.02)")
+  const borderColor = useSharedValue("rgba(33, 150, 243, 0.04)")
 
-    return (
-        <Animated.View 
-            style={[animatedStyle, style]}
-            onTouchStart={() => {
-                scale.value = withSpring(0.98, { damping: 15 });
-                backgroundColor.value = withSpring('rgba(33, 150, 243, 0.04)');
-                borderColor.value = withSpring('rgba(33, 150, 243, 0.08)');
-            }}
-            onTouchEnd={() => {
-                scale.value = withSpring(1, { damping: 15 });
-                backgroundColor.value = withSpring('rgba(33, 150, 243, 0.02)');
-                borderColor.value = withSpring('rgba(33, 150, 243, 0.04)');
-            }}
-        >
-            {children}
-        </Animated.View>
-    );
-};
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    backgroundColor: backgroundColor.value,
+    borderColor: borderColor.value,
+  }))
+
+  return (
+    <Animated.View
+      style={[animatedStyle, style]}
+      onTouchStart={() => {
+        scale.value = withSpring(0.98, { damping: 15 })
+        backgroundColor.value = withSpring("rgba(33, 150, 243, 0.04)")
+        borderColor.value = withSpring("rgba(33, 150, 243, 0.08)")
+      }}
+      onTouchEnd={() => {
+        scale.value = withSpring(1, { damping: 15 })
+        backgroundColor.value = withSpring("rgba(33, 150, 243, 0.02)")
+        borderColor.value = withSpring("rgba(33, 150, 243, 0.04)")
+      }}
+    >
+      {children}
+    </Animated.View>
+  )
+}
 
 export default function UploadVideoPage() {
-  const [curriculums, setCurriculums] = useState([]);
-  const [subjects, setSubjects] = useState([]);
-  const [chapters, setChapters] = useState([]);
-  const [selectedCurriculum, setSelectedCurriculum] = useState('');
-  const [selectedSubject, setSelectedSubject] = useState('');
-  const [selectedChapter, setSelectedChapter] = useState('');
-  const [selectedMaterialType, setSelectedMaterialType] = useState('free');
-  const [file, setFile] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [notification, setNotification] = useState(null);
-  const [videoDuration, setVideoDuration] = useState('');   
-  const [videoTitle, setVideoTitle] = useState('');
-  const [videoDescription, setVideoDescription] = useState('');
-  const [videoTags, setVideoTags] = useState('');
-  const [thumbnailUri, setThumbnailUri] = useState(null);
+  const [curriculums, setCurriculums] = useState([])
+  const [subjects, setSubjects] = useState([])
+  const [chapters, setChapters] = useState([])
+  const [selectedCurriculum, setSelectedCurriculum] = useState("")
+  const [selectedSubject, setSelectedSubject] = useState("")
+  const [selectedChapter, setSelectedChapter] = useState("")
+  const [selectedMaterialType, setSelectedMaterialType] = useState("free")
+  const [file, setFile] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [notification, setNotification] = useState(null)
+  const [videoDuration, setVideoDuration] = useState("")
+  const [videoTitle, setVideoTitle] = useState("")
+  const [videoDescription, setVideoDescription] = useState("")
+  const [videoTags, setVideoTags] = useState("")
+  const [thumbnailUri, setThumbnailUri] = useState(null)
+  const [selectedTags, setSelectedTags] = useState([])
+  const [showTagSelector, setShowTagSelector] = useState(false)
 
-  const router = useRouter();
+  const router = useRouter()
 
   const materialTypeOptions = [
-    { label: 'Free', value: 'free' },
-    { label: 'Premium', value: 'premium' }
-  ];
+    { label: "Free", value: "free" },
+    { label: "Premium", value: "premium" },
+  ]
+
+  const LEARNING_STYLE_TAGS = [
+    // Primary learning styles
+    { id: 'visual-learner', name: 'Visual Learner', category: 'Primary' },
+    { id: 'auditory-learner', name: 'Auditory Learner', category: 'Primary' },
+    { id: 'reading-writing-learner', name: 'Reading/Writing Learner', category: 'Primary' },
+    { id: 'kinesthetic-learner', name: 'Kinesthetic Learner', category: 'Primary' },
+    
+    // Secondary learning styles
+    { id: 'secondary-visual-learner', name: 'Secondary Visual Learner', category: 'Secondary' },
+    { id: 'secondary-auditory-learner', name: 'Secondary Auditory Learner', category: 'Secondary' },
+    { id: 'secondary-reading-writing-learner', name: 'Secondary Reading/Writing Learner', category: 'Secondary' },
+    { id: 'secondary-kinesthetic-learner', name: 'Secondary Kinesthetic Learner', category: 'Secondary' },
+    
+    // Processing styles
+    { id: 'quick-processor', name: 'Quick Processor', category: 'Processing' },
+    { id: 'intuitive-learner', name: 'Intuitive Learner', category: 'Processing' },
+    { id: 'reflective-learner', name: 'Reflective Learner', category: 'Processing' },
+    { id: 'analytical-thinker', name: 'Analytical Thinker', category: 'Processing' },
+    { id: 'methodical-learner', name: 'Methodical Learner', category: 'Processing' },
+    { id: 'sequential-processor', name: 'Sequential Processor', category: 'Processing' },
+    { id: 'experiential-learner', name: 'Experiential Learner', category: 'Processing' },
+    { id: 'hands-on-processor', name: 'Hands-on Processor', category: 'Processing' },
+    
+    // Content preferences
+    { id: 'visual-content-preference', name: 'Visual Content Preference', category: 'Content' },
+    { id: 'audio-content-preference', name: 'Audio Content Preference', category: 'Content' },
+    { id: 'text-content-preference', name: 'Text Content Preference', category: 'Content' },
+    { id: 'practical-application-preference', name: 'Practical Application Preference', category: 'Content' },
+    
+    // Communication styles
+    { id: 'visual-communicator', name: 'Visual Communicator', category: 'Communication' },
+    { id: 'graphic-organizer', name: 'Graphic Organizer', category: 'Communication' },
+    { id: 'verbal-explainer', name: 'Verbal Explainer', category: 'Communication' },
+    { id: 'discussion-leader', name: 'Discussion Leader', category: 'Communication' },
+    { id: 'note-taker', name: 'Note Taker', category: 'Communication' },
+    { id: 'information-organizer', name: 'Information Organizer', category: 'Communication' },
+    { id: 'practical-demonstrator', name: 'Practical Demonstrator', category: 'Communication' },
+    { id: 'active-facilitator', name: 'Active Facilitator', category: 'Communication' },
+    
+    // Memory techniques
+    { id: 'visual-memory-technique', name: 'Visual Memory Technique', category: 'Memory' },
+    { id: 'color-pattern-association', name: 'Color/Pattern Association', category: 'Memory' },
+    { id: 'verbal-memory-technique', name: 'Verbal Memory Technique', category: 'Memory' },
+    { id: 'social-reinforcement-learning', name: 'Social Reinforcement Learning', category: 'Memory' },
+    { id: 'written-memory-technique', name: 'Written Memory Technique', category: 'Memory' },
+    { id: 'repetition-reinforcement', name: 'Repetition Reinforcement', category: 'Memory' },
+    { id: 'action-memory-technique', name: 'Action Memory Technique', category: 'Memory' },
+    { id: 'embodied-cognition', name: 'Embodied Cognition', category: 'Memory' },
+    
+    // Attention focus
+    { id: 'visual-attention-dependency', name: 'Visual Attention Dependency', category: 'Attention' },
+    { id: 'active-recall-processor', name: 'Active Recall Processor', category: 'Attention' },
+    { id: 'note-taking-focused', name: 'Note Taking Focused', category: 'Attention' },
+    { id: 'activity-dependent-focus', name: 'Activity Dependent Focus', category: 'Attention' },
+    
+    // Problem-solving
+    { id: 'visual-solution-seeker', name: 'Visual Solution Seeker', category: 'Problem Solving' },
+    { id: 'social-problem-solver', name: 'Social Problem Solver', category: 'Problem Solving' },
+    { id: 'research-oriented', name: 'Research Oriented', category: 'Problem Solving' },
+    { id: 'experimental-problem-solver', name: 'Experimental Problem Solver', category: 'Problem Solving' },
+    
+    // Environmental preferences
+    { id: 'media-rich-environment', name: 'Media Rich Environment', category: 'Environment' },
+    { id: 'audio-environment', name: 'Audio Environment', category: 'Environment' },
+    { id: 'quiet-reading-environment', name: 'Quiet Reading Environment', category: 'Environment' },
+    { id: 'workshop-environment', name: 'Workshop Environment', category: 'Environment' },
+    
+    // Feedback preferences
+    { id: 'visual-summary-preference', name: 'Visual Summary Preference', category: 'Feedback' },
+    { id: 'discussion-oriented', name: 'Discussion Oriented', category: 'Feedback' },
+    { id: 'detailed-analysis-preference', name: 'Detailed Analysis Preference', category: 'Feedback' },
+    { id: 'practical-feedback-preference', name: 'Practical Feedback Preference', category: 'Feedback' },
+    
+    // General tags
+    { id: 'balanced-learner', name: 'Balanced Learner', category: 'General' },
+    { id: 'strong-preference', name: 'Strong Preference', category: 'General' }
+  ]
+
+  const getTagsByCategory = () => {
+    const categories = {}
+    LEARNING_STYLE_TAGS.forEach(tag => {
+      if (!categories[tag.category]) {
+        categories[tag.category] = []
+      }
+      categories[tag.category].push(tag)
+    })
+    return categories
+  }
+
+  const tagsByCategory = getTagsByCategory()
 
   useEffect(() => {
-    fetchCurriculums();
-  }, []);
+    fetchCurriculums()
+  }, [])
 
   useEffect(() => {
     if (selectedCurriculum) {
-      fetchSubjects();
-      setSelectedSubject('');
-      setSelectedChapter('');
+      fetchSubjects()
+      setSelectedSubject("")
+      setSelectedChapter("")
     }
-  }, [selectedCurriculum]);
+  }, [selectedCurriculum])
 
   useEffect(() => {
     if (selectedSubject) {
-      fetchChapters();
-      setSelectedChapter('');
+      fetchChapters()
+      setSelectedChapter("")
     }
-  }, [selectedSubject]);
+  }, [selectedSubject])
 
-  const showNotification = (message, type = 'error') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
-  };
+  const showNotification = (message, type = "error") => {
+    setNotification({ message, type })
+    setTimeout(() => setNotification(null), 3000)
+  }
 
   const fetchCurriculums = async () => {
     try {
-      const querySnapshot = await getDocs(collection(db, 'curriculums'));
-      const curriculumList = querySnapshot.docs.map(doc => ({
+      const querySnapshot = await getDocs(collection(db, "curriculums"))
+      const curriculumList = querySnapshot.docs.map((doc) => ({
         id: doc.id,
-        name: doc.data().title || 'Unnamed Curriculum'
-      }));
-      setCurriculums(curriculumList);
+        name: doc.data().title || "Unnamed Curriculum",
+      }))
+      setCurriculums(curriculumList)
     } catch (error) {
-      console.error('Curriculum fetch error:', error);
-      showNotification('Could not fetch curriculums');
+      console.error("Curriculum fetch error:", error)
+      showNotification("Could not fetch curriculums")
     }
-  };
+  }
 
   const fetchSubjects = async () => {
-    if (!selectedCurriculum) return;
-    
+    if (!selectedCurriculum) return
+
     try {
-      const subjectQuery = query(
-        collection(db, 'subjects'), 
-        where('curriculumId', '==', selectedCurriculum)
-      );
-      const querySnapshot = await getDocs(subjectQuery);
-      const subjectList = querySnapshot.docs.map(doc => ({
+      const subjectQuery = query(collection(db, "subjects"), where("curriculumId", "==", selectedCurriculum))
+      const querySnapshot = await getDocs(subjectQuery)
+      const subjectList = querySnapshot.docs.map((doc) => ({
         id: doc.id,
-        name: doc.data().name || 'Unnamed Subject'
-      }));
-      setSubjects(subjectList);
+        name: doc.data().name || "Unnamed Subject",
+      }))
+      setSubjects(subjectList)
     } catch (error) {
-      console.error('Subjects fetch error:', error);
-      showNotification('Could not fetch subjects');
+      console.error("Subjects fetch error:", error)
+      showNotification("Could not fetch subjects")
     }
-  };
+  }
 
   const fetchChapters = async () => {
-    if (!selectedSubject) return;
-    
+    if (!selectedSubject) return
+
     try {
-      const subjectRef = doc(db, 'subjects', selectedSubject);
-      const subjectSnap = await getDoc(subjectRef);
-      const chaptersList = subjectSnap.data()?.chapters || [];
-      setChapters(chaptersList.map((chapter, index) => ({
-        id: `chapter_${index}`,
-        name: chapter || `Chapter ${index + 1}`
-      })));
+      const subjectRef = doc(db, "subjects", selectedSubject)
+      const subjectSnap = await getDoc(subjectRef)
+      
+      if (subjectSnap.exists()) {
+        const chaptersList = subjectSnap.data()?.chapters || []
+        setChapters(
+          chaptersList.map((chapter, index) => ({
+            id: `chapter_${index}`,
+            name: chapter || `Chapter ${index + 1}`,
+          }))
+        )
+      } else {
+        setChapters([])
+        console.error("Subject document does not exist")
+        showNotification("Subject not found")
+      }
     } catch (error) {
-      console.error('Chapters fetch error:', error);
-      showNotification('Could not fetch chapters');
+      console.error("Chapters fetch error:", error)
+      showNotification("Could not fetch chapters")
     }
-  };
+  }
 
   const generateThumbnail = async (videoUri) => {
     try {
       const { uri } = await VideoThumbnails.getThumbnailAsync(videoUri, {
         time: 1000, // Get thumbnail at 1 second mark
-      });
-      setThumbnailUri(uri);
+      })
+      setThumbnailUri(uri)
+      return uri
     } catch (error) {
-      console.warn('Failed to generate thumbnail:', error);
+      console.warn("Failed to generate thumbnail:", error)
+      return null
     }
-  };
+  }
 
   const handleFileUpload = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'video/*',
-        copyToCacheDirectory: true
-      });
+        type: "video/*",
+        copyToCacheDirectory: true,
+      })
 
-      if (result.canceled) return;
+      if (result.canceled) return
 
-      const selectedFile = result.assets[0];
-      
+      const selectedFile = result.assets[0]
+
       // File size check
       if (selectedFile.size > 500 * 1024 * 1024) {
-        showNotification('File size exceeds 500MB limit');
-        return;
+        showNotification("File size exceeds 500MB limit")
+        return
       }
 
       // Video type verification
-      if (!selectedFile.mimeType?.startsWith('video/')) {
-        showNotification('Please select a video file');
-        return;
+      if (!selectedFile.mimeType?.startsWith("video/")) {
+        showNotification("Please select a video file")
+        return
       }
 
       // Generate thumbnail
-      await generateThumbnail(selectedFile.uri);
+      await generateThumbnail(selectedFile.uri)
 
       // Set default title from filename
-      setVideoTitle(selectedFile.name.replace(/\.[^/.]+$/, ''));
-      setFile(selectedFile);
+      setVideoTitle(selectedFile.name.replace(/\.[^/.]+$/, ""))
+      setFile(selectedFile)
     } catch (error) {
-      console.error('Error picking document:', error);
-      showNotification('Error selecting file');
+      console.error("Error picking document:", error)
+      showNotification("Error selecting file")
     }
-  };  
+  }
+
+  const toggleTag = (tagId) => {
+    if (selectedTags.includes(tagId)) {
+      setSelectedTags(selectedTags.filter(id => id !== tagId))
+    } else {
+      setSelectedTags([...selectedTags, tagId])
+    }
+  }
 
   const uploadVideo = async () => {
     // Validation checks
-    if (!selectedCurriculum || !selectedSubject || !selectedChapter || 
-        !file || !selectedMaterialType || !videoTitle) {
-      showNotification('Please fill all required fields');
-      return;
+    if (!selectedCurriculum || !selectedSubject || !selectedChapter || !file || !selectedMaterialType || !videoTitle) {
+      showNotification("Please fill all required fields")
+      return
     }
-  
-    setLoading(true);
-  
+
+    setLoading(true)
+
     try {
       // Fetch the subject document to get subject name and chapters
-      const subjectRef = doc(db, 'subjects', selectedSubject);
-      const subjectSnap = await getDoc(subjectRef);
-      
+      const subjectRef = doc(db, "subjects", selectedSubject)
+      const subjectSnap = await getDoc(subjectRef)
+
       if (!subjectSnap.exists()) {
-        throw new Error('Subject not found');
+        throw new Error("Subject not found")
       }
-  
-      const subjectData = subjectSnap.data();
-      const subjectName = subjectData.name || 'Unknown';
-      const chapters = subjectData.chapters || [];
-  
+
+      const subjectData = subjectSnap.data()
+      const subjectName = subjectData.name || "Unknown"
+      const chapters = subjectData.chapters || []
+
       // Sanitize subject name for chapter mapping
-      const sanitizedSubjectName = subjectName.replace(/\s+/g, '');
-  
+      const sanitizedSubjectName = subjectName.replace(/\s+/g, "")
+
       // Dynamically generate chapter mapping based on actual chapters
       const chapterMapping = chapters.reduce((mapping, chapter, index) => {
-        mapping[`chapter_${index}`] = `CH${index + 1}_${sanitizedSubjectName}`;
-        return mapping;
-      }, {});
-  
-      const mappedChapter = chapterMapping[selectedChapter] || selectedChapter;
-  
+        mapping[`chapter_${index}`] = `CH${index + 1}_${sanitizedSubjectName}`
+        return mapping
+      }, {})
+      
+      const mappedChapter =  selectedChapter
+
       // Create blob from file URI
-      const response = await fetch(file.uri);
-      const blob = await response.blob();
-  
+      const response = await fetch(file.uri)
+      const blob = await response.blob()
+
       // Upload video
-      const storageRef = ref(
-        storage, 
-        `videos/${selectedCurriculum}/${selectedSubject}/${mappedChapter}/${file.name}`
-      );
-      const snapshot = await uploadBytes(storageRef, blob);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-  
+      const storageRef = ref(storage, `videos/${selectedCurriculum}/${selectedSubject}/${mappedChapter}/${file.name}`)
+      const snapshot = await uploadBytes(storageRef, blob)
+      const downloadURL = await getDownloadURL(snapshot.ref)
+
       // Upload thumbnail if exists
-      let thumbnailURL = null;
+      let thumbnailURL = null
       if (thumbnailUri) {
-        const thumbnailResponse = await fetch(thumbnailUri);
-        const thumbnailBlob = await thumbnailResponse.blob();
+        const thumbnailResponse = await fetch(thumbnailUri)
+        const thumbnailBlob = await thumbnailResponse.blob()
         const thumbnailStorageRef = ref(
-          storage, 
+          storage,
           `thumbnails/${selectedCurriculum}/${selectedSubject}/${mappedChapter}/${file.name}_thumb`
-        );
-        const thumbnailSnapshot = await uploadBytes(thumbnailStorageRef, thumbnailBlob);
-        thumbnailURL = await getDownloadURL(thumbnailSnapshot.ref);
+        )
+        const thumbnailSnapshot = await uploadBytes(thumbnailStorageRef, thumbnailBlob)
+        thumbnailURL = await getDownloadURL(thumbnailSnapshot.ref)
       }
-  
+
       // Prepare video data
       const videoData = {
         id: `video_${Date.now()}`,
@@ -364,86 +456,139 @@ export default function UploadVideoPage() {
         uploadedAt: new Date(),
         fileType: file.mimeType,
         fileSize: file.size,
-        difficulty: 'beginner',
+        difficulty: "beginner",
         materialType: selectedMaterialType,
         duration: videoDuration || null,
         description: videoDescription || null,
-        tags: videoTags ? videoTags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
-      };
-  
+        learningStyleTags: selectedTags,
+        tags: videoTags
+          ? videoTags
+              .split(",")
+              .map((tag) => tag.trim())
+              .filter((tag) => tag)
+          : [],
+      }
+
       // Update subject with video reference using the mapped chapter
       await updateDoc(subjectRef, {
         [`videos.${mappedChapter}`]: arrayUnion(videoData),
-        videoBanner: downloadURL
-      });
-  
-      showNotification('Video uploaded successfully', 'success');
-      
+        videoBanner: downloadURL,
+      })
+
+      showNotification("Video uploaded successfully", "success")
+
       // Navigate after success
       setTimeout(() => {
-        router.push('/teacher/dashboard');
-      }, 1500);
-  
+        router.push("/teacher/dashboard")
+      }, 1500)
+
       // Reset form
-      setFile(null);
-      setThumbnailUri(null);
-      setVideoTitle('');
-      setVideoDescription('');
-      setVideoDuration('');
-      setVideoTags('');
+      setFile(null)
+      setThumbnailUri(null)
+      setVideoTitle("")
+      setVideoDescription("")
+      setVideoDuration("")
+      setVideoTags("")
+      setSelectedTags([])
     } catch (error) {
-      console.error('Error uploading video:', error);
-      showNotification('Failed to upload video');
+      console.error("Error uploading video:", error)
+      showNotification("Failed to upload video: " + error.message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
-  
+  }
+
   const isUploadDisabled = () => {
-    return loading || 
-           !selectedCurriculum || 
-           !selectedSubject || 
-           !selectedChapter || 
-           !file || 
-           !selectedMaterialType ||
-           !videoTitle;
-  };
+    return (
+      loading ||
+      !selectedCurriculum ||
+      !selectedSubject ||
+      !selectedChapter ||
+      !file ||
+      !selectedMaterialType ||
+      !videoTitle
+    )
+  }
+
+  const renderTagsSelection = () => {
+    return (
+      <View style={styles.tagsContainer}>
+        <View style={styles.tagsHeader}>
+          <Text style={styles.tagsSectionTitle}>Learning Style Tags</Text>
+          <TouchableOpacity 
+            style={styles.closeTagsButton}
+            onPress={() => setShowTagSelector(false)}
+          >
+            <Ionicons name="close" size={24} color="#666" />
+          </TouchableOpacity>
+        </View>
+        
+        <ScrollView style={styles.tagsScrollView}>
+          {Object.entries(tagsByCategory).map(([category, tags]) => (
+            <View key={category} style={styles.tagCategory}>
+              <Text style={styles.categoryTitle}>{category}</Text>
+              <View style={styles.tagsList}>
+                {tags.map(tag => (
+                  <TouchableOpacity
+                    key={tag.id}
+                    style={[
+                      styles.tagChip,
+                      selectedTags.includes(tag.id) && styles.tagChipSelected
+                    ]}
+                    onPress={() => toggleTag(tag.id)}
+                  >
+                    <Text 
+                      style={[
+                        styles.tagChipText,
+                        selectedTags.includes(tag.id) && styles.tagChipTextSelected
+                      ]}
+                    >
+                      {tag.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+        
+        <TouchableOpacity 
+          style={styles.doneButton}
+          onPress={() => setShowTagSelector(false)}
+        >
+          <Text style={styles.doneButtonText}>Done</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Upload Video</Text>
       </View>
 
-      <ScrollView 
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
+      {notification && (
+        <View style={[styles.notification, { backgroundColor: notification.type === "success" ? "#4CAF50" : "#F44336" }]}>
+          <Text style={styles.notificationText}>{notification.message}</Text>
+        </View>
+      )}
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Curriculum Details Box */}
         <InteractiveCard style={styles.section}>
           <Text style={styles.sectionTitle}>Curriculum Details</Text>
-          
+
           <CurriculumInput style={styles.curriculumInputContainer}>
             <Ionicons name="school-outline" size={24} color="#2196F3" style={styles.inputIcon} />
-            <Picker
-              selectedValue={selectedCurriculum}
-              onValueChange={setSelectedCurriculum}
-              style={styles.picker}
-            >
+            <Picker selectedValue={selectedCurriculum} onValueChange={setSelectedCurriculum} style={styles.picker}>
               <Picker.Item label="Select Curriculum" value="" />
               {curriculums.map((curriculum) => (
-                <Picker.Item 
-                  key={curriculum.id} 
-                  label={curriculum.name} 
-                  value={curriculum.id} 
-                />
+                <Picker.Item key={curriculum.id} label={curriculum.name} value={curriculum.id} />
               ))}
             </Picker>
           </CurriculumInput>
@@ -454,15 +599,11 @@ export default function UploadVideoPage() {
               selectedValue={selectedSubject}
               onValueChange={setSelectedSubject}
               style={styles.picker}
-              enabled={selectedCurriculum !== ''}
+              enabled={selectedCurriculum !== ""}
             >
               <Picker.Item label="Select Subject" value="" />
               {subjects.map((subject) => (
-                <Picker.Item 
-                  key={subject.id} 
-                  label={subject.name} 
-                  value={subject.id} 
-                />
+                <Picker.Item key={subject.id} label={subject.name} value={subject.id} />
               ))}
             </Picker>
           </CurriculumInput>
@@ -473,33 +614,20 @@ export default function UploadVideoPage() {
               selectedValue={selectedChapter}
               onValueChange={setSelectedChapter}
               style={styles.picker}
-              enabled={selectedSubject !== ''}
+              enabled={selectedSubject !== ""}
             >
               <Picker.Item label="Select Chapter" value="" />
               {chapters.map((chapter) => (
-                <Picker.Item 
-                  key={chapter.id} 
-                  label={chapter.name} 
-                  value={chapter.id} 
-                />
+                <Picker.Item key={chapter.id} label={chapter.name} value={chapter.id} />
               ))}
             </Picker>
           </CurriculumInput>
 
           <CurriculumInput style={styles.curriculumInputContainer}>
             <Ionicons name="documents-outline" size={24} color="#2196F3" style={styles.inputIcon} />
-            <Picker
-              selectedValue={selectedMaterialType}
-              onValueChange={setSelectedMaterialType}
-              style={styles.picker}
-            >
-              <Picker.Item label="Select Material Type" value="" />
+            <Picker selectedValue={selectedMaterialType} onValueChange={setSelectedMaterialType} style={styles.picker}>
               {materialTypeOptions.map((type) => (
-                <Picker.Item 
-                  key={type.value} 
-                  label={type.label} 
-                  value={type.value} 
-                />
+                <Picker.Item key={type.value} label={type.label} value={type.value} />
               ))}
             </Picker>
           </CurriculumInput>
@@ -546,7 +674,7 @@ export default function UploadVideoPage() {
           </InteractiveInput>
 
           <InteractiveInput style={styles.inputContainer}>
-            <Ionicons name="pricetags-outline" size={24} color="#666" style={styles.inputIcon} />
+            <Ionicons name="pricetag-outline" size={24} color="#666" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               value={videoTags}
@@ -555,13 +683,42 @@ export default function UploadVideoPage() {
               placeholderTextColor="#999"
             />
           </InteractiveInput>
+
+          <InteractiveButton style={styles.tagsButton} onPress={() => setShowTagSelector(true)}>
+            <View style={styles.buttonContent}>
+              <Ionicons name="options-outline" size={24} color="white" />
+              <Text style={styles.fileButtonText}>Select Learning Style Tags</Text>
+            </View>
+          </InteractiveButton>
+
+          {selectedTags.length > 0 && (
+            <View style={styles.selectedTagsPreview}>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.tagsScrollPreview}
+              >
+                {selectedTags.map(tagId => {
+                  const tag = LEARNING_STYLE_TAGS.find(t => t.id === tagId);
+                  return (
+                    <View key={tagId} style={styles.selectedTagChip}>
+                      <Text style={styles.selectedTagText}>{tag?.name}</Text>
+                      <TouchableOpacity 
+                        onPress={() => toggleTag(tagId)}
+                        style={styles.removeTagButton}
+                      >
+                        <Ionicons name="close-circle" size={16} color="#6B7280" />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
         </InteractiveCard>
 
         {/* File Selection */}
-        <InteractiveButton 
-          style={styles.fileButton} 
-          onPress={handleFileUpload}
-        >
+        <InteractiveButton style={styles.fileButton} onPress={handleFileUpload}>
           <View style={styles.buttonContent}>
             <Ionicons name="cloud-upload-outline" size={24} color="white" />
             <Text style={styles.fileButtonText}>Select Video File</Text>
@@ -575,208 +732,280 @@ export default function UploadVideoPage() {
         )}
 
         {/* Upload Button */}
-        <InteractiveButton 
-          style={[
-            styles.uploadButton, 
-            isUploadDisabled() && styles.disabledUploadButton
-          ]} 
+        <InteractiveButton
+          style={[styles.uploadButton, isUploadDisabled() && styles.disabledUploadButton]}
           onPress={uploadVideo}
           disabled={isUploadDisabled()}
         >
           <View style={styles.buttonContent}>
-            <Text style={styles.uploadButtonText}>
-              {loading ? 'Uploading...' : 'Upload Video'}
-            </Text>
+            {loading ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Text style={styles.uploadButtonText}>Upload Video</Text>
+            )}
           </View>
         </InteractiveButton>
 
-        {loading && (
-          <ActivityIndicator 
-            size="large" 
-            color="#007bff" 
-            style={styles.loadingIndicator} 
-          />
-        )}
+        {showTagSelector && renderTagsSelection()}
       </ScrollView>
     </SafeAreaView>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#F8F9FA",
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: 'white',
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 15,
-    elevation: 2,
+    borderBottomColor: "#E0E0E0",
+    backgroundColor: "#FFFFFF",
   },
   backButton: {
-    width: 45,
-    height: 45,
-    borderRadius: 23,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'white',
-    marginRight: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    paddingRight: 16,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#333',
-    letterSpacing: -0.5,
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#333333",
   },
   content: {
     flex: 1,
-    padding: 20,
+    padding: 16,
   },
   section: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 25,
-    marginBottom: 25,
-    shadowColor: '#2196F3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 25,
-    letterSpacing: -0.5,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(33, 150, 243, 0.04)',
-    borderRadius: 15,
-    marginBottom: 20,
-    borderWidth: 1.5,
-    borderColor: 'rgba(33, 150, 243, 0.08)',
-    overflow: 'hidden',
-    shadowColor: '#2196F3',
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
     elevation: 2,
   },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 16,
+    color: "#333333",
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(33, 150, 243, 0.08)",
+    borderRadius: 8,
+    marginBottom: 16,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(33, 150, 243, 0.04)",
+  },
+  curriculumInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(33, 150, 243, 0.04)",
+    borderRadius: 8,
+    marginBottom: 16,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(33, 150, 243, 0.02)",
+  },
   inputIcon: {
-    padding: 15,
-    color: '#2196F3',
+    marginRight: 8,
   },
   input: {
     flex: 1,
-    padding: 15,
+    paddingVertical: 12,
     fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
-    backgroundColor: 'transparent',
+    color: "#333333",
+  },
+  textArea: {
+    minHeight: 100,
+    textAlignVertical: "top",
   },
   picker: {
     flex: 1,
-    height: 55,
-    backgroundColor: 'transparent',
-  },
-  textArea: {
-    minHeight: 120,
-    textAlignVertical: 'top',
-    lineHeight: 24,
-  },
-  buttonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    width: '100%',
-    height: '100%',
-  },
-  buttonTouchable: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    height: 50,
   },
   fileButton: {
-    backgroundColor: '#2196F3',
-    height: 56,
-    borderRadius: 16,
-    marginBottom: 20,
-    shadowColor: '#2196F3',
-    shadowOffset: { width: 0, height: 4 },
+    backgroundColor: "#2196F3",
+    borderRadius: 8,
+    paddingVertical: 14,
+    marginBottom: 12,
+    shadowColor: "#2196F3",
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-    overflow: 'hidden',
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  tagsButton: {
+    backgroundColor: "#3F51B5",
+    borderRadius: 8,
+    paddingVertical: 14,
+    marginBottom: 16,
+    shadowColor: "#3F51B5",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  buttonContent: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
   },
   fileButtonText: {
-    color: 'white',
-    fontSize: 17,
-    fontWeight: '600',
-    letterSpacing: -0.3,
-  },
-  uploadButton: {
-    backgroundColor: '#4CAF50',
-    height: 56,
-    borderRadius: 16,
-    marginBottom: 30,
-    shadowColor: '#4CAF50',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-    overflow: 'hidden',
-  },
-  disabledUploadButton: {
-    backgroundColor: '#e0e0e0',
-    opacity: 0.9,
-  },
-  uploadButtonText: {
-    color: 'white',
-    fontSize: 17,
-    fontWeight: '600',
-    letterSpacing: -0.3,
-  },
-  loadingIndicator: {
-    marginTop: 25,
+    color: "white",
+    fontWeight: "600",
+    fontSize: 16,
+    marginLeft: 8,
   },
   fileName: {
-    marginTop: 12,
-    marginBottom: 20,
-    color: '#666',
-    fontSize: 15,
-    fontWeight: '500',
-    textAlign: 'center',
+    color: "#666666",
+    marginBottom: 16,
+    fontSize: 14,
   },
-  curriculumInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(33, 150, 243, 0.02)',
-    borderRadius: 15,
-    marginBottom: 20,
-    borderWidth: 1.5,
-    borderColor: 'rgba(33, 150, 243, 0.04)',
-    overflow: 'hidden',
-    shadowColor: '#2196F3',
+  uploadButton: {
+    backgroundColor: "#4CAF50",
+    borderRadius: 8,
+    paddingVertical: 16,
+    marginBottom: 24,
+    shadowColor: "#4CAF50",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 5,
-    elevation: 2,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
+  disabledUploadButton: {
+    backgroundColor: "#A5D6A7",
+    shadowOpacity: 0.1,
+  },
+  uploadButtonText: {
+    color: "white",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  buttonTouchable: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+  },
+  notification: {
+    padding: 12,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  notificationText: {
+    color: "white",
+    fontWeight: "500",
+  },
+  tagsContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "white",
+    padding: 16,
+    zIndex: 1000,
+  },
+  tagsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  tagsSectionTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#333333",
+  },
+  closeTagsButton: {
+    padding: 8,
+  },
+  tagsScrollView: {
+    flex: 1,
+  },
+  tagCategory: {
+    marginBottom: 20,
+  },
+  categoryTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#555555",
+    marginBottom: 8,
+  },
+  tagsList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  tagChip: {
+    backgroundColor: "#E3F2FD",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    margin: 4,
+    borderWidth: 1,
+    borderColor: "#BBDEFB",
+  },
+  tagChipSelected: {
+    backgroundColor: "#2196F3",
+    borderColor: "#1E88E5",
+  },
+  tagChipText: {
+    color: "#2196F3",
+    fontSize: 14,
+  },
+  tagChipTextSelected: {
+    color: "white",
+  },
+  doneButton: {
+    backgroundColor: "#2196F3",
+    borderRadius: 8,
+    paddingVertical: 14,
+    marginTop: 16,
+    alignItems: "center",
+  },
+  doneButtonText: {
+    color: "white",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  selectedTagsPreview: {
+    marginBottom: 16,
+  },
+  tagsScrollPreview: {
+    flexDirection: "row",
+  },
+  selectedTagChip: {
+    backgroundColor: "#E3F2FD",
+    borderRadius: 20,
+    paddingLeft: 12,
+    paddingRight: 8,
+    paddingVertical: 6,
+    marginRight: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#BBDEFB",
+  },
+  selectedTagText: {
+    color: "#2196F3",
+    fontSize: 14,
+    marginRight: 4,
+  },
+  removeTagButton: {
+    padding: 2,
+  }
 });

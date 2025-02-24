@@ -27,6 +27,7 @@ import {
 import { db, auth, database } from "@/lib/firebase";
 import CallButton from "@/components/CallButton";
 import { ref, push } from 'firebase/database';
+import { signOut } from "firebase/auth";
 
 export default function TeacherDashboard() {
   const router = useRouter();
@@ -196,6 +197,16 @@ export default function TeacherDashboard() {
       }
     } catch (error) {
       console.error("Error fetching teacher info:", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth); // Sign out the user
+      router.replace("/login"); // Redirect to the login screen
+    } catch (error) {
+      console.error("Error logging out:", error);
+      Alert.alert("Error", "Failed to log out. Please try again.");
     }
   };
 
@@ -626,9 +637,13 @@ useEffect(() => {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView>
-        <View style={styles.header}>
+      <View style={styles.header}>
           <Text style={styles.title}>Teacher Dashboard</Text>
           <Text style={styles.subtitle}>Welcome back!</Text>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+            <Ionicons name="log-out-outline" size={24} color="#E91E63" />
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
           {activeSession && (
             <View style={styles.activeSessionBanner}>
               <Text style={styles.activeSessionText}>
@@ -1043,6 +1058,26 @@ const styles = StyleSheet.create({
   startButtonDisabled: {
     backgroundColor: '#BDBDBD',
     opacity: 0.7
-  }
+  },
+  logoutButton: {
+    position: 'absolute',
+    right: 20,
+    top: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 8,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  logoutButtonText: {
+    marginLeft: 5,
+    color: '#E91E63',
+    fontWeight: '600',
+  },
 });
 

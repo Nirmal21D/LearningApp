@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
-import { doc, updateDoc, getDoc, collection, addDoc } from 'firebase/firestore';
+import { View, Text, TouchableOpacity, Modal, ActivityIndicator, ScrollView } from 'react-native';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { getFirestore } from 'firebase/firestore';
 
 const LearningStyleAssessment = ({ onClose, userId, visible }) => {
@@ -16,11 +16,11 @@ const LearningStyleAssessment = ({ onClose, userId, visible }) => {
       const userRef = doc(db, 'users', userId);
       const userSnap = await getDoc(userRef);
       if (userSnap.exists() && userSnap.data().learningProfile?.tags?.length > 0) {
+        // User already has learning profile, don't show form
         setShowForm(false);
-        console.log("ok")
+        onClose(); // Automatically close the modal if test was already taken
       } else {
         setShowForm(true);
-        console.log("ok not")
       }
       setLoading(false);
     };
@@ -28,7 +28,7 @@ const LearningStyleAssessment = ({ onClose, userId, visible }) => {
     if (userId) {
       checkUserTags();
     }
-  }, [userId]);
+  }, [userId, onClose]);
 
   const questions = [
     {
@@ -195,21 +195,201 @@ const LearningStyleAssessment = ({ onClose, userId, visible }) => {
         learningSpeed: '',
         primaryStyle: '',
         studyPreference: '',
+        attentionSpan: '',
+        environmentPreference: '',
+        feedbackStyle: '',
+        problemSolvingApproach: '',
         scoreBreakdown: counts
       }
     };
 
-    if (answers[6] === 'A' || answers[6] === 'B') {
-      learningProfile.tags.push('fast-learner');
-      learningProfile.details.learningSpeed = 'Fast Learner 🚀';
+    // Determine primary learning style based on most frequent answers
+    let primaryStyle = '';
+    let maxCount = 0;
+    for (const [style, count] of Object.entries(counts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        primaryStyle = style;
+      }
+    }
+
+    // Map learning styles to tags and descriptions
+    const styleMap = {
+      A: {
+        tag: 'visual-learner',
+        description: 'Visual Learner 👁️'
+      },
+      B: {
+        tag: 'auditory-learner',
+        description: 'Auditory Learner 👂'
+      },
+      C: {
+        tag: 'reading-writing-learner',
+        description: 'Reading/Writing Learner ✍️'
+      },
+      D: {
+        tag: 'kinesthetic-learner',
+        description: 'Kinesthetic Learner 🤸'
+      }
+    };
+
+    // Add primary learning style tag
+    learningProfile.tags.push(styleMap[primaryStyle].tag);
+    learningProfile.details.primaryStyle = styleMap[primaryStyle].description;
+
+    // Add learning speed tag based on question 6
+    if (answers[6] === 'A') {
+      learningProfile.tags.push('quick-processor');
+      learningProfile.tags.push('intuitive-learner');
+      learningProfile.details.learningSpeed = 'Quick Processor 🚀';
+    } else if (answers[6] === 'B') {
+      learningProfile.tags.push('reflective-learner');
+      learningProfile.tags.push('analytical-thinker');
+      learningProfile.details.learningSpeed = 'Reflective Learner 🔄';
     } else if (answers[6] === 'C') {
       learningProfile.tags.push('methodical-learner');
+      learningProfile.tags.push('sequential-processor');
       learningProfile.details.learningSpeed = 'Methodical Learner 🐢';
-    } else {
-      learningProfile.tags.push('hands-on-learner');
-      learningProfile.details.learningSpeed = 'Hands-on Learner 🛠️';
+    } else if (answers[6] === 'D') {
+      learningProfile.tags.push('experiential-learner');
+      learningProfile.tags.push('hands-on-processor');
+      learningProfile.details.learningSpeed = 'Experiential Learner 🛠️';
     }
-    setShowForm(false)
+
+    // Add study preference tag based on question 15
+    if (answers[14] === 'A') {
+      learningProfile.tags.push('visual-content-preference');
+      learningProfile.details.studyPreference = 'Visual Content 🎬';
+    } else if (answers[14] === 'B') {
+      learningProfile.tags.push('audio-content-preference');
+      learningProfile.details.studyPreference = 'Audio Content 🎧';
+    } else if (answers[14] === 'C') {
+      learningProfile.tags.push('text-content-preference');
+      learningProfile.details.studyPreference = 'Text Content 📖';
+    } else if (answers[14] === 'D') {
+      learningProfile.tags.push('practical-application-preference');
+      learningProfile.details.studyPreference = 'Practical Application 🔧';
+    }
+
+    // Add group role tag based on question 10
+    if (answers[9] === 'A') {
+      learningProfile.tags.push('visual-communicator');
+      learningProfile.tags.push('graphic-organizer');
+    } else if (answers[9] === 'B') {
+      learningProfile.tags.push('verbal-explainer');
+      learningProfile.tags.push('discussion-leader');
+    } else if (answers[9] === 'C') {
+      learningProfile.tags.push('note-taker');
+      learningProfile.tags.push('information-organizer');
+    } else if (answers[9] === 'D') {
+      learningProfile.tags.push('practical-demonstrator');
+      learningProfile.tags.push('active-facilitator');
+    }
+
+    // Add memory technique tag based on question 11
+    if (answers[10] === 'A') {
+      learningProfile.tags.push('visual-memory-technique');
+      learningProfile.tags.push('color-pattern-association');
+    } else if (answers[10] === 'B') {
+      learningProfile.tags.push('verbal-memory-technique');
+      learningProfile.tags.push('social-reinforcement-learning');
+    } else if (answers[10] === 'C') {
+      learningProfile.tags.push('written-memory-technique');
+      learningProfile.tags.push('repetition-reinforcement');
+    } else if (answers[10] === 'D') {
+      learningProfile.tags.push('action-memory-technique');
+      learningProfile.tags.push('embodied-cognition');
+    }
+
+    // Add attention span based on question 13
+    if (answers[12] === 'A') {
+      learningProfile.tags.push('visual-attention-dependency');
+      learningProfile.details.attentionSpan = 'Needs Visual Stimulation 👀';
+    } else if (answers[12] === 'B') {
+      learningProfile.tags.push('active-recall-processor');
+      learningProfile.details.attentionSpan = 'Verbal Reinforcement 🔄';
+    } else if (answers[12] === 'C') {
+      learningProfile.tags.push('note-taking-focused');
+      learningProfile.details.attentionSpan = 'Documentation Oriented 📝';
+    } else if (answers[12] === 'D') {
+      learningProfile.tags.push('activity-dependent-focus');
+      learningProfile.details.attentionSpan = 'Needs Interaction 🏃';
+    }
+
+    // Add problem-solving approach based on question 9
+    if (answers[8] === 'A') {
+      learningProfile.tags.push('visual-solution-seeker');
+      learningProfile.details.problemSolvingApproach = 'Visual Solutions 🎥';
+    } else if (answers[8] === 'B') {
+      learningProfile.tags.push('social-problem-solver');
+      learningProfile.details.problemSolvingApproach = 'Verbal Assistance 💬';
+    } else if (answers[8] === 'C') {
+      learningProfile.tags.push('research-oriented');
+      learningProfile.details.problemSolvingApproach = 'Independent Research 📑';
+    } else if (answers[8] === 'D') {
+      learningProfile.tags.push('experimental-problem-solver');
+      learningProfile.details.problemSolvingApproach = 'Practical Testing 🔬';
+    }
+
+    // Add environment preference based on question 3
+    if (answers[2] === 'A') {
+      learningProfile.tags.push('media-rich-environment');
+      learningProfile.details.environmentPreference = 'Media-Rich Environment 📺';
+    } else if (answers[2] === 'B') {
+      learningProfile.tags.push('audio-environment');
+      learningProfile.details.environmentPreference = 'Audio Environment 🎶';
+    } else if (answers[2] === 'C') {
+      learningProfile.tags.push('quiet-reading-environment');
+      learningProfile.details.environmentPreference = 'Quiet Reading Environment 📚';
+    } else if (answers[2] === 'D') {
+      learningProfile.tags.push('workshop-environment');
+      learningProfile.details.environmentPreference = 'Hands-On Environment 🛠️';
+    }
+
+    // Add feedback style based on question 12
+    if (answers[11] === 'A') {
+      learningProfile.tags.push('visual-summary-preference');
+      learningProfile.details.feedbackStyle = 'Visual Summaries 📊';
+    } else if (answers[11] === 'B') {
+      learningProfile.tags.push('discussion-oriented');
+      learningProfile.details.feedbackStyle = 'Verbal Discussion 🎙️';
+    } else if (answers[11] === 'C') {
+      learningProfile.tags.push('detailed-analysis-preference');
+      learningProfile.details.feedbackStyle = 'Written Analysis 📚';
+    } else if (answers[11] === 'D') {
+      learningProfile.tags.push('practical-feedback-preference');
+      learningProfile.details.feedbackStyle = 'Practical Implementation 🎭';
+    }
+
+    // Add secondary learning style if significant
+    const secondaryCounts = {...counts};
+    delete secondaryCounts[primaryStyle];
+    const secondaryStyle = Object.entries(secondaryCounts)
+      .sort((a, b) => b[1] - a[1])[0][0];
+    
+    if (secondaryCounts[secondaryStyle] >= 3) {
+      learningProfile.tags.push(`secondary-${styleMap[secondaryStyle].tag}`);
+    }
+
+    // Add learning balance tags based on score distribution
+    const totalAnswers = Object.values(counts).reduce((sum, count) => sum + count, 0);
+    
+    // Calculate percentages for each style
+    const stylePercentages = {};
+    for (const [style, count] of Object.entries(counts)) {
+      stylePercentages[style] = (count / totalAnswers) * 100;
+    }
+    
+    // Check if the learning style is balanced
+    if (Object.values(stylePercentages).every(percentage => percentage >= 15)) {
+      learningProfile.tags.push('balanced-learner');
+    }
+    
+    // Add strong preference tag if primary style is very dominant
+    if (stylePercentages[primaryStyle] >= 50) {
+      learningProfile.tags.push('strong-preference');
+    }
+
     return learningProfile;
   }, [answers]);
 
@@ -229,12 +409,12 @@ const LearningStyleAssessment = ({ onClose, userId, visible }) => {
           learningProfile,
           lastAssessmentDate: new Date().toISOString()
         });
-
-
+        
+        // Automatically close when data is saved
         onClose();
       } catch (error) {
         console.error('Error updating learning style:', error);
-        alert('Failed to save your learning style. Please try again.');
+        alert('Failed to save your learning profile. Please try again.');
       } finally {
         setIsSubmitting(false);
       }
@@ -242,11 +422,19 @@ const LearningStyleAssessment = ({ onClose, userId, visible }) => {
   };
 
   if (loading) {
-    return <ActivityIndicator size="large" color="#0000ff" />;
+    return (
+      <Modal visible={visible} transparent animationType="fade">
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ backgroundColor: 'white', padding: 20, borderRadius: 10, width: '90%', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#0000ff" />
+          </View>
+        </View>
+      </Modal>
+    );
   }
 
   if (!showForm) {
-    return null;
+    return null; // Don't render anything if the form shouldn't be shown
   }
 
   const question = questions[currentQuestion];
@@ -254,20 +442,60 @@ const LearningStyleAssessment = ({ onClose, userId, visible }) => {
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-        <View style={{ backgroundColor: 'white', padding: 20, borderRadius: 10, width: '90%' }}>
-          <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Discover Your Learning Style</Text>
-          <Text style={{ marginVertical: 10 }}>Question {currentQuestion + 1} of {questions.length}</Text>
-          <Text style={{ fontSize: 16, marginVertical: 10 }}>{question.text}</Text>
-          {question.options.map(option => (
-            <TouchableOpacity
-              key={option.id}
-              onPress={() => handleAnswer(option.id)}
-              style={{ padding: 10, marginVertical: 5, borderWidth: 1, borderRadius: 5, flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ fontSize: 20 }}>{option.emoji}</Text>
-              <Text style={{ marginLeft: 10 }}>{option.text}</Text>
-            </TouchableOpacity>
-          ))}
-          {isSubmitting && <ActivityIndicator size="large" color="#0000ff" />}
+        <View style={{ backgroundColor: 'white', padding: 20, borderRadius: 10, width: '90%', maxHeight: '80%' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Discover Your Learning Style</Text>
+            {/* Removed the close button as requested */}
+          </View>
+          
+          <Text style={{ marginBottom: 10 }}>Question {currentQuestion + 1} of {questions.length}</Text>
+          <Text style={{ fontSize: 16, marginBottom: 15 }}>{question.text}</Text>
+          
+          <ScrollView style={{ maxHeight: 350 }}>
+            {question.options.map(option => (
+              <TouchableOpacity
+                key={option.id}
+                onPress={() => handleAnswer(option.id)}
+                style={{ 
+                  padding: 15, 
+                  marginVertical: 8, 
+                  borderWidth: 1,
+                  borderColor: '#ccc',
+                  borderRadius: 8, 
+                  backgroundColor: 'white',
+                  flexDirection: 'row', 
+                  alignItems: 'center' 
+                }}>
+                <Text style={{ fontSize: 24, marginRight: 10 }}>{option.emoji}</Text>
+                <Text style={{ flex: 1 }}>{option.text}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          
+          {isSubmitting && (
+            <View style={{ alignItems: 'center', marginTop: 20 }}>
+              <ActivityIndicator size="large" color="#0000ff" />
+              <Text style={{ marginTop: 10 }}>Saving your learning profile...</Text>
+            </View>
+          )}
+          
+          <View style={{ marginTop: 20, flexDirection: 'row', justifyContent: 'space-between' }}>
+            {/* Removed the exit button as requested */}
+            
+            {currentQuestion > 0 && (
+              <TouchableOpacity
+                onPress={() => setCurrentQuestion(prev => prev - 1)}
+                style={{ 
+                  padding: 12, 
+                  backgroundColor: '#e0e0e0', 
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  flex: 1
+                }}>
+                <Text>Previous</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
     </Modal>
