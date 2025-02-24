@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getFirestore, doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import TextExtractor from '@/components/TextExtractor';
 import ChatBot from '@/components/Chatbot';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
@@ -109,11 +110,26 @@ export default function Home() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <LinearGradient
+        colors={['#E3F2FD', '#BBDEFB', '#E3F2FD']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+      
+      <View style={styles.circleBackground}>
+        <View style={styles.circle} />
+      </View>
+
+      <View style={[styles.blurCircle, styles.blurCircle1]} />
+      <View style={[styles.blurCircle, styles.blurCircle2]} />
+      <View style={[styles.blurCircle, styles.blurCircle3]} />
+
       {/* Navigation Bar */}
       <View style={styles.navbar}>
-        <TouchableOpacity style={styles.menuButton}>
+        {/* <TouchableOpacity style={styles.menuButton}>
           <Ionicons name="menu-outline" size={28} color="#333" />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
         <Text style={styles.className}>Std 10</Text>
         <TouchableOpacity style={styles.notificationButton}>
           <View style={styles.notificationBadge} />
@@ -121,7 +137,10 @@ export default function Home() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollViewContent}
+      >
         {/* Welcome Section */}
         <View style={[styles.welcomeSection, { borderRadius: 0 }]}>
           <Text style={styles.welcomeText}>Welcome,</Text>
@@ -193,7 +212,7 @@ export default function Home() {
             ))}
           </View>
         </View>
-        <View>
+        <View style={styles.textExtractorContainer}>
           <TextExtractor />
         </View>
 
@@ -261,7 +280,55 @@ export default function Home() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-      <ChatBot />
+
+      {/* Place ChatBot before bottom nav but with adjusted style */}
+      <View style={styles.chatBotWrapper}>
+        <ChatBot />
+      </View>
+
+      {/* Bottom Navigation */}
+      <View style={styles.bottomNav}>
+        <TouchableOpacity 
+          style={styles.navItem} 
+          onPress={() => router.push('/chats')}
+        >
+          <Ionicons name="chatbubbles-outline" size={24} color="#666" />
+          <Text style={styles.navText}>Chats</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => router.push('/tools')}
+        >
+          <Ionicons name="build-outline" size={24} color="#666" />
+          <Text style={styles.navText}>Tools</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.navItem, styles.activeNavItem]}
+        >
+          <View style={styles.homeIconContainer}>
+            <Ionicons name="home" size={24} color="#2196F3" />
+          </View>
+          <Text style={[styles.navText, styles.activeNavText]}>Home</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => router.push('/blogs')}
+        >
+          <Ionicons name="newspaper-outline" size={24} color="#666" />
+          <Text style={styles.navText}>Blogs</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => router.push('/profile')}
+        >
+          <Ionicons name="person-outline" size={24} color="#666" />
+          <Text style={styles.navText}>Profile</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -269,22 +336,18 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    position: 'relative',
+    backgroundColor: 'transparent',
+    overflow: 'hidden',
   },
   navbar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: 'white',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    padding: Platform.OS === 'web' ? 20 : 15,
+    paddingTop: Platform.OS === 'ios' ? 50 : 20,
+    backgroundColor: 'transparent',
+    zIndex: 1,
   },
   menuButton: {
     width: 40,
@@ -295,9 +358,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   className: {
-    fontSize: 18,
+    fontSize: Platform.OS === 'web' ? 18 : 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#1A237E',
+    left: Platform.OS === 'web' ? 160 : 140,
   },
   notificationButton: {
     width: 40,
@@ -318,7 +382,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   welcomeSection: {
-    padding: 20,
+    padding: Platform.OS === 'web' ? 20 : 15,
     backgroundColor: '#2196F3',
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
@@ -328,7 +392,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.8)',
   },
   username: {
-    fontSize: 32,
+    fontSize: Platform.OS === 'web' ? 32 : 28,
     fontWeight: 'bold',
     color: 'white',
     marginBottom: 20,
@@ -370,32 +434,34 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#333',
+    color: '#1A237E',
+    letterSpacing: -0.5,
   },
   seeAllButton: {
     color: '#2196F3',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   subjectsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 15,
-    gap: 15,
+    paddingHorizontal: Platform.OS === 'web' ? 15 : 8,
+    gap: Platform.OS === 'web' ? 15 : 8,
+    marginTop: Platform.OS === 'web' ? 0 : 5,
   },
   subjectCard: {
-    width: (width - 50) / 2,
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 12,
+    width: (width - (Platform.OS === 'web' ? 50 : 30)) / 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(10px)' : undefined,
+    padding: Platform.OS === 'web' ? 15 : 12,
+    borderRadius: 16,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     elevation: 3,
   },
   subjectIconContainer: {
@@ -412,30 +478,30 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   filterGrid: {
-    paddingHorizontal: 20,
-    gap: 15,
+    paddingHorizontal: Platform.OS === 'web' ? 20 : 15,
+    gap: Platform.OS === 'web' ? 15 : 10,
   },
   filterCard: {
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(10px)' : undefined,
+    padding: Platform.OS === 'web' ? 15 : 12,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: Platform.OS === 'web' ? 10 : 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     elevation: 3,
   },
   filterIconContainer: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'rgba(245, 245, 245, 0.8)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 15,
@@ -449,18 +515,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   reviewCard: {
-    width: 300,
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 12,
-    marginRight: 15,
+    width: Platform.OS === 'web' ? 300 : width - 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(10px)' : undefined,
+    padding: Platform.OS === 'web' ? 20 : 15,
+    borderRadius: 16,
+    marginRight: Platform.OS === 'web' ? 15 : 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     elevation: 3,
   },
   reviewHeader: {
@@ -508,14 +574,25 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   footer: {
-    padding: 20,
-    backgroundColor: 'white',
+    padding: Platform.OS === 'web' ? 20 : 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(10px)' : undefined,
     alignItems: 'center',
+    marginBottom: Platform.OS === 'web' ? 0 : 80,
+    marginHorizontal: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
   footerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: '#1A237E',
     marginBottom: 20,
   },
   socialLinks: {
@@ -527,12 +604,14 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'rgba(245, 245, 245, 0.8)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   contactButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: 'rgba(33, 150, 243, 0.95)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -540,10 +619,119 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 25,
     gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   contactButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  bottomNav: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    paddingVertical: Platform.OS === 'ios' ? 20 : 10,
+    paddingHorizontal: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 10,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: Platform.OS === 'ios' ? 80 : 70,
+    zIndex: 998,
+  },
+  navItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    minWidth: 60,
+  },
+  activeNavItem: {
+    transform: [{ translateY: -5 }],
+  },
+  homeIconContainer: {
+    backgroundColor: '#E3F2FD',
+    padding: 12,
+    borderRadius: 999,
+    marginBottom: 4,
+  },
+  navText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  activeNavText: {
+    color: '#2196F3',
+    fontWeight: '600',
+  },
+  chatBotWrapper: {
+    position: 'absolute',
+    bottom: Platform.OS === 'web' ? 90 : 85,
+    right: Platform.OS === 'web' ? 0 : 8,
+    zIndex: 999,
+    transform: Platform.OS === 'web' ? [] : [{ scale: 0.9 }],
+  },
+  scrollViewContent: {
+    paddingBottom: Platform.OS === 'web' ? 90 : 120,
+  },
+  blurCircle: {
+    position: 'absolute',
+    borderRadius: 999,
+    zIndex: 0,
+  },
+  blurCircle1: {
+    width: Platform.OS === 'web' ? 250 : 200,
+    height: Platform.OS === 'web' ? 250 : 200,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    top: Platform.OS === 'web' ? 20 : 10,
+    left: Platform.OS === 'web' ? -80 : -60,
+    transform: [
+      { scale: 1.2 },
+      { rotate: '-15deg' }
+    ],
+  },
+  blurCircle2: {
+    width: Platform.OS === 'web' ? 220 : 180,
+    height: Platform.OS === 'web' ? 220 : 180,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    top: Platform.OS === 'web' ? 340 : 30,
+    right: Platform.OS === 'web' ? -40 : -30,
+    transform: [
+      { scale: 1.1 },
+      { rotate: '30deg' }
+    ],
+  },
+  blurCircle3: {
+    width: Platform.OS === 'web' ? 200 : 160,
+    height: Platform.OS === 'web' ? 200 : 160,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    bottom: Platform.OS === 'web' ? 30 : 80,
+    left: Platform.OS === 'web' ? -60 : -40,
+    transform: [
+      { scale: 1 },
+      { rotate: '15deg' }
+    ],
+  },
+  textExtractorContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(10px)' : undefined,
+    borderRadius: 16,
+    padding: Platform.OS === 'web' ? 20 : 15,
+    marginHorizontal: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
 });
