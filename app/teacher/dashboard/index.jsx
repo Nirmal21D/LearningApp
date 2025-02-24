@@ -29,7 +29,7 @@ import CallButton from "@/components/CallButton";
 import { ref, push } from 'firebase/database';
 
 export default function TeacherDashboard() {
-  const router = useRouter();
+    const router = useRouter();
   const [approvedSessions, setApprovedSessions] = useState([]);
   const [activeSession, setActiveSession] = useState(null);
   const [teacherInfo, setTeacherInfo] = useState(null);
@@ -440,7 +440,7 @@ useEffect(() => {
         </View>
 
         {canStart && (
-          <TouchableOpacity 
+        <TouchableOpacity 
             style={[
               styles.startButton,
               !canStart && styles.startButtonDisabled
@@ -454,7 +454,7 @@ useEffect(() => {
             </Text>
           </TouchableOpacity>
         )}
-      </View>
+            </View>
     );
   };
 
@@ -508,24 +508,24 @@ useEffect(() => {
         },
       },
     ]);
-  };
+    };
 
-  const handleQuickNotification = () => {
-    Alert.prompt(
+    const handleQuickNotification = () => {
+        Alert.prompt(
       "Send Quick Notification",
       "Enter your message to students",
-      [
-        {
+            [
+                {
           text: "Cancel",
           style: "cancel",
-        },
-        {
+                },
+                {
           text: "Send",
-          onPress: (message) => {
+                    onPress: (message) => {
             Alert.alert("Notification Sent", message);
-          },
-        },
-      ],
+                    },
+                },
+            ],
       "plain-text"
     );
   };
@@ -559,7 +559,7 @@ useEffect(() => {
         </View>
       );
     }
-  
+
     return (
       <ScrollView style={styles.sessionsContainer}>
         {approvedSessions.map((session) => (
@@ -634,12 +634,12 @@ useEffect(() => {
               <Text style={styles.activeSessionText}>
                 Active Session: {activeSession.topic}
               </Text>
-              <TouchableOpacity
+                <TouchableOpacity 
                 onPress={() => handleStartSession(activeSession)}
                 style={styles.rejoinButton}
-              >
+                >
                 <Text style={styles.rejoinButtonText}>Rejoin</Text>
-              </TouchableOpacity>
+                </TouchableOpacity>
             </View>
           )}
         </View>
@@ -715,42 +715,42 @@ useEffect(() => {
               </TouchableOpacity>
             ))}
           </ScrollView>
-        </View>
+            </View>
 
         {/* Quick Actions Grid */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+                <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionGrid}>
             {quickActions.map(renderQuickAction)}
-          </View>
-        </View>
+                </View>
+            </View>
 
-        <TouchableOpacity
-          style={styles.notificationButton}
-          onPress={handleQuickNotification}
-        >
-          <Ionicons
-            name="notifications"
-            size={24}
-            color="white"
-            style={styles.notificationIcon}
-          />
-          <Text style={styles.notificationButtonText}>
-            Send Quick Notification
-          </Text>
-        </TouchableOpacity>
+            <TouchableOpacity 
+                style={styles.notificationButton}
+                onPress={handleQuickNotification}
+            >
+                <Ionicons 
+                    name="notifications" 
+                    size={24} 
+                    color="white" 
+                    style={styles.notificationIcon}
+                />
+                <Text style={styles.notificationButtonText}>
+                    Send Quick Notification
+                </Text>
+            </TouchableOpacity>
 
         <View style={styles.callButtonContainer}>
           <CallButton roomId="optional-custom-room-id" />
         </View>
-      </ScrollView>
+        </ScrollView>
     </SafeAreaView>
-  );
+    );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+    container: {
+        flex: 1,
     backgroundColor: "#f5f5f5",
   },
   header: {
@@ -795,11 +795,11 @@ const styles = StyleSheet.create({
   },
   section: {
     padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
+    },
+    sectionTitle: {
+        fontSize: 18,
     fontWeight: "600",
-    marginBottom: 15,
+        marginBottom: 15,
     color: "#333",
   },
   sessionCard: {
@@ -926,11 +926,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     borderRadius: 12,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
   statCard: {
     alignItems: "center",
     padding: 10,
@@ -974,7 +974,7 @@ const styles = StyleSheet.create({
   },
   recentUploadCard: {
     backgroundColor: "white",
-    padding: 15,
+        padding: 15,
     borderRadius: 12,
     marginRight: 15,
     width: 150,
@@ -996,21 +996,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#666",
     marginTop: 4,
-  },
-  notificationButton: {
+    },
+    notificationButton: {
     flexDirection: "row",
     backgroundColor: "#28a745",
-    padding: 15,
-    borderRadius: 10,
+        padding: 15,
+        borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     marginHorizontal: 20,
     marginBottom: 20,
-  },
-  notificationIcon: {
-    marginRight: 10,
-  },
-  notificationButtonText: {
+    },
+    notificationIcon: {
+        marginRight: 10,
+    },
+    notificationButtonText: {
     color: "white",
     fontSize: 16,
     fontWeight: "600",
@@ -1026,7 +1026,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     color: "#666",
-    fontSize: 16,
+        fontSize: 16,
   },
   emptyContainer: {
     padding: 20,
@@ -1035,8 +1035,8 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: 10,
     color: "#666",
-    fontSize: 16,
-  },
+        fontSize: 16,
+    },
   sessionsContainer: {
     padding: 10,
   },
