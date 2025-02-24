@@ -135,8 +135,8 @@ export default function Home() {
   };
 
   if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container}>
+  return (
+    <SafeAreaView style={styles.container}>
         <Text style={styles.loadingText}>Loading...</Text>
       </SafeAreaView>
     );
@@ -172,24 +172,23 @@ export default function Home() {
         </TouchableOpacity> */}
         <Text style={styles.className}>Std 10</Text>
         <View style={styles.navRight}>
-          <TouchableOpacity style={styles.notificationButton}>
-            <View style={styles.notificationBadge} />
-            <Ionicons name="notifications-outline" size={24} color="#333" />
-          </TouchableOpacity>
+        <TouchableOpacity style={styles.notificationButton}>
+          <View style={styles.notificationBadge} />
+          <Ionicons name="notifications-outline" size={24} color="#333" />
+        </TouchableOpacity>
           <TouchableOpacity 
             style={styles.logoutButton}
             onPress={handleLogout}
           >
             <Ionicons name="log-out-outline" size={24} color="#FF4444" />
           </TouchableOpacity>
-        </View>
+      </View>
       </View>
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
       >
         {/* Welcome Section */}
-      <ScrollView showsVerticalScrollIndicator={false}>
         <View style={[styles.welcomeSection, { borderRadius: 0 }]}>
           <Text style={styles.welcomeText}>Welcome,</Text>
           <Text style={styles.username}>{userInfo ? userInfo.username : 'Loading...'}</Text>
@@ -204,7 +203,7 @@ export default function Home() {
                 styles.statNumber,
                 { color: getPerformanceColor(progressData ? calculateOverallProgress(progressData) : 0) }
               ]}>
-                {progressData ? `${calculateOverallProgress(progressData)}%` : '0%'}
+                {progressData ? calculateOverallProgress(progressData) + '%' : '0%'}
               </Text>
               <Text style={styles.statLabel}>Progress</Text>
             </View>
@@ -225,7 +224,7 @@ export default function Home() {
                 style={styles.subjectCard}
                 onPress={() => {
                   router.push({
-                    pathname: `/subject/${subject.id}`,
+                    pathname: '/subject/' + subject.id,
                     params: { 
                       subjectName: subject.name,
                       subjectId: subject.id
@@ -255,8 +254,8 @@ export default function Home() {
                 style={styles.filterCard}
                 onPress={() => {
                   router.push({
-                    pathname: `/labs`,
-                   })
+                    pathname: '/labs'
+                  });
                 }}
               >
                 <View style={styles.filterIconContainer}>
@@ -269,13 +268,13 @@ export default function Home() {
                 style={styles.filterCard}
                 onPress={() => {
                   router.push({
-                    pathname: `/progress`,
-                   })
+                    pathname: '/progress'
+                  });
                 }}
               >
                 <View style={styles.filterIconContainer}>
                  
-                </View>
+          </View>
                 <Text style={styles.filterName}>Progress</Text>
               </TouchableOpacity>
               <TouchableOpacity 
@@ -283,13 +282,13 @@ export default function Home() {
                 style={styles.filterCard}
                 onPress={() => {
                   router.push({
-                    pathname: `/pomodoro`,
-                   })
+                    pathname: '/pomodoro'
+                  });
                 }}
               >
                 <View style={styles.filterIconContainer}>
                  
-                </View>
+        </View>
                 <Text style={styles.filterName}>Pomodoro</Text>
               </TouchableOpacity>
            
@@ -353,8 +352,8 @@ export default function Home() {
               <View style={styles.recommendationsHeader}>
                 <Ionicons name="bulb" size={24} color="#FFD700" />
                 <Text style={styles.recommendationsTitle}>Learning Recommendations</Text>
-              </View>
-              
+        </View>
+
               {/* Progress-based recommendations */}
               {calculateOverallProgress(progressData) < 70 && (
                 <View style={[styles.recommendationItem, styles.warningItem]}>
@@ -386,7 +385,7 @@ export default function Home() {
                         style={[
                           styles.progressFill,
                           { 
-                            width: `${(progressData.summary.videosWatched / progressData.summary.totalVideos) * 100}%`,
+                            width: progressData.summary.videosWatched / progressData.summary.totalVideos * 100 + '%',
                             backgroundColor: '#2196F3'
                           }
                         ]} 
@@ -770,16 +769,16 @@ const styles = StyleSheet.create({
   },
   subjectCard: {
     width: (width - (Platform.OS === 'web' ? 50 : 30)) / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    backdropFilter: Platform.OS === 'web' ? 'blur(10px)' : undefined,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
     padding: Platform.OS === 'web' ? 15 : 12,
     borderRadius: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
+    borderColor: 'rgba(255, 255, 255, 0.8)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   },
@@ -801,18 +800,18 @@ const styles = StyleSheet.create({
     gap: Platform.OS === 'web' ? 15 : 10,
   },
   filterCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    backdropFilter: Platform.OS === 'web' ? 'blur(10px)' : undefined,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
     padding: Platform.OS === 'web' ? 15 : 12,
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: Platform.OS === 'web' ? 10 : 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
+    borderColor: 'rgba(255, 255, 255, 0.8)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   },
@@ -834,17 +833,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   reviewCard: {
-    width: Platform.OS === 'web' ? 300 : width - 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    backdropFilter: Platform.OS === 'web' ? 'blur(10px)' : undefined,
-    padding: Platform.OS === 'web' ? 20 : 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
     borderRadius: 16,
-    marginRight: Platform.OS === 'web' ? 15 : 12,
+    padding: Platform.OS === 'web' ? 20 : 15,
+    marginRight: 15,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
+    borderColor: 'rgba(255, 255, 255, 0.8)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   },
@@ -893,18 +891,17 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   footer: {
-    padding: Platform.OS === 'web' ? 20 : 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    backdropFilter: Platform.OS === 'web' ? 'blur(10px)' : undefined,
-    alignItems: 'center',
-    marginBottom: Platform.OS === 'web' ? 0 : 80,
-    marginHorizontal: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
     borderRadius: 16,
+    padding: Platform.OS === 'web' ? 20 : 15,
+    marginHorizontal: 20,
+    marginBottom: Platform.OS === 'web' ? 20 : 80,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
+    borderColor: 'rgba(255, 255, 255, 0.8)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   },
@@ -916,7 +913,7 @@ const styles = StyleSheet.create({
   },
   socialLinks: {
     flexDirection: 'row',
-    gap: 20,
+    gap: 42,
     marginBottom: 20,
   },
   socialButton: {
@@ -978,9 +975,10 @@ const styles = StyleSheet.create({
   },
   homeIconContainer: {
     backgroundColor: '#E3F2FD',
-    padding: 12,
+    padding: 15,
     borderRadius: 999,
     marginBottom: 4,
+    transform: [{ scale: 1.25 }],
   },
   navText: {
     fontSize: 12,
@@ -1040,20 +1038,20 @@ const styles = StyleSheet.create({
     ],
   },
   textExtractorContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    backdropFilter: Platform.OS === 'web' ? 'blur(10px)' : undefined,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
     borderRadius: 16,
     padding: Platform.OS === 'web' ? 20 : 15,
     marginHorizontal: 20,
+    marginVertical: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
+    borderColor: 'rgba(255, 255, 255, 0.8)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   },
-});
   navRight: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1068,18 +1066,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   recommendationsContainer: {
-    backgroundColor: 'white',
-    borderRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(8px)' : undefined,
+    borderRadius: 16,
     padding: 20,
     margin: 15,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.7)',
+    ...Platform.select({
+      web: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      }
+    })
   },
   recommendationsHeader: {
     flexDirection: 'row',
@@ -1157,18 +1161,24 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   learningGuideContainer: {
-    backgroundColor: 'white',
-    borderRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(8px)' : undefined,
+    borderRadius: 16,
     padding: 20,
     margin: 15,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.7)',
+    ...Platform.select({
+      web: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      }
+    })
   },
   learningGuideHeader: {
     flexDirection: 'row',
@@ -1243,6 +1253,48 @@ const styles = StyleSheet.create({
     color: '#666',
     marginLeft: 12,
     flex: 1,
+  },
+  section: {
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
+    borderRadius: 16,
+    padding: Platform.OS === 'web' ? 20 : 15,
+    marginHorizontal: 20,
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.8)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  extractorButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(10px)' : undefined,
+    padding: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    gap: 8,
+  },
+  chatButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(10px)' : undefined,
+    padding: Platform.OS === 'web' ? 15 : 12,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
 });
 
