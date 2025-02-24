@@ -5,12 +5,12 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   ScrollView,
-  TextInput,
   ActivityIndicator
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { 
   collection, 
+  addDoc, 
   doc, 
   getDoc, 
   getDocs, 
@@ -23,9 +23,8 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
-import * as VideoThumbnails from 'expo-video-thumbnails';
 
-export default function UploadVideoPage() {
+export default function UploadMaterialPage() {
   const [curriculums, setCurriculums] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
@@ -36,12 +35,6 @@ export default function UploadVideoPage() {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState(null);
-  const [videoDuration, setVideoDuration] = useState('');   
-  const [videoTitle, setVideoTitle] = useState('');
-  const [videoDescription, setVideoDescription] = useState('');
-  const [videoTags, setVideoTags] = useState('');
-  const [thumbnailUri, setThumbnailUri] = useState(null);
-
   const router = useRouter();
 
   const materialTypeOptions = [
@@ -124,153 +117,116 @@ export default function UploadVideoPage() {
     }
   };
 
-  const generateThumbnail = async (videoUri) => {
-    try {
-      const { uri } = await VideoThumbnails.getThumbnailAsync(videoUri, {
-        time: 1000, // Get thumbnail at 1 second mark
-      });
-      setThumbnailUri(uri);
-    } catch (error) {
-      console.warn('Failed to generate thumbnail:', error);
-    }
-  };
-
   const handleFileUpload = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'video/*',
+        type: '*/*',
         copyToCacheDirectory: true
       });
 
-      if (result.canceled) return;
+      if (result.canceled) {
+        return;
+      }
 
       const selectedFile = result.assets[0];
       
-      // File size check
-      if (selectedFile.size > 500 * 1024 * 1024) {
-        showNotification('File size exceeds 500MB limit');
+      // Check file size (50MB limit)
+      if (selectedFile.size > 50 * 1024 * 1024) {
+        showNotification('File size exceeds 50MB limit');
         return;
       }
 
-      // Video type verification
-      if (!selectedFile.mimeType?.startsWith('video/')) {
-        showNotification('Please select a video file');
-        return;
-      }
-
-      // Generate thumbnail
-      await generateThumbnail(selectedFile.uri);
-
-      // Set default title from filename
-      setVideoTitle(selectedFile.name.replace(/\.[^/.]+$/, ''));
       setFile(selectedFile);
     } catch (error) {
       console.error('Error picking document:', error);
       showNotification('Error selecting file');
     }
-  };  
+  };
 
-  const uploadVideo = async () => {
-    // Validation checks
-    if (!selectedCurriculum || !selectedSubject || !selectedChapter || 
-        !file || !selectedMaterialType) {
-      showNotification('Please fill all required fields');
+  const uploadMaterial = async () => {
+    // Validation
+    if (!selectedCurriculum) {
+      showNotification('Please select a curriculum');
       return;
     }
-  
+    if (!selectedSubject) {
+      showNotification('Please select a subject');
+      return;
+    }
+    if (!selectedChapter) {
+      showNotification('Please select a chapter');
+      return;
+    }
+    if (!file) {
+      showNotification('Please select a file');
+      return;
+    }
+    if (!selectedMaterialType) {
+      showNotification('Please select material type');
+      return;
+    }
+
     setLoading(true);
-  
+
     try {
-      // Fetch the subject document to get subject name and chapters
       const subjectRef = doc(db, 'subjects', selectedSubject);
       const subjectSnap = await getDoc(subjectRef);
-      
-      if (!subjectSnap.exists()) {
-        throw new Error('Subject not found');
-      }
-  
       const subjectData = subjectSnap.data();
       const subjectName = subjectData.name || 'Unknown';
       const chapters = subjectData.chapters || [];
-  
-      // Sanitize subject name for chapter mapping
       const sanitizedSubjectName = subjectName.replace(/\s+/g, '');
-  
-      // Dynamically generate chapter mapping based on actual chapters
       const chapterMapping = chapters.reduce((mapping, chapter, index) => {
         mapping[`chapter_${index}`] = `CH${index + 1}_${sanitizedSubjectName}`;
         return mapping;
       }, {});
-  
       const mappedChapter = chapterMapping[selectedChapter] || selectedChapter;
-  
+      
       // Create blob from file URI
       const response = await fetch(file.uri);
       const blob = await response.blob();
-  
-      // Upload video
+
       const storageRef = ref(
         storage, 
-        `videos/${selectedCurriculum}/${selectedSubject}/${selectedChapter}/${file.name}`
+        `materials/${selectedCurriculum}/${selectedSubject}/${selectedChapter}/${file.name}`
       );
+
+      // Upload blob
       const snapshot = await uploadBytes(storageRef, blob);
       const downloadURL = await getDownloadURL(snapshot.ref);
-  
-      // Upload thumbnail if exists
-      let thumbnailURL = null;
-      if (thumbnailUri) {
-        const thumbnailResponse = await fetch(thumbnailUri);
-        const thumbnailBlob = await thumbnailResponse.blob();
-        const thumbnailStorageRef = ref(
-          storage, 
-          `thumbnails/${selectedCurriculum}/${selectedSubject}/${selectedChapter}/${file.name}_thumb`
-        );
-        const thumbnailSnapshot = await uploadBytes(thumbnailStorageRef, thumbnailBlob);
-        thumbnailURL = await getDownloadURL(thumbnailSnapshot.ref);
-      }
-  
-      // Prepare video data
-      const videoData = {
-        id: `video_${Date.now()}`, // Unique ID for each video
-        name: videoTitle || file.name,
+
+      const materialData = {
+        name: file.name,
         url: downloadURL,
-        thumbnailUrl: thumbnailURL,
+        subjectId: selectedSubject,
+        curriculumId: selectedCurriculum,
+        chapterId: selectedChapter,
         uploadedAt: new Date(),
         fileType: file.mimeType,
         fileSize: file.size,
         difficulty: 'beginner',
-        materialType: selectedMaterialType,
-        duration: videoDuration || null,
-        description: videoDescription || null,
-        tags: videoTags ? videoTags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
-      };
-  
-      // Update subject document with the new video structure
-      const subjectDocRef = doc(db, 'subjects', selectedSubject);
-  
-      // Use updateDoc with arrayUnion to add the video to the specific chapter
-      await updateDoc(subjectDocRef, {
-        [`videos.${mappedChapter}`]: arrayUnion(videoData),
-        videoBanner: downloadURL
+        materialType: selectedMaterialType
+
+      }
+      // Save material metadata to Firestore
+      await updateDoc(subjectRef, {
+        [`materials.${mappedChapter}`]: arrayUnion(materialData)
+        
       });
-  
-      showNotification('Video uploaded successfully', 'success');
-  
-      // Navigate after success
+
+      // Update subject with material reference
+      
+      
+
+      showNotification('Material uploaded successfully', 'success');
+      
       setTimeout(() => {
-        router.push('/teacher/dashboard');
+        router.push('/teacher/view_materials');
       }, 1500);
-  
-      // Reset form
+
       setFile(null);
-      setThumbnailUri(null);
-      setVideoTitle('');
-      setVideoDescription('');
-      setVideoDuration('');
-      setVideoTags('');
     } catch (error) {
-      console.error('Error uploading video:', error);
-      showNotification('Failed to upload video');
+      console.error('Error uploading material:', error);
+      showNotification('Failed to upload material');
     } finally {
       setLoading(false);
     }
@@ -288,12 +244,10 @@ export default function UploadVideoPage() {
   return (
     <ScrollView style={styles.container}>
       {notification && (
-        <View
+        <View 
           style={[
-            styles.notificationContainer,
-            notification.type === "success"
-              ? styles.successNotification
-              : styles.errorNotification,
+            styles.notificationContainer, 
+            notification.type === 'success' ? styles.successNotification : styles.errorNotification
           ]}
         >
           <Text style={styles.notificationText}>{notification.message}</Text>
@@ -313,10 +267,10 @@ export default function UploadVideoPage() {
           >
             <Picker.Item label="Select Curriculum" value="" />
             {curriculums.map((curriculum) => (
-              <Picker.Item
-                key={curriculum.id}
-                label={curriculum.name}
-                value={curriculum.id}
+              <Picker.Item 
+                key={curriculum.id} 
+                label={curriculum.name} 
+                value={curriculum.id} 
               />
             ))}
           </Picker>
@@ -331,14 +285,14 @@ export default function UploadVideoPage() {
             style={styles.picker}
             selectedValue={selectedSubject}
             onValueChange={setSelectedSubject}
-            enabled={selectedCurriculum !== ""}
+            enabled={selectedCurriculum !== ''}
           >
             <Picker.Item label="Select Subject" value="" />
             {subjects.map((subject) => (
-              <Picker.Item
-                key={subject.id}
-                label={subject.name}
-                value={subject.id}
+              <Picker.Item 
+                key={subject.id} 
+                label={subject.name} 
+                value={subject.id} 
               />
             ))}
           </Picker>
@@ -353,14 +307,14 @@ export default function UploadVideoPage() {
             style={styles.picker}
             selectedValue={selectedChapter}
             onValueChange={setSelectedChapter}
-            enabled={selectedSubject !== ""}
+            enabled={selectedSubject !== ''}
           >
             <Picker.Item label="Select Chapter" value="" />
             {chapters.map((chapter) => (
-              <Picker.Item
-                key={chapter.id}
-                label={chapter.name}
-                value={chapter.id}
+              <Picker.Item 
+                key={chapter.id} 
+                label={chapter.name} 
+                value={chapter.id} 
               />
             ))}
           </Picker>
@@ -377,10 +331,10 @@ export default function UploadVideoPage() {
             onValueChange={setSelectedMaterialType}
           >
             {materialTypeOptions.map((type) => (
-              <Picker.Item
-                key={type.value}
-                label={type.label}
-                value={type.value}
+              <Picker.Item 
+                key={type.value} 
+                label={type.label} 
+                value={type.value} 
               />
             ))}
           </Picker>
@@ -389,8 +343,8 @@ export default function UploadVideoPage() {
 
       {/* File Selection */}
       <View style={styles.fileContainer}>
-        <TouchableOpacity
-          style={styles.fileInputButton}
+        <TouchableOpacity 
+          style={styles.fileInputButton} 
           onPress={handleFileUpload}
         >
           <Text style={styles.fileInputButtonText}>Select File</Text>
@@ -402,47 +356,25 @@ export default function UploadVideoPage() {
         )}
       </View>
 
-      {/* Material Name Input */}
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Material Name</Text>
-        <TextInput
-          style={styles.input}
-          value={materialName}
-          onChangeText={setMaterialName}
-          placeholder="Enter the name of the material"
-        />
-      </View>
-
-      {/* Material Description Input */}
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Material Description</Text>
-        <TextInput
-          style={styles.input}
-          value={materialDescription}
-          onChangeText={setMaterialDescription}
-          placeholder="Enter a short description of the material"
-        />
-      </View>
-
       {/* Upload Button */}
-      <TouchableOpacity
+      <TouchableOpacity 
         style={[
-          styles.uploadButton,
-          isUploadDisabled() && styles.disabledUploadButton,
-        ]}
+          styles.uploadButton, 
+          isUploadDisabled() && styles.disabledUploadButton
+        ]} 
         onPress={uploadMaterial}
         disabled={isUploadDisabled()}
       >
         <Text style={styles.uploadButtonText}>
-          {loading ? "Uploading..." : "Upload Material"}
+          {loading ? 'Uploading...' : 'Upload Material'}
         </Text>
       </TouchableOpacity>
 
       {loading && (
-        <ActivityIndicator
-          size="large"
-          color="#007bff"
-          style={styles.loadingIndicator}
+        <ActivityIndicator 
+          size="large" 
+          color="#007bff" 
+          style={styles.loadingIndicator} 
         />
       )}
     </ScrollView>
@@ -453,92 +385,83 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: "#f4f6f9",
+    backgroundColor: '#f4f6f9'
   },
   notificationContainer: {
     padding: 10,
     marginBottom: 20,
-    borderRadius: 5,
+    borderRadius: 5
   },
   successNotification: {
-    backgroundColor: "#4caf50",
+    backgroundColor: '#4caf50'
   },
   errorNotification: {
-    backgroundColor: "#f44336",
+    backgroundColor: '#f44336'
   },
   notificationText: {
-    color: "white",
-    textAlign: "center",
+    color: 'white',
+    textAlign: 'center'
   },
   title: {
     fontSize: 24,
-    fontWeight: "bold",
+    fontWeight: 'bold',
     marginBottom: 20,
-    textAlign: "center",
+    textAlign: 'center'
   },
   pickerContainer: {
-    marginBottom: 15,
+    marginBottom: 15
   },
   label: {
     fontSize: 16,
     marginBottom: 5,
-    fontWeight: "500",
+    fontWeight: '500'
   },
   pickerWrapper: {
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: '#ddd',
     borderRadius: 5,
-    backgroundColor: "white",
-    overflow: "hidden",
+    backgroundColor: 'white',
+    overflow: 'hidden'
   },
   picker: {
     height: 50,
-    width: "100%",
+    width: '100%'
   },
   fileContainer: {
-    marginVertical: 15,
+    marginVertical: 15
   },
   fileInputButton: {
-    backgroundColor: "#007bff",
+    backgroundColor: '#007bff',
     padding: 15,
     borderRadius: 5,
-    alignItems: "center",
+    alignItems: 'center'
   },
   fileInputButtonText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16
   },
   fileName: {
     marginTop: 10,
-    color: "#666",
-    fontSize: 14,
-  },
-  inputContainer: {
-    marginBottom: 15,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 5,
-    padding: 10,
+    color: '#666',
+    fontSize: 14
   },
   uploadButton: {
-    backgroundColor: "#007bff",
+    backgroundColor: '#007bff',
     padding: 15,
     borderRadius: 5,
-    alignItems: "center",
-    marginTop: 10,
+    alignItems: 'center',
+    marginTop: 10
   },
   disabledUploadButton: {
-    backgroundColor: "#cccccc",
+    backgroundColor: '#cccccc'
   },
   uploadButtonText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16
   },
   loadingIndicator: {
-    marginTop: 20,
-  },
+    marginTop: 20
+  }
 });

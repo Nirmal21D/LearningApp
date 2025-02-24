@@ -1,8 +1,12 @@
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LineChart } from 'react-native-chart-kit';
+import { auth } from '@/lib/firebase';
+import { getUserProgress, getRecentTests, getSubjectVideoProgress } from '@/app/api/progress';
+import { getDoc, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 const timeFilters = [
   { id: 1, label: 'Last 3 Months', value: '3m' },
@@ -10,37 +14,262 @@ const timeFilters = [
   { id: 3, label: 'Last Year', value: '1y' },
 ];
 
-const chartData = {
-  '3m': {
-    labels: ['Jan', 'Feb', 'Mar'],
-    datasets: [{ data: [65, 75, 87] }]
-  },
-  '6m': {
-    labels: ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'],
-    datasets: [{ data: [60, 65, 70, 75, 80, 87] }]
-  },
-  '1y': {
-    labels: ['Apr', 'Jun', 'Aug', 'Oct', 'Dec', 'Mar'],
-    datasets: [{ data: [50, 60, 65, 75, 80, 87] }]
-  }
-};
-
 export default function ProgressPage() {
   const router = useRouter();
   const [selectedFilter, setSelectedFilter] = useState('3m');
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [selectedChartType, setSelectedChartType] = useState('monthly');
+  const [progressData, setProgressData] = useState(null);
+  const [recentTests, setRecentTests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedSubject, setSelectedSubject] = useState(null);
+  const [videoProgressData, setVideoProgressData] = useState({});
+
+  useEffect(() => {
+    loadProgressData();
+  }, [selectedFilter]);
+
+  const loadProgressData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const userId = auth.currentUser?.uid;
+      if (!userId) {
+        router.replace('/login');
+        return;
+      }
+
+      const [progress, tests] = await Promise.all([
+        getUserProgress(userId, selectedFilter),
+        getRecentTests(userId)
+      ]);
+
+      // Load video progress for each subject
+      const videoProgress = {};
+      const allChapters = [];
+      
+      if (progress.summary.subjects.length > 0) {
+        await Promise.all(
+          progress.summary.subjects.map(async (subject) => {
+            // Get chapters for this subject
+            const chapters = await getSubjectChapters(subject.id);
+            allChapters.push(...chapters);
+
+            // Get subject document to count total videos
+            const subjectDoc = await getDoc(doc(db, 'subjects', subject.id));
+            if (subjectDoc.exists()) {
+              const subjectData = subjectDoc.data();
+              let totalVideos = 0;
+              if (subjectData.videos) {
+                Object.values(subjectData.videos).forEach(chapterVideos => {
+                  if (Array.isArray(chapterVideos)) {
+                    totalVideos += chapterVideos.length;
+                  }
+                });
+              }
+              subject.totalVideos = totalVideos;
+            }
+
+            const subjectProgress = await getSubjectVideoProgress(userId, subject.id);
+            videoProgress[subject.id] = subjectProgress.reduce((acc, curr) => {
+              acc[curr.videoId] = curr;
+              return acc;
+            }, {});
+          })
+        );
+      }
+      setVideoProgressData(videoProgress);
+
+      // Update progress data with correct video counts and all chapters
+      setProgressData({
+        ...progress,
+        summary: {
+          ...progress.summary,
+          subjects: progress.summary.subjects.map(subject => ({
+            ...subject,
+            totalVideos: subject.totalVideos || 0
+          })),
+          chapters: allChapters
+        }
+      });
+      setRecentTests(tests);
+      if (progress.summary.subjects.length > 0 && !selectedSubject) {
+        setSelectedSubject(progress.summary.subjects[0].id);
+      }
+    } catch (error) {
+      console.error('Error loading progress data:', error);
+      setError('Failed to load progress data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getPerformanceLabel = (score) => {
     if (score >= 85) return { label: 'Excellent', color: '#4CAF50' };
     if (score >= 70) return { label: 'Good', color: '#2196F3' };
+    if (score >= 50) return { label: 'Fair', color: '#FF9800' };
     return { label: 'Needs Improvement', color: '#F44336' };
   };
 
-  const performance = getPerformanceLabel(87);
+  const selectedSubjectData = progressData?.summary.subjects.find(s => s.id === selectedSubject);
+
+  const chartData = {
+    labels: progressData?.chartData?.[selectedChartType]?.map(item => item.name) || [],
+    datasets: [{
+      data: progressData?.chartData?.[selectedChartType]?.map(item => item.total) || []
+    }]
+  };
+
+  const getSubjectCompletedVideos = (subjectId) => {
+    const subjectProgress = videoProgressData[subjectId] || {};
+    return Object.values(subjectProgress).filter(p => p.completed).length;
+  };
+
+  const getSubjectChapters = async (subjectId) => {
+    try {
+      const subjectDoc = await getDoc(doc(db, 'subjects', subjectId));
+      if (!subjectDoc.exists()) return [];
+
+      const subjectData = subjectDoc.data();
+      const chapters = subjectData.chapters || [];
+      const videos = subjectData.videos || {};
+
+      return chapters.map(chapterName => {
+        const chapterKey = `CH${chapters.indexOf(chapterName) + 1}_${subjectData.name.replace(/\s+/g, '')}`;
+        const chapterVideos = videos[chapterKey] || [];
+        
+        return {
+          name: chapterName,
+          subjectId: subjectId,
+          subjectName: subjectData.name,
+          totalVideos: chapterVideos.length,
+          videos: chapterVideos,
+          chapterKey: chapterKey
+        };
+      });
+    } catch (error) {
+      console.error('Error getting subject chapters:', error);
+      return [];
+    }
+  };
+
+  const getChapterVideoProgress = (subjectId, chapterName, chapterKey) => {
+    try {
+      const subjectProgress = videoProgressData[subjectId] || {};
+      const chapterProgress = Object.values(subjectProgress).filter(p => 
+        p.chapterId === chapterName || // Check direct chapterId match
+        p.chapterId === chapterKey || // Check chapter key match
+        p.videoDetails?.chapterName === chapterName // Check in video details
+      );
+      
+      return {
+        completed: chapterProgress.filter(p => p.completed).length,
+        total: chapterProgress.length,
+        progress: chapterProgress.map(p => ({
+          videoName: p.videoDetails?.name || p.title,
+          progress: p.progress || 0,
+          completed: p.completed || false,
+          lastWatched: p.lastWatched
+        }))
+      };
+    } catch (error) {
+      console.error('Error getting chapter progress:', error);
+      return { completed: 0, total: 0, progress: [] };
+    }
+  };
+
+  const renderSubjectDetails = () => {
+    if (!selectedSubjectData) return null;
+
+    const completedVideos = getSubjectCompletedVideos(selectedSubjectData.id);
+
+    return (
+      <View style={styles.subjectDetailsCard}>
+        <Text style={styles.subjectTitle}>{selectedSubjectData.name}</Text>
+        <View style={styles.subjectStats}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>
+              {selectedSubjectData.averageScore}%
+            </Text>
+            <Text style={styles.statLabel}>Average Score</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>
+              {selectedSubjectData.completedChapters}/{selectedSubjectData.totalChapters}
+            </Text>
+            <Text style={styles.statLabel}>Chapters Done</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>
+              {completedVideos}/{selectedSubjectData.totalVideos || 0}
+            </Text>
+            <Text style={styles.statLabel}>Videos Completed</Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const renderSummaryContainer = () => {
+    if (!progressData) return null;
+
+    const totalCompletedVideos = progressData.summary.subjects.reduce(
+      (total, subject) => total + getSubjectCompletedVideos(subject.id), 
+      0
+    );
+
+    return (
+      <View style={styles.summaryContainer}>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Overall Progress</Text>
+          <View style={styles.progressGrid}>
+            <View style={styles.progressItem}>
+              <Text style={[styles.summaryScore, { 
+                color: getPerformanceLabel(progressData.summary.averageScore).color 
+              }]}>
+                {progressData.summary.averageScore}%
+              </Text>
+              <Text style={styles.progressLabel}>Average Score</Text>
+            </View>
+            {/* <View style={styles.progressItem}>
+              <Text style={styles.summaryScore}>
+                {totalCompletedVideos}/{progressData.summary.totalVideos}
+              </Text>
+              <Text style={styles.progressLabel}>Videos Completed</Text>
+            </View> */}
+          </View>
+          <Text style={[styles.performanceLabel, { 
+            color: getPerformanceLabel(progressData.summary.averageScore).color 
+          }]}>
+            {getPerformanceLabel(progressData.summary.averageScore).label}
+          </Text>
+          <Text style={styles.learningSpeedLabel}>
+            Learning Speed: {progressData.summary.learningSpeed}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={48} color="#F44336" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={loadProgressData}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
@@ -50,146 +279,313 @@ export default function ProgressPage() {
             <Ionicons name="arrow-back" size={24} color="#333" />
           </View>
         </TouchableOpacity>
-        <Text style={styles.studentName}>Performance</Text>
+        <Text style={styles.headerTitle}>Progress Overview</Text>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Progress Header with Filter */}
-        <View style={styles.progressHeader}>
-          <Text style={styles.progressTitle}>Learning Progress</Text>
-          <View style={styles.filterWrapper}>
-            <TouchableOpacity 
-              style={styles.filterButton}
-              onPress={() => setShowFilterDropdown(!showFilterDropdown)}
+        <View style={styles.filterContainer}>
+          {timeFilters.map((filter) => (
+            <TouchableOpacity
+              key={filter.id}
+              style={[
+                styles.filterButton,
+                selectedFilter === filter.value && styles.filterButtonActive
+              ]}
+              onPress={() => setSelectedFilter(filter.value)}
             >
-              <Text style={styles.filterButtonText}>
-                {timeFilters.find(f => f.value === selectedFilter)?.label}
+              <Text style={[
+                styles.filterButtonText,
+                selectedFilter === filter.value && styles.filterButtonTextActive
+              ]}>
+                {filter.label}
               </Text>
-              <Ionicons 
-                name={showFilterDropdown ? "chevron-up" : "chevron-down"} 
-                size={20} 
-                color="#333" 
-              />
             </TouchableOpacity>
-            
-            {showFilterDropdown && (
-              <View style={styles.filterDropdown}>
-                {timeFilters.map((filter) => (
-                  <TouchableOpacity
-                    key={filter.id}
-                    style={styles.filterOption}
-                    onPress={() => {
-                      setSelectedFilter(filter.value);
-                      setShowFilterDropdown(false);
-                    }}
-                  >
-                    <Text style={[
-                      styles.filterOptionText,
-                      selectedFilter === filter.value && styles.filterOptionSelected
-                    ]}>
-                      {filter.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+          ))}
+        </View>
+
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#2196F3" />
+            <Text style={styles.loadingText}>Loading your progress...</Text>
+          </View>
+        ) : (
+          <>
+            {renderSummaryContainer()}
+
+            {progressData.chartData?.[selectedChartType]?.length > 0 && (
+              <View style={styles.chartContainer}>
+                <View style={styles.chartHeader}>
+                  <Text style={styles.chartTitle}>Progress Over Time</Text>
+                  <View style={styles.chartTypeContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.chartTypeButton,
+                        selectedChartType === 'daily' && styles.chartTypeButtonActive
+                      ]}
+                      onPress={() => setSelectedChartType('daily')}
+                    >
+                      <Text style={[
+                        styles.chartTypeText,
+                        selectedChartType === 'daily' && styles.chartTypeTextActive
+                      ]}>Daily</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.chartTypeButton,
+                        selectedChartType === 'monthly' && styles.chartTypeButtonActive
+                      ]}
+                      onPress={() => setSelectedChartType('monthly')}
+                    >
+                      <Text style={[
+                        styles.chartTypeText,
+                        selectedChartType === 'monthly' && styles.chartTypeTextActive
+                      ]}>Monthly</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                <LineChart
+                  data={chartData}
+                  width={Dimensions.get('window').width - 40}
+                  height={220}
+                  chartConfig={{
+                    backgroundColor: '#ffffff',
+                    backgroundGradientFrom: '#ffffff',
+                    backgroundGradientTo: '#ffffff',
+                    decimalPlaces: 0,
+                    color: (opacity = 1) => `rgba(33, 150, 243, ${opacity})`,
+                    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                    propsForDots: {
+                      r: "6",
+                      strokeWidth: "2",
+                      stroke: "#2196F3"
+                    },
+                    propsForLabels: {
+                      fontSize: selectedChartType === 'daily' ? 10 : 12
+                    }
+                  }}
+                  bezier
+                  style={styles.chart}
+                  getDotColor={(dataPoint, dataPointIndex) => {
+                    const score = dataPoint;
+                    if (score >= 85) return '#4CAF50';
+                    if (score >= 70) return '#2196F3';
+                    if (score >= 50) return '#FF9800';
+                    return '#F44336';
+                  }}
+                  renderDotContent={({x, y, index}) => {
+                    const item = progressData.chartData[selectedChartType][index];
+                    return (
+                      <View
+                        key={index}
+                        style={[
+                          styles.tooltipContainer,
+                          {
+                            left: x - 50,
+                            top: y - 40,
+                          }
+                        ]}
+                      >
+                        <Text style={styles.tooltipText}>
+                          {item.date}
+                        </Text>
+                        <Text style={styles.tooltipScore}>
+                          {item.total}%
+                        </Text>
+                      </View>
+                    );
+                  }}
+                />
               </View>
             )}
-          </View>
-        </View>
 
-        {/* Progress Chart */}
-        <View style={styles.chartContainer}>
-          <LineChart
-            data={chartData[selectedFilter]}
-            width={Dimensions.get('window').width - 40}
-            height={220}
-            chartConfig={{
-              backgroundColor: '#ffffff',
-              backgroundGradientFrom: '#ffffff',
-              backgroundGradientTo: '#ffffff',
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(33, 150, 243, ${opacity})`,
-              style: {
-                borderRadius: 16,
-              },
-            }}
-            bezier
-            style={styles.chart}
-          />
-        </View>
-
-        {/* Progress Cards */}
-        <View style={styles.progressGrid}>
-          <View style={[styles.progressCard, styles.averageScoreCard]}>
-            <View style={[styles.cardIcon, { backgroundColor: '#E8F5E9' }]}>
-              <Ionicons name="trending-up" size={24} color="#4CAF50" />
+            <View style={styles.subjectContainer}>
+              <Text style={styles.sectionTitle}>Subject Progress</Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.subjectScroll}
+              >
+                {progressData.summary.subjects.map((subject) => {
+                  const completedVideos = getSubjectCompletedVideos(subject.id);
+                  return (
+                    <TouchableOpacity
+                      key={subject.id}
+                      style={[
+                        styles.subjectButton,
+                        selectedSubject === subject.id && styles.subjectButtonActive
+                      ]}
+                      onPress={() => setSelectedSubject(subject.id)}
+                    >
+                      <Text style={[
+                        styles.subjectButtonText,
+                        selectedSubject === subject.id && styles.subjectButtonTextActive
+                      ]}>
+                        {subject.name}
+                      </Text>
+                      <View style={styles.subjectProgress}>
+                        <Text style={[
+                          styles.subjectProgressText,
+                          selectedSubject === subject.id && styles.subjectButtonTextActive
+                        ]}>
+                          {completedVideos}/{subject.totalVideos || 0} Videos
+                        </Text>
+                        <View style={styles.subjectProgressBar}>
+                          <View 
+                            style={[
+                              styles.subjectProgressFill,
+                              {
+                                width: `${(completedVideos / (subject.totalVideos || 1)) * 100}%`,
+                                backgroundColor: selectedSubject === subject.id ? '#fff' : '#2196F3'
+                              }
+                            ]} 
+                          />
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             </View>
-            <Text style={styles.cardLabel}>Average Score</Text>
-            <Text style={styles.cardValue}>87%</Text>
-            <Text style={[styles.performanceLabel, { color: performance.color }]}>
-              {performance.label}
-            </Text>
-          </View>
 
-          <View style={[styles.progressCard, styles.testsCard]}>
-            <View style={[styles.cardIcon, { backgroundColor: '#E3F2FD' }]}>
-              <Ionicons name="document-text" size={24} color="#2196F3" />
-            </View>
-            <Text style={styles.cardLabel}>Tests Completed</Text>
-            <Text style={styles.cardValue}>24/30</Text>
-            <Text style={styles.completionRate}>80% Complete</Text>
-          </View>
+            {renderSubjectDetails()}
 
-          <View style={[styles.progressCard, styles.videosCard]}>
-            <View style={[styles.cardIcon, { backgroundColor: '#F3E5F5' }]}>
-              <Ionicons name="play-circle" size={24} color="#9C27B0" />
-            </View>
-            <Text style={styles.cardLabel}>Videos Watched</Text>
-            <Text style={styles.cardValue}>45/60</Text>
-            <Text style={styles.completionRate}>75% Complete</Text>
-          </View>
+            {progressData.summary.chapters.length > 0 && (
+              <View style={styles.chaptersContainer}>
+                <Text style={styles.sectionTitle}>Chapter Progress</Text>
+                {progressData.summary.chapters
+                  .filter(chapter => !selectedSubject || chapter.subjectId === selectedSubject)
+                  .map((chapter, index) => {
+                    const videoProgress = getChapterVideoProgress(
+                      chapter.subjectId, 
+                      chapter.name,
+                      chapter.chapterKey
+                    );
+                    const hasNoVideos = chapter.totalVideos === 0;
+                    const completionPercentage = hasNoVideos ? 100 : 
+                      (videoProgress.total > 0 ? Math.round((videoProgress.completed / videoProgress.total) * 100) : 0);
 
-          <View style={[styles.progressCard, styles.weakAreasCard]}>
-            <View style={[styles.cardIcon, { backgroundColor: '#FFEBEE' }]}>
-              <Ionicons name="alert-circle" size={24} color="#F44336" />
-            </View>
-            <Text style={styles.cardLabel}>Weak Areas</Text>
-            <Text style={styles.cardValue}>2</Text>
-            <Text style={styles.weakAreasText}>Need attention</Text>
-          </View>
-        </View>
-
-        {/* Recent Tests Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Tests</Text>
-            <TouchableOpacity>
-              <Text style={styles.viewAllButton}>View All</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.testsList}>
-            {[
-              { name: 'Mathematics Final', date: 'March 15, 2024', score: 92 },
-              { name: 'Science Quiz', date: 'March 10, 2024', score: 85 },
-              { name: 'English Test', date: 'March 5, 2024', score: 88 },
-            ].map((test, index) => (
-              <View key={index} style={styles.testItem}>
-                <View style={styles.testInfo}>
-                  <Text style={styles.testName}>{test.name}</Text>
-                  <Text style={styles.testDate}>{test.date}</Text>
-                </View>
-                <View style={[
-                  styles.testScore,
-                  { backgroundColor: test.score >= 90 ? '#E8F5E9' : '#E3F2FD' }
-                ]}>
-                  <Text style={[
-                    styles.scoreValue,
-                    { color: test.score >= 90 ? '#4CAF50' : '#2196F3' }
-                  ]}>{test.score}%</Text>
-                </View>
+                    return (
+                      <View key={index} style={styles.chapterCard}>
+                        <View style={styles.chapterInfo}>
+                          <Text style={styles.chapterName}>{chapter.name}</Text>
+                          <Text style={styles.chapterSubject}>{chapter.subjectName}</Text>
+                          <View style={styles.chapterProgressContainer}>
+                            <View style={styles.chapterProgressBar}>
+                              <View 
+                                style={[
+                                  styles.chapterProgressFill,
+                                  { 
+                                    width: `${completionPercentage}%`,
+                                    backgroundColor: completionPercentage >= 90 ? '#4CAF50' : '#2196F3'
+                                  }
+                                ]} 
+                              />
+                            </View>
+                            <Text style={styles.chapterProgressText}>
+                              {hasNoVideos ? 'No videos to watch' : 
+                                `${videoProgress.completed}/${chapter.totalVideos} Videos Completed`}
+                            </Text>
+                          </View>
+                          
+                          {/* Video List */}
+                          <View style={styles.videoList}>
+                            {chapter.videos.map((video, vIndex) => {
+                              const progress = videoProgress.progress.find(p => 
+                                p.videoName === video.name || p.videoName === video.title
+                              ) || { progress: 0, completed: false };
+                              
+                              return (
+                                <View key={vIndex} style={styles.videoItem}>
+                                  <View style={styles.videoItemHeader}>
+                                    <Ionicons 
+                                      name={progress.completed ? "checkmark-circle" : "play-circle-outline"} 
+                                      size={20} 
+                                      color={progress.completed ? "#4CAF50" : "#666"} 
+                                    />
+                                    <Text style={[
+                                      styles.videoName,
+                                      progress.completed && styles.videoCompleted
+                                    ]}>
+                                      {video.name || video.title || `Video ${vIndex + 1}`}
+                                    </Text>
+                                  </View>
+                                  <View style={styles.videoProgressBar}>
+                                    <View 
+                                      style={[
+                                        styles.videoProgressFill,
+                                        { 
+                                          width: `${Math.round(progress.progress * 100)}%`,
+                                          backgroundColor: progress.completed ? '#4CAF50' : '#2196F3'
+                                        }
+                                      ]} 
+                                    />
+                                  </View>
+                                  {progress.lastWatched && (
+                                    <Text style={styles.lastWatchedText}>
+                                      Last watched: {new Date(progress.lastWatched.seconds * 1000).toLocaleDateString()}
+                                    </Text>
+                                  )}
+                                </View>
+                              );
+                            })}
+                          </View>
+                        </View>
+                        
+                        <View style={[
+                          styles.chapterScore,
+                          { backgroundColor: getPerformanceLabel(completionPercentage).color + '20' }
+                        ]}>
+                          <Text style={[
+                            styles.scoreValue,
+                            { color: getPerformanceLabel(completionPercentage).color }
+                          ]}>{completionPercentage}%</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
               </View>
-            ))}
-          </View>
-        </View>
+            )}
+
+            <View style={styles.recentTestsContainer}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Recent Tests</Text>
+                <TouchableOpacity>
+                  <Text style={styles.viewAllButton}>View All</Text>
+                </TouchableOpacity>
+              </View>
+              {recentTests.length > 0 ? (
+                <View style={styles.testsList}>
+                  {recentTests.map((test, index) => (
+                    <View key={test.id || index} style={styles.testItem}>
+                      <View style={styles.testInfo}>
+                        <Text style={styles.testName} numberOfLines={1}>
+                          {test.test_name}
+                        </Text>
+                        <Text style={styles.testSubject}>{test.subject_name}</Text>
+                        <Text style={styles.testDate}>
+                          {new Date(test.completed_at.seconds * 1000).toLocaleDateString()}
+                        </Text>
+                      </View>
+                      <View style={[
+                        styles.testScore,
+                        { backgroundColor: getPerformanceLabel(test.score).color + '20' }
+                      ]}>
+                        <Text style={[
+                          styles.scoreValue,
+                          { color: getPerformanceLabel(test.score).color }
+                        ]}>{test.score}%</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.noTestsContainer}>
+                  <Text style={styles.noTestsText}>No recent tests found</Text>
+                </View>
+              )}
+            </View>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -208,6 +604,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#333',
+  },
   backButton: {
     marginRight: 15,
   },
@@ -218,188 +619,278 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
-  studentName: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#333',
   },
   content: {
     flex: 1,
     padding: 20,
   },
-  progressHeader: {
+  filterContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 20,
-    zIndex: 1, // Add zIndex to ensure filter dropdown appears above other elements
-  },
-  progressTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  filterWrapper: {
-    position: 'relative',
   },
   filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 15,
     paddingVertical: 8,
-    gap: 5,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#f1f3f5',
+  },
+  filterButtonActive: {
+    backgroundColor: '#2196F3',
   },
   filterButtonText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  filterButtonTextActive: {
+    color: 'white',
+    fontWeight: '600',
+  },
+  summaryContainer: {
+    marginBottom: 20,
+  },
+  summaryCard: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+  },
+  summaryLabel: {
     fontSize: 18,
-    color: 'black',
-    fontWeight: '500',
+    color: '#666',
+    marginBottom: 15,
+    textAlign: 'center',
   },
   progressGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 15,
-    marginBottom: 30,
+    justifyContent: 'space-around',
+    marginBottom: 15,
   },
-  progressCard: {
-    width: '47%',
-    backgroundColor: 'white',
-    borderRadius: 15,
-    padding: 15,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  cardIcon: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
-    backgroundColor: '#f8f9fa',
+  progressItem: {
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
   },
-  cardLabel: {
-    fontSize: 20,
-    color: '#666',
+  summaryScore: {
+    fontSize: 32,
+    fontWeight: 'bold',
     marginBottom: 5,
   },
-  cardValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'black',
+  progressLabel: {
+    fontSize: 14,
+    color: '#666',
   },
-  section: {
+  performanceLabel: {
+    fontSize: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  learningSpeedLabel: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  chartContainer: {
     backgroundColor: 'white',
     borderRadius: 15,
     padding: 20,
     marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 15,
-  },
-  testsList: {
-    gap: 15,
-  },
-  testItem: {
+  chartHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    marginBottom: 15,
   },
-  testInfo: {
-    flex: 1,
-  },
-  testName: {
-    fontSize: 20,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 4,
-  },
-  testDate: {
-    fontSize: 20,
-    color: '#666',
-  },
-  testScore: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  scoreValue: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#4CAF50',
-  },
-  filterDropdown: {
-    position: 'absolute',
-    top: '100%',
-    right: 0,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 8,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    zIndex: 1000,
-    minWidth: 150,
-  },
-  filterOption: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  filterOptionText: {
+  chartTitle: {
     fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  chartTypeContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#f1f3f5',
+    borderRadius: 20,
+    padding: 2,
+  },
+  chartTypeButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+  },
+  chartTypeButtonActive: {
+    backgroundColor: '#2196F3',
+  },
+  chartTypeText: {
+    fontSize: 12,
     color: '#666',
   },
-  filterOptionSelected: {
-    color: 'blue',
-    fontWeight: '600',
-  },
-  chartContainer: {
-    backgroundColor: 'white',
-    borderRadius: 15,
-    padding: 15,
-    marginBottom: 20,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+  chartTypeTextActive: {
+    color: 'white',
+    fontWeight: '500',
   },
   chart: {
     marginVertical: 8,
     borderRadius: 16,
   },
-  performanceLabel: {
+  subjectContainer: {
+    marginBottom: 20,
+  },
+  subjectScroll: {
+    marginTop: 10,
+  },
+  subjectButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#f1f3f5',
+    marginRight: 10,
+    minWidth: 150,
+  },
+  subjectButtonActive: {
+    backgroundColor: '#2196F3',
+  },
+  subjectButtonText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  subjectButtonTextActive: {
+    color: 'white',
+    fontWeight: '600',
+  },
+  subjectDetailsCard: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 20,
+  },
+  subjectTitle: {
     fontSize: 18,
     fontWeight: '600',
-    marginTop: 5,
+    color: '#333',
+    marginBottom: 15,
   },
-  completionRate: {
-    fontSize: 18,
+  subjectStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+  statLabel: {
+    fontSize: 14,
     color: '#666',
-    marginTop: 5,
+    textAlign: 'center',
   },
-  weakAreasText: {
-    fontSize: 18,
-    color: '#F44336',
-    marginTop: 5,
+  chaptersContainer: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 20,
+  },
+  chapterCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  chapterInfo: {
+    flex: 1,
+    marginRight: 15,
+  },
+  chapterName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 4,
+  },
+  chapterSubject: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  chapterProgressContainer: {
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  chapterProgressBar: {
+    height: 6,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 3,
+    marginBottom: 4,
+    overflow: 'hidden',
+  },
+  chapterProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  chapterProgressText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+  },
+  videoList: {
+    marginTop: 8,
+  },
+  videoItem: {
+    marginBottom: 12,
+    paddingLeft: 8,
+    borderLeftWidth: 2,
+    borderLeftColor: '#e0e0e0',
+  },
+  videoItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  videoName: {
+    fontSize: 14,
+    color: '#333',
+    marginLeft: 8,
+    flex: 1,
+  },
+  videoCompleted: {
+    color: '#4CAF50',
+    fontWeight: '500',
+  },
+  videoProgressBar: {
+    height: 4,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 2,
+    marginTop: 4,
+    overflow: 'hidden',
+  },
+  videoProgressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  lastWatchedText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  chapterScore: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  scoreValue: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  recentTestsContainer: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -407,10 +898,139 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
   },
-  viewAllButton: {
-    color: '#2196F3',
+  sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
-    bottom: '10px'
+    color: '#333',
   },
-}); 
+  viewAllButton: {
+    fontSize: 16,
+    color: '#2196F3',
+    fontWeight: '500',
+  },
+  testsList: {
+    gap: 10,
+  },
+  testItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  testInfo: {
+    flex: 1,
+    marginRight: 15,
+  },
+  testName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 4,
+  },
+  testSubject: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 2,
+  },
+  testDate: {
+    fontSize: 14,
+    color: '#666',
+  },
+  testScore: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginVertical: 10,
+  },
+  retryButton: {
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 10,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  noTestsContainer: {
+    alignItems: 'center',
+    paddingVertical: 30,
+  },
+  noTestsText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: '#e9ecef',
+    borderRadius: 3,
+    marginTop: 5,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  subjectProgress: {
+    marginTop: 8,
+  },
+  subjectProgressText: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  subjectProgressBar: {
+    height: 4,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  subjectProgressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  tooltipContainer: {
+    position: 'absolute',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: 8,
+    borderRadius: 6,
+    zIndex: 1,
+  },
+  tooltipText: {
+    color: 'white',
+    fontSize: 10,
+    textAlign: 'center',
+  },
+  tooltipScore: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+});

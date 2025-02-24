@@ -1,13 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Link } from 'expo-router';
 import { getFirestore, doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import TextExtractor from '@/components/TextExtractor';
 import ChatBot from '@/components/Chatbot';
 import { LinearGradient } from 'expo-linear-gradient';
-
+import { signOut } from 'firebase/auth';
+import { Alert } from 'react-native';
+import LearningStyleAssessment from '@/components/LearningStyleAssessment';
+import { auth } from '@/lib/firebase';
+import TeamsFeature from '@/components/TeamsFeature';
+import SessionNotification from '@/components/SessionNotification';
+import { getUserProgress } from '@/app/api/progress';
 const { width } = Dimensions.get('window');
 
 const courseFilters = [
@@ -48,6 +54,24 @@ export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [subjects, setSubjects] = useState([]);
+  const [showTagForm, setShowTagForm] = useState();
+  const [progressData, setProgressData] = useState(null);
+
+  const calculateOverallProgress = (data) => {
+    if (!data) return 0;
+    
+    // Use the same averageScore from the summary as used in the progress page
+    return data.summary.averageScore || 0;
+  };
+
+  const fetchProgressData = async (userId) => {
+    try {
+      const progress = await getUserProgress(userId, '3m');
+      setProgressData(progress);
+    } catch (error) {
+      console.error('Error fetching progress:', error);
+    }
+  };
 
   useEffect(() => {
     const fetchSubjects = async () => {
@@ -70,7 +94,6 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, async user => {
       setIsLoggedIn(!!user);
       if (user) {
@@ -83,22 +106,33 @@ export default function Home() {
         }
 
         const data = userDocSnap.data();
-        console.log(data)
         setUserInfo(data);
 
-        // Redirect teacher to teacher dashboard
+        await fetchProgressData(user.uid);
+
         if (data.userType === 'teacher') {
           router.replace('/teacher/dashboard');
           return;
         }
       } else {
         setUserInfo(null);
+        setProgressData(null);
       }
       setIsLoading(false);
     });
 
     return () => unsubscribe();
   }, [router]);
+
+  const handleLogout = async () => {
+    const auth = getAuth();
+    try {
+      await signOut(auth);
+      router.replace('/');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to logout. Please try again.');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -126,39 +160,57 @@ export default function Home() {
       <View style={[styles.blurCircle, styles.blurCircle3]} />
 
       {/* Navigation Bar */}
+     { userInfo && (
+        <LearningStyleAssessment
+          userId={getAuth().currentUser.uid}
+          onClose={() => setShowTagForm(false)}
+        />
+      )}
       <View style={styles.navbar}>
         {/* <TouchableOpacity style={styles.menuButton}>
           <Ionicons name="menu-outline" size={28} color="#333" />
         </TouchableOpacity> */}
         <Text style={styles.className}>Std 10</Text>
-        <TouchableOpacity style={styles.notificationButton}>
-          <View style={styles.notificationBadge} />
-          <Ionicons name="notifications-outline" size={24} color="#333" />
-        </TouchableOpacity>
+        <View style={styles.navRight}>
+          <TouchableOpacity style={styles.notificationButton}>
+            <View style={styles.notificationBadge} />
+            <Ionicons name="notifications-outline" size={24} color="#333" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.logoutButton}
+            onPress={handleLogout}
+          >
+            <Ionicons name="log-out-outline" size={24} color="#FF4444" />
+          </TouchableOpacity>
+        </View>
       </View>
-
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
       >
         {/* Welcome Section */}
+      <ScrollView showsVerticalScrollIndicator={false}>
         <View style={[styles.welcomeSection, { borderRadius: 0 }]}>
           <Text style={styles.welcomeText}>Welcome,</Text>
           <Text style={styles.username}>{userInfo ? userInfo.username : 'Loading...'}</Text>
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{userInfo ? userInfo.coursesCount : '0'}</Text>
-              <Text style={styles.statLabel}>Courses</Text>
+              <Text style={styles.statNumber}>{subjects.length}</Text>
+              <Text style={styles.statLabel}>Subjects</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{userInfo ? userInfo.progress : '0%'} </Text>
+              <Text style={[
+                styles.statNumber,
+                { color: getPerformanceColor(progressData ? calculateOverallProgress(progressData) : 0) }
+              ]}>
+                {progressData ? `${calculateOverallProgress(progressData)}%` : '0%'}
+              </Text>
               <Text style={styles.statLabel}>Progress</Text>
             </View>
           </View>
         </View>
 
-        {/* Subjects Grid */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Subjects</Text>
@@ -190,33 +242,68 @@ export default function Home() {
           </View>
         </View>
 
-        {/* Course Categories */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Course Categories</Text>
+            <Text style={styles.sectionTitle}>Other tools</Text>
             <TouchableOpacity>
               <Text style={styles.seeAllButton}>View All</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.filterGrid}>
-            {courseFilters.map((filter) => (
               <TouchableOpacity 
-                key={filter.id}
+               
                 style={styles.filterCard}
+                onPress={() => {
+                  router.push({
+                    pathname: `/labs`,
+                   })
+                }}
               >
                 <View style={styles.filterIconContainer}>
-                  <Ionicons name={filter.icon} size={28} color="#2196F3" />
+                 
                 </View>
-                <Text style={styles.filterName}>{filter.name}</Text>
+                <Text style={styles.filterName}>Labs</Text>
               </TouchableOpacity>
-            ))}
+              <TouchableOpacity 
+               
+                style={styles.filterCard}
+                onPress={() => {
+                  router.push({
+                    pathname: `/progress`,
+                   })
+                }}
+              >
+                <View style={styles.filterIconContainer}>
+                 
+                </View>
+                <Text style={styles.filterName}>Progress</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+               
+                style={styles.filterCard}
+                onPress={() => {
+                  router.push({
+                    pathname: `/pomodoro`,
+                   })
+                }}
+              >
+                <View style={styles.filterIconContainer}>
+                 
+                </View>
+                <Text style={styles.filterName}>Pomodoro</Text>
+              </TouchableOpacity>
+           
           </View>
         </View>
         <View style={styles.textExtractorContainer}>
           <TextExtractor />
         </View>
 
-        {/* Reviews Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Teams & Communication</Text>
+          <TeamsFeature />
+        </View>
+
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Student Reviews</Text>
@@ -229,7 +316,6 @@ export default function Home() {
             showsHorizontalScrollIndicator={false}
             style={styles.reviewsContainer}
           >
-            {/* Assuming reviews are fetched from another source or hardcoded */}
             {reviews.map((review) => (
               <View key={review.id} style={styles.reviewCard}>
                 <View style={styles.reviewHeader}>
@@ -260,8 +346,241 @@ export default function Home() {
             ))}
           </ScrollView>
         </View>
+        <ScrollView>
+          {/* Learning Recommendations Section */}
+          {progressData && (
+            <View style={styles.recommendationsContainer}>
+              <View style={styles.recommendationsHeader}>
+                <Ionicons name="bulb" size={24} color="#FFD700" />
+                <Text style={styles.recommendationsTitle}>Learning Recommendations</Text>
+              </View>
+              
+              {/* Progress-based recommendations */}
+              {calculateOverallProgress(progressData) < 70 && (
+                <View style={[styles.recommendationItem, styles.warningItem]}>
+                  <View style={styles.recommendationIcon}>
+                    <Ionicons name="alert-circle" size={24} color="#FF9800" />
+                  </View>
+                  <View style={styles.recommendationContent}>
+                    <Text style={styles.recommendationTitle}>Focus Areas</Text>
+                    <Text style={styles.recommendationText}>
+                      Improve your performance in: {progressData.summary.weakAreas.join(', ')}
+                    </Text>
+                  </View>
+                </View>
+              )}
 
-        {/* Footer */}
+              {/* Video completion recommendations */}
+              {progressData.summary.videosWatched < progressData.summary.totalVideos && (
+                <View style={[styles.recommendationItem, styles.infoItem]}>
+                  <View style={styles.recommendationIcon}>
+                    <Ionicons name="play-circle" size={24} color="#2196F3" />
+                  </View>
+                  <View style={styles.recommendationContent}>
+                    <Text style={styles.recommendationTitle}>Complete Your Videos</Text>
+                    <Text style={styles.recommendationText}>
+                      {progressData.summary.totalVideos - progressData.summary.videosWatched} videos remaining to watch
+                    </Text>
+                    <View style={styles.progressBar}>
+                      <View 
+                        style={[
+                          styles.progressFill,
+                          { 
+                            width: `${(progressData.summary.videosWatched / progressData.summary.totalVideos) * 100}%`,
+                            backgroundColor: '#2196F3'
+                          }
+                        ]} 
+                      />
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* Learning speed adaptation */}
+              <View style={[styles.recommendationItem, styles.successItem]}>
+                <View style={styles.recommendationIcon}>
+                  <Ionicons name="speedometer" size={24} color="#4CAF50" />
+                </View>
+                <View style={styles.recommendationContent}>
+                  <Text style={styles.recommendationTitle}>Learning Pace</Text>
+                  <Text style={styles.recommendationText}>
+                    {progressData.summary.learningSpeed === 'Fast' ? 
+                      'Great pace! Keep up the momentum' :
+                      progressData.summary.learningSpeed === 'Slow' ? 
+                      'Take your time to understand concepts thoroughly' :
+                      'You\'re maintaining a steady learning rhythm'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Study streak suggestion */}
+              <View style={[styles.recommendationItem, styles.primaryItem]}>
+                <View style={styles.recommendationIcon}>
+                  <Ionicons name="timer" size={24} color="#9C27B0" />
+                </View>
+                <View style={styles.recommendationContent}>
+                  <Text style={styles.recommendationTitle}>Study Technique</Text>
+                  <Text style={styles.recommendationText}>
+                    Use the Pomodoro timer: 25 minutes of focused study followed by a 5-minute break
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Learning Guide Section */}
+          <View style={styles.learningGuideContainer}>
+            <View style={styles.learningGuideHeader}>
+              <Ionicons name="book" size={24} color="#2196F3" />
+              <Text style={styles.learningGuideTitle}>How to Learn Effectively</Text>
+            </View>
+            
+            {/* Step 1 */}
+            <View style={[styles.guideStep, styles.assessmentStep]}>
+              <View style={styles.stepHeader}>
+                <View style={[styles.stepNumber, { backgroundColor: '#FF9800' }]}>
+                  <Text style={styles.stepNumberText}>1</Text>
+                </View>
+                <Text style={styles.stepTitle}>Start with Assessment</Text>
+              </View>
+              <View style={styles.stepContent}>
+                <View style={styles.stepItem}>
+                  <Ionicons name="clipboard-outline" size={20} color="#FF9800" />
+                  <Text style={styles.stepText}>Complete the learning style assessment</Text>
+                </View>
+                <View style={styles.stepItem}>
+                  <Ionicons name="analytics-outline" size={20} color="#FF9800" />
+                  <Text style={styles.stepText}>Identify your weak subjects</Text>
+                </View>
+                <View style={styles.stepItem}>
+                  <Ionicons name="bar-chart-outline" size={20} color="#FF9800" />
+                  <Text style={styles.stepText}>Review your current progress</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Step 2 */}
+            <View style={[styles.guideStep, styles.planningStep]}>
+              <View style={styles.stepHeader}>
+                <View style={[styles.stepNumber, { backgroundColor: '#4CAF50' }]}>
+                  <Text style={styles.stepNumberText}>2</Text>
+                </View>
+                <Text style={styles.stepTitle}>Plan Your Study</Text>
+              </View>
+              <View style={styles.stepContent}>
+                <View style={styles.stepItem}>
+                  <Ionicons name="calendar-outline" size={20} color="#4CAF50" />
+                  <Text style={styles.stepText}>Set daily learning goals</Text>
+                </View>
+                <View style={styles.stepItem}>
+                  <Ionicons name="timer-outline" size={20} color="#4CAF50" />
+                  <Text style={styles.stepText}>Use Pomodoro: 25 min study + 5 min break</Text>
+                </View>
+                <View style={styles.stepItem}>
+                  <Ionicons name="library-outline" size={20} color="#4CAF50" />
+                  <Text style={styles.stepText}>Choose 2-3 subjects per day</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Step 3 */}
+            <View style={[styles.guideStep, styles.watchStep]}>
+              <View style={styles.stepHeader}>
+                <View style={[styles.stepNumber, { backgroundColor: '#2196F3' }]}>
+                  <Text style={styles.stepNumberText}>3</Text>
+                </View>
+                <Text style={styles.stepTitle}>Watch & Learn</Text>
+              </View>
+              <View style={styles.stepContent}>
+                <View style={styles.stepItem}>
+                  <Ionicons name="play-circle-outline" size={20} color="#2196F3" />
+                  <Text style={styles.stepText}>Watch videos completely</Text>
+                </View>
+                <View style={styles.stepItem}>
+                  <Ionicons name="create-outline" size={20} color="#2196F3" />
+                  <Text style={styles.stepText}>Take notes with Text Extractor</Text>
+                </View>
+                <View style={styles.stepItem}>
+                  <Ionicons name="flask-outline" size={20} color="#2196F3" />
+                  <Text style={styles.stepText}>Practice in Labs section</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Step 4 */}
+            <View style={[styles.guideStep, styles.testStep]}>
+              <View style={styles.stepHeader}>
+                <View style={[styles.stepNumber, { backgroundColor: '#9C27B0' }]}>
+                  <Text style={styles.stepNumberText}>4</Text>
+                </View>
+                <Text style={styles.stepTitle}>Test Your Knowledge</Text>
+              </View>
+              <View style={styles.stepContent}>
+                <View style={styles.stepItem}>
+                  <Ionicons name="checkbox-outline" size={20} color="#9C27B0" />
+                  <Text style={styles.stepText}>Complete chapter tests</Text>
+                </View>
+                <View style={styles.stepItem}>
+                  <Ionicons name="refresh-circle-outline" size={20} color="#9C27B0" />
+                  <Text style={styles.stepText}>Review and retake tests</Text>
+                </View>
+                <View style={styles.stepItem}>
+                  <Ionicons name="school-outline" size={20} color="#9C27B0" />
+                  <Text style={styles.stepText}>Practice with Lab questions</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Step 5 */}
+            <View style={[styles.guideStep, styles.helpStep]}>
+              <View style={styles.stepHeader}>
+                <View style={[styles.stepNumber, { backgroundColor: '#FF5722' }]}>
+                  <Text style={styles.stepNumberText}>5</Text>
+                </View>
+                <Text style={styles.stepTitle}>Get Help When Needed</Text>
+              </View>
+              <View style={styles.stepContent}>
+                <View style={styles.stepItem}>
+                  <Ionicons name="chatbubbles-outline" size={20} color="#FF5722" />
+                  <Text style={styles.stepText}>Use ChatBot for quick help</Text>
+                </View>
+                <View style={styles.stepItem}>
+                  <Ionicons name="people-outline" size={20} color="#FF5722" />
+                  <Text style={styles.stepText}>Join subject Teams</Text>
+                </View>
+                <View style={styles.stepItem}>
+                  <Ionicons name="person-outline" size={20} color="#FF5722" />
+                  <Text style={styles.stepText}>Connect with teachers</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Step 6 */}
+            <View style={[styles.guideStep, styles.trackStep]}>
+              <View style={styles.stepHeader}>
+                <View style={[styles.stepNumber, { backgroundColor: '#00BCD4' }]}>
+                  <Text style={styles.stepNumberText}>6</Text>
+                </View>
+                <Text style={styles.stepTitle}>Track & Improve</Text>
+              </View>
+              <View style={styles.stepContent}>
+                <View style={styles.stepItem}>
+                  <Ionicons name="trending-up-outline" size={20} color="#00BCD4" />
+                  <Text style={styles.stepText}>Check progress daily</Text>
+                </View>
+                <View style={styles.stepItem}>
+                  <Ionicons name="flag-outline" size={20} color="#00BCD4" />
+                  <Text style={styles.stepText}>Focus on subjects below 70%</Text>
+                </View>
+                <View style={styles.stepItem}>
+                  <Ionicons name="speedometer-outline" size={20} color="#00BCD4" />
+                  <Text style={styles.stepText}>Adjust your learning pace</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+
         <View style={styles.footer}>
           <Text style={styles.footerTitle}>Connect With Us</Text>
           <View style={styles.socialLinks}>
@@ -735,3 +1054,202 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
 });
+  navRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  logoutButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recommendationsContainer: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+    margin: 15,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  recommendationsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  recommendationsTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333',
+    marginLeft: 10,
+  },
+  recommendationItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: 12,
+    padding: 15,
+    marginVertical: 8,
+  },
+  warningItem: {
+    backgroundColor: '#FFF3E0',
+  },
+  infoItem: {
+    backgroundColor: '#E3F2FD',
+  },
+  successItem: {
+    backgroundColor: '#E8F5E9',
+  },
+  primaryItem: {
+    backgroundColor: '#F3E5F5',
+  },
+  recommendationIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 15,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  recommendationContent: {
+    flex: 1,
+  },
+  recommendationTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 5,
+  },
+  recommendationText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 2,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  learningGuideContainer: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+    margin: 15,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  learningGuideHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  learningGuideTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333',
+    marginLeft: 10,
+  },
+  guideStep: {
+    borderRadius: 12,
+    padding: 15,
+    marginVertical: 8,
+  },
+  assessmentStep: {
+    backgroundColor: '#FFF3E0',
+  },
+  planningStep: {
+    backgroundColor: '#E8F5E9',
+  },
+  watchStep: {
+    backgroundColor: '#E3F2FD',
+  },
+  testStep: {
+    backgroundColor: '#F3E5F5',
+  },
+  helpStep: {
+    backgroundColor: '#FBE9E7',
+  },
+  trackStep: {
+    backgroundColor: '#E0F7FA',
+  },
+  stepHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  stepNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  stepNumberText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  stepTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  stepContent: {
+    marginLeft: 40,
+  },
+  stepItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  stepText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 12,
+    flex: 1,
+  },
+});
+
+// Add helper function to get performance color
+const getPerformanceColor = (score) => {
+  if (score >= 85) return '#4CAF50';
+  if (score >= 70) return '#2196F3';
+  if (score >= 50) return '#FF9800';
+  return '#F44336';
+};

@@ -33,8 +33,6 @@ export default function ManageSubject() {
         fetchCurriculumData();
     }, [curriculumId]);
 
-    // ... (previous imports remain the same)
-
 const fetchCurriculumData = async () => {
     try {
         setLoading(true);

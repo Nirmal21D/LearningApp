@@ -39,7 +39,7 @@ export default function TextExtractor() {
       if (!hasPermission) return;
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['image'],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         quality: 1,
         base64: true,
@@ -94,7 +94,7 @@ export default function TextExtractor() {
       const response = await fetch('https://api.ocr.space/parse/image', {
         method: 'POST',
         headers: {
-          apikey: 'K87997681688957',
+          apikey: OCR_API_KEY,
         },
         body: formData,
       });
