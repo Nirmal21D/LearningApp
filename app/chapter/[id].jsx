@@ -28,6 +28,8 @@ import { Video, ResizeMode } from "expo-av";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Linking } from "react-native";
+import { auth } from '@/lib/firebase';
+import { updateVideoProgress, getVideoProgress, getSubjectVideoProgress } from '@/app/api/progress';
 
 // Video Viewer Component
 const VideoViewer = ({ video, onClose }) => {
@@ -180,6 +182,9 @@ export default function ChapterDetail() {
   const [selectedMaterial, setSelectedMaterial] = useState(null);
   const [materialModalVisible, setMaterialModalVisible] = useState(false);
   const [relatedVideos, setRelatedVideos] = useState([]);
+  const [videoProgress, setVideoProgress] = useState({});
+  const [currentVideoTime, setCurrentVideoTime] = useState(0);
+  const [localVideoProgress, setLocalVideoProgress] = useState({});
 
   const subjectId = params.subjectId ? String(params.subjectId) : null;
   const chapterId = params.chapterName ? String(params.chapterName) : null;
@@ -572,32 +577,122 @@ export default function ChapterDetail() {
     });
   };
 
+  const loadVideoProgress = async () => {
+    try {
+      const userId = auth.currentUser?.uid;
+      if (!userId || !subjectId) return;
+
+      const progress = await getSubjectVideoProgress(userId, subjectId);
+      const progressMap = {};
+      progress.forEach(p => {
+        progressMap[p.videoId] = p;
+      });
+      setVideoProgress(progressMap);
+    } catch (error) {
+      console.error('Error loading video progress:', error);
+    }
+  };
+
+  const handleVideoProgress = async (video, progress) => {
+    try {
+      const userId = auth.currentUser?.uid;
+      if (!userId) {
+        console.log('No user ID found');
+        return;
+      }
+
+      // Ensure progress is a valid number between 0 and 1
+      const validProgress = Math.min(Math.max(progress || 0, 0), 1);
+      const isCompleted = validProgress >= 0.9;
+      
+      // Update local state first
+      const updatedProgress = {
+        ...localVideoProgress,
+        [video.id]: {
+          videoId: video.id,
+          progress: validProgress,
+          completed: isCompleted,
+          lastWatched: new Date(),
+        }
+      };
+      setLocalVideoProgress(updatedProgress);
+
+      // Only update database if video is completed
+      if (isCompleted && (!videoProgress[video.id]?.completed)) {
+        console.log('Video completed, updating database');
+        const videoData = {
+          ...video,
+          subjectId: subjectId,
+          chapterId: chapterId
+        };
+        await updateVideoProgress(userId, videoData, validProgress);
+        await loadVideoProgress(); // Reload progress after update
+      }
+    } catch (error) {
+      console.error('Error updating video progress:', error);
+    }
+  };
+
+  // Add cleanup effect to save progress when leaving page
+  useEffect(() => {
+    return async () => {
+      try {
+        const userId = auth.currentUser?.uid;
+        if (!userId) return;
+
+        // Save all pending progress updates
+        for (const [videoId, progress] of Object.entries(localVideoProgress)) {
+          // Only update if progress has changed from what's in the database
+          const dbProgress = videoProgress[videoId];
+          if (!dbProgress || 
+              Math.abs(dbProgress.progress - progress.progress) > 0.1 || 
+              dbProgress.completed !== progress.completed) {
+            
+            const video = chapterData.videos.find(v => v.id === videoId);
+            if (video) {
+              const videoData = {
+                ...video,
+                subjectId: subjectId,
+                chapterId: chapterId
+              };
+              await updateVideoProgress(userId, videoData, progress.progress);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error saving video progress:', error);
+      }
+    };
+  }, [localVideoProgress, videoProgress, chapterData.videos]);
+
   const renderVideos = () => {
-    // Check if chapter data and videos exist and are loaded
     if (!chapterData || !chapterData.videos) {
       return (
         <View style={styles.noMaterialContainer}>
-          <Text style={styles.noMaterialText}>
-            Loading videos...
-          </Text>
+          <Text style={styles.noMaterialText}>Loading videos...</Text>
         </View>
       );
     }
-  
-    // If videos array is empty
+
     if (chapterData.videos.length === 0) {
       return (
         <View style={styles.noMaterialContainer}>
-          <Text style={styles.noMaterialText}>
-            No videos available for this chapter
-          </Text>
+          <Text style={styles.noMaterialText}>No videos available for this chapter</Text>
         </View>
       );
     }
-  
+
+    const getVideoProgress = (videoId) => {
+      // Prefer local progress over database progress
+      return localVideoProgress[videoId] || videoProgress[videoId] || {};
+    };
+
+    const completedVideos = chapterData.videos.filter(video => 
+      getVideoProgress(video.id)?.completed
+    ).length;
+
     return (
       <View>
-        {/* Currently Playing Video Section */}
         {selectedVideo && (
           <View style={styles.videoPlayerContainer}>
             <WebView
@@ -605,135 +700,199 @@ export default function ChapterDetail() {
               style={styles.videoPlayer}
               allowsFullscreenVideo={true}
               javaScriptEnabled={true}
+              onMessage={(event) => {
+                try {
+                  const data = JSON.parse(event.nativeEvent.data);
+                  if (data.type === 'progress' && data.duration > 0) {
+                    const progress = data.currentTime / data.duration;
+                    console.log('Video Progress:', {
+                      currentTime: data.currentTime,
+                      duration: data.duration,
+                      progress: progress
+                    });
+                    setCurrentVideoTime(data.currentTime);
+                    handleVideoProgress(selectedVideo, progress);
+                  }
+                } catch (error) {
+                  console.error('Error parsing video progress:', error);
+                }
+              }}
+              injectedJavaScript={`
+                var video = document.querySelector('video');
+                if (video) {
+                  video.addEventListener('loadedmetadata', function() {
+                    window.ReactNativeWebView.postMessage(JSON.stringify({
+                      type: 'progress',
+                      currentTime: video.currentTime,
+                      duration: video.duration
+                    }));
+                  });
+                  
+                  video.addEventListener('timeupdate', function() {
+                    window.ReactNativeWebView.postMessage(JSON.stringify({
+                      type: 'progress',
+                      currentTime: video.currentTime,
+                      duration: video.duration
+                    }));
+                  });
+                  
+                  video.addEventListener('ended', function() {
+                    window.ReactNativeWebView.postMessage(JSON.stringify({
+                      type: 'progress',
+                      currentTime: video.duration,
+                      duration: video.duration
+                    }));
+                  });
+                }
+              `}
             />
-            <Text style={styles.videoTitle}>{selectedVideo.title || selectedVideo.name}</Text>
-            {selectedVideo.description && (
-              <Text style={styles.videoDescription}>{selectedVideo.description}</Text>
-            )}
-          </View>
-        )}
-  
-        {/* All Videos List */}
-        <Text style={styles.sectionTitle}>All Videos</Text>
-        {chapterData.videos.map((video) => (
-          <View key={video.id || Math.random().toString()} style={styles.materialCard}>
-            <View style={styles.materialIconContainer}>
-              <Ionicons name="play-circle" size={32} color="#2196F3" />
+            <View style={styles.videoTitleContainer}>
+              <Text style={styles.videoTitle}>{selectedVideo.title || selectedVideo.name}</Text>
+              {getVideoProgress(selectedVideo.id)?.completed && (
+                <View style={styles.completionBadge}>
+                  <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                  <Text style={styles.completionText}>Completed</Text>
+                </View>
+              )}
             </View>
-            
-            <View style={styles.materialInfo}>
-              <Text style={styles.materialTitle}>
-                {video.name || video.title || "Untitled Video"}
-              </Text>
-              
-              <Text style={styles.materialType}>
-                {video.duration || video.fileSize 
-                  ? `${video.duration || ''} ${video.fileSize ? `| ${(video.fileSize / 1024 / 1024).toFixed(2)} MB` : ''}`
-                  : 'Size/duration not available'
+            <View style={styles.progressBarContainer}>
+              <View style={styles.progressBar}>
+                <View 
+                  style={[
+                    styles.progressFill, 
+                    { 
+                      width: `${(getVideoProgress(selectedVideo.id)?.progress || 0) * 100}%`,
+                      backgroundColor: getVideoProgress(selectedVideo.id)?.completed ? '#4CAF50' : '#2196F3' 
+                    }
+                  ]} 
+                />
+              </View>
+              <Text style={styles.progressText}>
+                {getVideoProgress(selectedVideo.id)?.completed 
+                  ? 'Completed'
+                  : `${Math.round((getVideoProgress(selectedVideo.id)?.progress || 0) * 100)}% watched`
                 }
               </Text>
-              
-              {video.description && (
-                <Text style={styles.videoDescription} numberOfLines={2}>
-                  {video.description}
-                </Text>
-              )}
-  
-              {video.tags && video.tags.length > 0 && (
-                <View style={styles.videoTags}>
-                  {video.tags.map((tag) => (
-                    <Text key={tag} style={styles.videoTag}>
-                      #{tag}
-                    </Text>
-                  ))}
-                </View>
-              )}
             </View>
-  
-            <View style={styles.materialActions}>
-              <TouchableOpacity
-                onPress={() => {
-                  if (video.url) {
-                    setSelectedVideo(video);
-                  } else {
-                    Alert.alert("Error", "Video URL not available");
-                  }
-                }}
-                style={styles.actionButton}
-              >
-                <Ionicons name="eye-outline" size={24} color="#2196F3" />
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                onPress={() => {
-                  if (video.url) {
-                    downloadVideo(video);
-                  } else {
-                    Alert.alert("Error", "Video URL not available");
-                  }
-                }}
-                style={styles.actionButton}
-              >
-                <Ionicons name="download-outline" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
-  
-        {/* Related Videos Section */}
-        {relatedVideos.length > 0 && (
-          <View style={styles.relatedVideosContainer}>
-            <Text style={styles.sectionTitle}>Related Videos</Text>
-            {relatedVideos.map((video) => (
-              <View key={video.id || Math.random().toString()} style={styles.materialCard}>
-                <View style={styles.materialIconContainer}>
-                  <Ionicons name="play-circle" size={32} color="#2196F3" />
-                </View>
-                
-                <View style={styles.materialInfo}>
-                  <Text style={styles.materialTitle}>
-                    {video.name || video.title || "Untitled Video"}
-                  </Text>
-                  
-                  <Text style={styles.materialType}>
-                    {video.duration || video.fileSize 
-                      ? `${video.duration || ''} ${video.fileSize ? `| ${(video.fileSize / 1024 / 1024).toFixed(2)} MB` : ''}`
-                      : 'Size/duration not available'
-                    }
-                  </Text>
-  
-                  {video.tags && video.tags.length > 0 && (
-                    <View style={styles.videoTags}>
-                      {video.tags.map((tag) => (
-                        <Text key={tag} style={styles.videoTag}>
-                          #{tag}
-                        </Text>
-                      ))}
-                    </View>
-                  )}
-                </View>
-  
-                <View style={styles.materialActions}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (video.url) {
-                        setSelectedVideo(video);
-                      } else {
-                        Alert.alert("Error", "Video URL not available");
-                      }
-                    }}
-                    style={styles.actionButton}
-                  >
-                    <Ionicons name="eye-outline" size={24} color="#2196F3" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
           </View>
         )}
+
+        <View style={styles.videosHeader}>
+          <Text style={styles.sectionTitle}>All Videos</Text>
+          <Text style={styles.videoStats}>
+            {completedVideos} / {chapterData.videos.length} Completed
+          </Text>
+        </View>
+
+        {chapterData.videos.map((video) => {
+          const progress = getVideoProgress(video.id);
+          const progressPercent = Math.round((progress.progress || 0) * 100);
+
+          return (
+            <View key={video.id || Math.random().toString()} style={styles.materialCard}>
+              <View style={styles.materialIconContainer}>
+                <Ionicons 
+                  name={progress.completed ? "checkmark-circle" : "play-circle"} 
+                  size={32} 
+                  color={progress.completed ? "#4CAF50" : "#2196F3"} 
+                />
+              </View>
+              
+              <View style={styles.materialInfo}>
+                <Text style={styles.materialTitle}>
+                  {video.name || video.title || "Untitled Video"}
+                </Text>
+                
+                <Text style={styles.materialType}>
+                  {video.duration || video.fileSize 
+                    ? `${video.duration || ''} ${video.fileSize ? `| ${(video.fileSize / 1024 / 1024).toFixed(2)} MB` : ''}`
+                    : 'Size/duration not available'
+                  }
+                </Text>
+                
+                <View style={styles.progressContainer}>
+                  <View style={styles.progressBar}>
+                    <View 
+                      style={[
+                        styles.progressFill, 
+                        { 
+                          width: `${progressPercent}%`,
+                          backgroundColor: progress.completed ? '#4CAF50' : '#2196F3' 
+                        }
+                      ]} 
+                    />
+                  </View>
+                  <View style={styles.progressInfo}>
+                    <Text style={[styles.progressText, progress.completed && styles.completedText]}>
+                      {progress.completed ? 'Completed' : `${progressPercent}% watched`}
+                    </Text>
+                    {progress.lastWatched && (
+                      <Text style={styles.lastWatchedText}>
+                        Last watched: {new Date(progress.lastWatched.seconds * 1000).toLocaleDateString()}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                {video.description && (
+                  <Text style={styles.videoDescription} numberOfLines={2}>
+                    {video.description}
+                  </Text>
+                )}
+
+                {video.tags && video.tags.length > 0 && (
+                  <View style={styles.videoTags}>
+                    {video.tags.map((tag) => (
+                      <Text key={tag} style={styles.videoTag}>#{tag}</Text>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.materialActions}>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (video.url) {
+                      setSelectedVideo(video);
+                    } else {
+                      Alert.alert("Error", "Video URL not available");
+                    }
+                  }}
+                  style={styles.actionButton}
+                >
+                  <Ionicons 
+                    name={progress.completed ? "refresh" : "play"} 
+                    size={24} 
+                    color="#2196F3" 
+                  />
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  onPress={() => {
+                    if (video.url) {
+                      downloadVideo(video);
+                    } else {
+                      Alert.alert("Error", "Video URL not available");
+                    }
+                  }}
+                  style={styles.actionButton}
+                >
+                  <Ionicons name="download-outline" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          );
+        })}
       </View>
     );
   };
+
+  // Add this useEffect to load video progress when component mounts
+  useEffect(() => {
+    if (chapterData?.videos) {
+        loadVideoProgress();
+    }
+  }, [chapterData]);
 
   if (loading) {
     return (
@@ -810,62 +969,7 @@ export default function ChapterDetail() {
       </View>
 
       <ScrollView style={styles.content}>
-        {/* {activeTab === "videos" && (
-          <View>
-            {selectedVideo && (
-              <View style={styles.videoPlayerContainer}>
-                {renderVideoPlayer()}
-                <Text style={styles.videoTitle}>{selectedVideo.title}</Text>
-              </View>
-            )}
-
-            <Text style={styles.sectionTitle}>All Videos</Text>
-            {chapterData.videos.map((video) => (
-              <TouchableOpacity
-                key={video.id}
-                style={styles.videoCard}
-                onPress={() => setSelectedVideo(video)}
-              >
-                <View style={styles.videoThumbnail}>
-                  <Ionicons name="play-circle" size={32} color="#fff" />
-                </View>
-                <View style={styles.videoInfo}>
-                  <Text style={styles.videoCardTitle}>{video.title}</Text>
-                  <Text style={styles.videoDuration}>{video.duration}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-
-            {relatedVideos.length > 0 && (
-              <View style={styles.relatedVideosContainer}>
-                <Text style={styles.sectionTitle}>Related Videos</Text>
-                {relatedVideos.map((video) => (
-                  <TouchableOpacity
-                    key={video.id}
-                    style={styles.videoCard}
-                    onPress={() => setSelectedVideo(video)}
-                  >
-                    <View style={styles.videoThumbnail}>
-                      <Ionicons name="play-circle" size={32} color="#fff" />
-                    </View>
-                    <View style={styles.videoInfo}>
-                      <Text style={styles.videoCardTitle}>{video.title}</Text>
-                      <Text style={styles.videoDuration}>{video.duration}</Text>
-                      <View style={styles.videoTags}>
-                        {video.tags?.map((tag) => (
-                          <Text key={tag} style={styles.videoTag}>
-                            #{tag}
-                          </Text>
-                        ))}
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )} */}
-            {activeTab === "videos" && renderVideos()}
-          {/* </View> */}
-        {/* )} */}
+        {activeTab === "videos" && renderVideos()}
 
         {activeTab === "materials" && renderMaterials()}
 
@@ -1134,14 +1238,79 @@ const styles = StyleSheet.create({
   materialIconContainer: {
     marginRight: 15,
   },
-  materialInfo: {
-    flex: 1,
-  },
   materialActions: {
     flexDirection: "row",
     alignItems: "center",
   },
   actionButton: {
     marginLeft: 10,
+  },
+  progressContainer: {
+    marginTop: 8,
+    marginBottom: 5,
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  progressText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  videoTitleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  completionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4CAF5020',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 15,
+  },
+  completionText: {
+    color: '#4CAF50',
+    marginLeft: 5,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  progressBarContainer: {
+    marginTop: 10,
+  },
+  progressInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  completedText: {
+    color: '#4CAF50',
+    fontWeight: '500',
+  },
+  lastWatchedText: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  videosHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  videoStats: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
   },
 });
