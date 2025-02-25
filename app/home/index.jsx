@@ -721,9 +721,7 @@ const styles = StyleSheet.create({
     padding: Platform.OS === 'web' ? 20 : 15,
     backgroundColor: '#2196F3',
     borderBottomLeftRadius: 20,
-    borderTopLeftRadius: 20,
     borderBottomRightRadius: 20,
-    borderTopRightRadius: 20,
     backgroundColor: 'rgba(33, 150, 243, 0.65)',
     
   },
@@ -739,7 +737,7 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     borderRadius: 15,
     padding: 15,
   },
@@ -791,7 +789,7 @@ const styles = StyleSheet.create({
   },
   subjectCard: {
     width: (width - (Platform.OS === 'web' ? 50 : 30)) / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
     padding: Platform.OS === 'web' ? 15 : 12,
     borderRadius: 16,
@@ -822,7 +820,7 @@ const styles = StyleSheet.create({
     gap: Platform.OS === 'web' ? 15 : 10,
   },
   filterCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
     padding: Platform.OS === 'web' ? 15 : 12,
     borderRadius: 16,
@@ -855,7 +853,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   reviewCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
     borderRadius: 16,
     padding: Platform.OS === 'web' ? 20 : 15,
@@ -915,7 +913,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   footer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
     borderRadius: 16,
     padding: Platform.OS === 'web' ? 20 : 15,
@@ -1066,7 +1064,7 @@ const styles = StyleSheet.create({
     ],
   },
   textExtractorContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
     borderRadius: 16,
     padding: Platform.OS === 'web' ? 20 : 15,
@@ -1283,7 +1281,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
     borderRadius: 16,
     padding: Platform.OS === 'web' ? 20 : 15,
@@ -1298,7 +1296,7 @@ const styles = StyleSheet.create({
     // elevation: 3
   },
   extractorButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     backdropFilter: Platform.OS === 'web' ? 'blur(10px)' : undefined,
     padding: 12,
     borderRadius: 8,

@@ -164,7 +164,7 @@ export default function Profile() {
 
         <TouchableOpacity 
           style={[styles.navItem, styles.activeNavItem]}
-          onPress={() => router.push('/profile')}
+          onPress={() => router.push('/home')}
         >
           <View style={styles.homeIconContainer}>
             <Ionicons name="home" size={24} color="#2196F3" />
@@ -243,8 +243,10 @@ const styles = StyleSheet.create({
   welcomeSection: {
     padding: Platform.OS === 'web' ? 20 : 15,
     backgroundColor: '#2196F3',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    backgroundColor: 'rgba(33, 150, 243, 0.65)',
+    
   },
   welcomeText: {
     fontSize: 24,
@@ -321,7 +323,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 3,
+    // elevation: 3,
   },
   subjectIconContainer: {
     width: 60,
@@ -341,7 +343,7 @@ const styles = StyleSheet.create({
     gap: Platform.OS === 'web' ? 15 : 10,
   },
   filterCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
     padding: Platform.OS === 'web' ? 15 : 12,
     borderRadius: 16,
@@ -354,7 +356,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 3,
+    // elevation: 3,
   },
   filterIconContainer: {
     width: 50,
@@ -516,10 +518,10 @@ const styles = StyleSheet.create({
   },
   homeIconContainer: {
     backgroundColor: '#E3F2FD',
-    padding: 15,
+    padding: 1,
     borderRadius: 999,
-    marginBottom: 4,
-    transform: [{ scale: 1.25 }],
+    marginBottom: 2,
+    transform: [{ scale: 1.45 }],
   },
   navText: {
     fontSize: 12,
@@ -808,7 +810,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 3,
+    // elevation: 3,
   },
   extractorButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.6)',

@@ -1,18 +1,20 @@
 import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Alert, Platform } from 'react-native';
 import {Picker} from '@react-native-picker/picker';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { useState , useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
-import { auth, db } from '../../lib/firebase'; // Import Firebase auth and db
+import { auth, db } from '../../lib/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { useAuth } from '../../lib/AuthContext'; // Adjust the import path as necessary
+import { useAuth } from '../../lib/AuthContext';
 import { getFirestore, collection, getDocs } from 'firebase/firestore';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 export default function Signup() {
+  // State declarations and other logic remain unchanged
   const [formData, setFormData] = useState({
     email: '',
     username: '',
@@ -97,9 +99,9 @@ export default function Signup() {
 
         // Redirect based on user type
         if (formData.userType === 'teacher') {
-          router.push('/teacher/dashboard'); // Redirect to teacher dashboard
+          router.push('/teacher/dashboard');
         } else {
-          router.push('/home'); // Redirect to home for students
+          router.push('/home');
         }
       } catch (error) {
         console.error('Signup error:', error.message);
@@ -111,7 +113,7 @@ export default function Signup() {
   // Redirect if user is already logged in
   if (user) {
     router.push('/home');
-    return null; // Prevent rendering the signup form
+    return null;
   }
 
   return (
@@ -131,12 +133,25 @@ export default function Signup() {
         entering={FadeInDown.duration(1000).springify()} 
         style={styles.main}
       >
-        <View style={styles.headerContainer}>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Sign up to get started</Text>
+        {/* Header section with back button and titles */}
+        <View style={styles.headerSection}>
+          <View style={styles.topBarContainer}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color="#333" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.headerContainer}>
+            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.subtitle}>Sign up to get started</Text>
+          </View>
         </View>
 
-        <ScrollView style={styles.formContainer} contentContainerStyle={{ paddingBottom: 20, gap: 15 }}>
+        {/* Form container with proper spacing from the header */}
+        <ScrollView 
+          style={styles.formContainer} 
+          contentContainerStyle={{ paddingBottom: 20, gap: 15 }}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.inputContainer}>
             <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
             <TextInput
@@ -273,42 +288,39 @@ const styles = StyleSheet.create({
   main: {
     flex: 1,
     padding: Platform.OS === 'web' ? 20 : 16,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     maxWidth: 500,
     width: '100%',
     alignSelf: 'center',
     zIndex: 1,
   },
-
+  // New header section that contains both the back button and titles
   headerSection: {
-    position: 'absolute',
-    top: Platform.OS === 'web' ? 20 : 40,
-    left: 0,
-    right: 0,
+    width: '100%',
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: Platform.OS === 'web' ? 20 : 10,
-    zIndex: 1,
+    alignItems: 'center',
+    marginBottom: 16,
+    marginTop: Platform.OS === 'web' ? 10 : 20,
   },
-
+  topBarContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerContainer: {
     marginLeft: 15,
-    paddingTop: 8,
   },
-
   title: {
-    fontSize: Platform.OS === 'web' ? 34 : 28,
+    fontSize: Platform.OS === 'web' ? 32 : 26,
     fontWeight: 'bold',
     color: '#1A237E',
+    marginBottom: 4,
     letterSpacing: -0.5,
   },
-
   subtitle: {
     fontSize: Platform.OS === 'web' ? 17 : 15,
     color: '#666',
     lineHeight: 24,
   },
-
   formContainer: {
     marginTop: 20,
     gap: 20,
@@ -318,18 +330,12 @@ const styles = StyleSheet.create({
     backdropFilter: Platform.OS === 'web' ? 'blur(3px)' : undefined,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.8)',
-    // shadowColor: '#000',
-    // shadowOffset: { width: 0, height: 12 },
-    // shadowOpacity: 0.06,
-    // shadowRadius: 24,
-    // elevation: 4,
     borderTopColor: 'rgba(255, 255, 255, 0.9)',
     borderLeftColor: 'rgba(255, 255, 255, 0.9)',
     borderRightColor: 'rgba(255, 255, 255, 0.7)',
     borderBottomColor: 'rgba(255, 255, 255, 0.7)',
     marginHorizontal: Platform.OS === 'web' ? 0 : 10,
   },
-
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -338,30 +344,16 @@ const styles = StyleSheet.create({
     padding: Platform.OS === 'web' ? 16 : 12,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.85)',
-    // shadowColor: '#000',
-    // shadowOffset: { width: 0, height: 6 },
-    // shadowOpacity: 0.02,
-    // shadowRadius: 12,
-    // elevation: 2,
   },
-
   inputIcon: {
     marginRight: 10,
   },
-
   input: {
     flex: 1,
     fontSize: Platform.OS === 'web' ? 16 : 14,
     color: '#333',
     marginLeft: 12,
   },
-
-  label: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 5,
-  },
-
   pickerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -371,13 +363,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.85)',
     shadowColor: '#000',
-    // shadowOffset: { width: 0, height: 6 },
-    // shadowOpacity: 0.02,
-    // shadowRadius: 12,
-    // elevation: 2,
     height: 55,
   },
-
   picker: {
     flex: 1,
     height: 50,
@@ -385,14 +372,12 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     backgroundColor: 'transparent',
   },
-
   errorText: {
     color: '#ff3333',
     fontSize: 12,
     marginTop: -10,
     marginLeft: 5,
   },
-
   signupButton: {
     backgroundColor: 'rgba(33, 150, 243, 0.95)',
     padding: Platform.OS === 'web' ? 16 : 14,
@@ -400,37 +385,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
-    // shadowColor: '#2196F3',
-    // shadowOffset: { width: 0, height: 6 },
-    // shadowOpacity: 0.35,
-    // shadowRadius: 12,
-    // elevation: 5,
   },
-
   signupButtonText: {
     color: 'white',
     fontSize: Platform.OS === 'web' ? 17 : 16,
     fontWeight: '600',
     letterSpacing: 0.5,
   },
-
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: 20,
   },
-
   divider: {
     flex: 1,
     height: 1,
     backgroundColor: '#ddd',
   },
-
   dividerText: {
     color: '#666',
     paddingHorizontal: 10,
   },
-
   googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -439,36 +414,25 @@ const styles = StyleSheet.create({
     padding: Platform.OS === 'web' ? 16 : 14,
     borderRadius: 16,
     borderWidth: 1.5,
-    // borderColor: 'rgba(255, 255, 255, 0.85)',
-    // shadowColor: '#000',
-    // shadowOffset: { width: 0, height: 6 },
-    // shadowOpacity: 0.02,
-    // shadowRadius: 12,
-    // elevation: 2,
   },
-
   googleButtonText: {
     marginLeft: 10,
     color: '#666',
     fontSize: 16,
   },
-
   loginContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 20,
   },
-
   loginText: {
     color: '#666',
   },
-
   loginLink: {
     color: '#2196F3',
     fontWeight: '600',
     fontSize: 15,
   },
-
   backButton: {
     width: 45,
     height: 45,
@@ -479,18 +443,12 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.85)',
     shadowColor: '#000',
-    // shadowOffset: { width: 0, height: 4 },
-    // shadowOpacity: 0.02,
-    // shadowRadius: 10,
-    // elevation: 2,
   },
-
   blurCircle: {
     position: 'absolute',
     borderRadius: 999,
     zIndex: 0,
   },
-
   blurCircle1: {
     width: Platform.OS === 'web' ? 250 : 200,
     height: Platform.OS === 'web' ? 250 : 200,
@@ -502,7 +460,6 @@ const styles = StyleSheet.create({
       { rotate: '-15deg' }
     ],
   },
-
   blurCircle2: {
     width: Platform.OS === 'web' ? 220 : 180,
     height: Platform.OS === 'web' ? 220 : 180,
@@ -514,7 +471,6 @@ const styles = StyleSheet.create({
       { rotate: '30deg' }
     ],
   },
-
   blurCircle3: {
     width: Platform.OS === 'web' ? 200 : 160,
     height: Platform.OS === 'web' ? 200 : 160,

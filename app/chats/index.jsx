@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   footer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
     borderRadius: 16,
     padding: Platform.OS === 'web' ? 20 : 15,
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   section: {
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
     borderRadius: 16,
     padding: Platform.OS === 'web' ? 20 : 15,

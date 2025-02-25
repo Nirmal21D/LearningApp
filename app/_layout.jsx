@@ -59,6 +59,18 @@ export default function Layout() {
         name="chats/index"
         options={{ headerShown: false }}
       /> 
+      <Stack.Screen
+        name="tools/index"
+        options={{ headerShown: false }}
+      /> 
+      <Stack.Screen
+        name="blogs/index"
+        options={{ headerShown: false }}
+      /> 
+      <Stack.Screen
+        name="profile/index"
+        options={{ headerShown: false }}
+      /> 
     </Stack>
   );
 } 

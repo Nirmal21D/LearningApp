@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView ,Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Platform } from 'react-native';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
@@ -77,16 +77,18 @@ export default function Login() {
         entering={FadeInDown.duration(1000).springify()} 
         style={styles.main}
       >
-          <BlurView intensity={30} tint="light" style={[styles.backButton, styles.glassEffect]}>
-            <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-          </BlurView>
-
-        <View style={styles.headerContainer}>
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Enter your credentials to access your account</Text>
-        </View>
+          <View style={styles.topBarContainer}>
+            <BlurView intensity={30} tint="light" style={[styles.backButton, styles.glassEffect]}>
+              <TouchableOpacity onPress={() => router.back()}>
+                <Ionicons name="arrow-back" size={24} color="#333"/>
+              </TouchableOpacity>
+            </BlurView>
+            
+            <View style={styles.headerContainer}>
+              <Text style={styles.title}>Welcome Back</Text>
+              <Text style={styles.subtitle}>Enter your credentials to access your account</Text>
+            </View>
+          </View>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -173,9 +175,17 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     zIndex: 1,
   },
+  topBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 30,
+    position: 'absolute',
+    top: Platform.OS === 'web' ? 20 : 40,
+    left: Platform.OS === 'web' ? 20 : 10,
+    zIndex: 1,
+  },
   headerContainer: {
-    marginBottom: Platform.OS === 'web' ? 40 : 30,
-    paddingHorizontal: Platform.OS === 'web' ? 0 : 10,
+    marginLeft: 15,
   },
   title: {
     fontSize: Platform.OS === 'web' ? 34 : 28,
@@ -193,6 +203,8 @@ const styles = StyleSheet.create({
     color: '#ff3333',
     fontSize: 12,
     marginBottom: 10,
+    marginTop: Platform.OS === 'web' ? 130 : 110,
+    textAlign: 'center',
   },
   formContainer: {
     gap: 20,
@@ -203,15 +215,12 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.8)',
     shadowColor: '#000',
-    // shadowOffset: { width: 0, height: 12 },
-    // shadowOpacity: 0.06,
-    // shadowRadius: 24,
-    // elevation: 4,
     borderTopColor: 'rgba(255, 255, 255, 0.9)',
     borderLeftColor: 'rgba(255, 255, 255, 0.9)',
     borderRightColor: 'rgba(255, 255, 255, 0.7)',
     borderBottomColor: 'rgba(255, 255, 255, 0.7)',
     marginHorizontal: Platform.OS === 'web' ? 0 : 10,
+    marginTop: Platform.OS === 'web' ? 140 : 120,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -222,10 +231,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.85)',
     shadowColor: '#000',
-    // shadowOffset: { width: 0, height: 6 },
-    // shadowOpacity: 0.02,
-    // shadowRadius: 12,
-    // elevation: 2,
   },
   inputIcon: {
     marginRight: 10,
@@ -311,15 +316,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   backButton: {
-    position: 'absolute',
-    top: Platform.OS === 'web' ? 20 : 40,
-    left: Platform.OS === 'web' ? 20 : 10,
     width: 40,
     height: 40,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 1,
   },
   glassEffect: {
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
@@ -369,4 +370,4 @@ const styles = StyleSheet.create({
       { rotate: '15deg' }
     ],
   },
-}); 
+});

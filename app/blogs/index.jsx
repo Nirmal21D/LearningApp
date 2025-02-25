@@ -256,20 +256,21 @@ export default function Blogs() {
         </TouchableOpacity>
 
         <TouchableOpacity 
-          style={styles.navItem}
-          onPress={() => router.push('/')}
+          style={[styles.navItem, styles.activeNavItem]}
+          onPress={() => router.push('/home')}
         >
           <View style={styles.homeIconContainer}>
-            <Ionicons name="home-outline" size={24} color="#666" />
+            <Ionicons name="home" size={24} color="#2196F3" />
           </View>
-          <Text style={styles.navText}>Home</Text>
+          <Text style={[styles.navText, styles.activeNavText]}>Home</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
-          style={[styles.navItem, styles.activeNavItem]}
+          style={styles.navItem}
+          onPress={() => router.push('/blogs')}
         >
-          <Ionicons name="newspaper" size={24} color="#2196F3" />
-          <Text style={[styles.navText, styles.activeNavText]}>Blogs</Text>
+          <Ionicons name="newspaper" size={24} color="#666" />
+          <Text style={styles.navText}>Blogs</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -379,7 +380,7 @@ const styles = StyleSheet.create({
     width: width * 0.75,
     marginRight: 15,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     backdropFilter: Platform.OS === 'web' ? 'blur(8px)' : undefined,
     overflow: 'hidden',
     borderWidth: 1,
@@ -388,7 +389,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 3,
+    // elevation: 3,
   },
   featuredImageContainer: {
     position: 'relative',
@@ -444,6 +445,7 @@ const styles = StyleSheet.create({
   },
   categoriesContainer: {
     marginVertical: 15,
+    
   },
   categoriesScrollContainer: {
     paddingHorizontal: 20,
@@ -453,7 +455,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, x)',
     marginRight: 10,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.8)',
@@ -485,7 +487,7 @@ const styles = StyleSheet.create({
   },
   blogCard: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     backdropFilter: Platform.OS === 'web' ? 'blur(8px)' : undefined,
     borderRadius: 16,
     overflow: 'hidden',
@@ -496,7 +498,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 6,
-    elevation: 2,
+    gap: 1,
+    marginBottom: 5,
+    // elevation: 2,
   },
   blogImageContainer: {
     width: 100,
@@ -577,7 +581,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
-    elevation: 10,
+    // elevation: 10,
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -596,9 +600,10 @@ const styles = StyleSheet.create({
   },
   homeIconContainer: {
     backgroundColor: '#E3F2FD',
-    padding: 15,
+    padding: 1,
     borderRadius: 999,
-    marginBottom: 4,
+    marginBottom: 2,
+    transform: [{ scale: 1.5 }],
   },
   navText: {
     fontSize: 12,
