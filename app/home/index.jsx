@@ -257,7 +257,7 @@ export default function Home() {
         </View>
 
         {/* Course Categories */}
-        <View style={styles.sectionContainer}>
+        {/* <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Other tools</Text>
             <TouchableOpacity>
@@ -317,7 +317,7 @@ export default function Home() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Teams & Communication</Text>
           <TeamsFeature />
-        </View>
+        </View> */}
 
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
@@ -673,6 +673,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: 'transparent',
     overflow: 'hidden',
+    
   },
   navbar: {
     flexDirection: 'row',
@@ -682,6 +683,7 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 50 : 20,
     backgroundColor: 'transparent',
     zIndex: 1,
+    
   },
   menuButton: {
     width: 40,
@@ -718,8 +720,12 @@ const styles = StyleSheet.create({
   welcomeSection: {
     padding: Platform.OS === 'web' ? 20 : 15,
     backgroundColor: '#2196F3',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    borderBottomLeftRadius: 20,
+    borderTopLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    borderTopRightRadius: 20,
+    backgroundColor: 'rgba(33, 150, 243, 0.65)',
+    
   },
   welcomeText: {
     fontSize: 24,
@@ -796,7 +802,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 3,
+    // elevation: 3,
   },
   subjectIconContainer: {
     width: 60,
@@ -829,7 +835,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 3,
+    // elevation: 3,
   },
   filterIconContainer: {
     width: 50,
@@ -860,7 +866,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 3,
+    height: 200,
+    width: 350,
+    // elevation: 3,
   },
   reviewHeader: {
     flexDirection: 'row',
@@ -919,13 +927,17 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 3,
+    marginBottom: 5,
+    padding: 10,
+    borderRadius: 16,
+    // elevation: 3,
   },
   footerTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#1A237E',
     marginBottom: 20,
+    
   },
   socialLinks: {
     flexDirection: 'row',
@@ -936,21 +948,21 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(245, 245, 245, 0.8)',
+    backgroundColor: 'rgba(245, 245, 245, 0.10)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   contactButton: {
-    backgroundColor: 'rgba(33, 150, 243, 0.95)',
+    backgroundColor: 'rgba(33, 150, 243, 0.45)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 30,
     paddingVertical: 12,
     borderRadius: 25,
-    gap: 10,
+    gap: 1,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
   },
@@ -972,7 +984,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
-    elevation: 10,
+    // elevation: 10,
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -991,15 +1003,15 @@ const styles = StyleSheet.create({
   },
   homeIconContainer: {
     backgroundColor: '#E3F2FD',
-    padding: 15,
+    padding: 1,
     borderRadius: 999,
-    marginBottom: 4,
-    transform: [{ scale: 1.25 }],
+    marginBottom: 2,
+    transform: [{ scale: 1.45 }],
   },
   navText: {
     fontSize: 12,
     color: '#666',
-    marginTop: 4,
+    // marginTop: 1,
   },
   activeNavText: {
     color: '#2196F3',
@@ -1066,7 +1078,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 3,
+    // elevation: 3,
   },
   navRight: {
     flexDirection: 'row',
@@ -1097,7 +1109,7 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
       },
       android: {
-        elevation: 3,
+        // elevation: 3,
       }
     })
   },
@@ -1149,7 +1161,7 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    elevation: 2,
+    // elevation: 2,
   },
   recommendationContent: {
     flex: 1,
@@ -1192,7 +1204,7 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
       },
       android: {
-        elevation: 3,
+        // elevation: 3,
       }
     })
   },
@@ -1283,7 +1295,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 3,
+    // elevation: 3
   },
   extractorButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.6)',
@@ -1310,7 +1322,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
-    elevation: 3,
+    // elevation: 3,
   },
 });
 

@@ -55,6 +55,10 @@ export default function Layout() {
         name="teacher/upload-video/index"
         options={{ headerShown: false }}
       /> 
+      <Stack.Screen
+        name="chats/index"
+        options={{ headerShown: false }}
+      /> 
     </Stack>
   );
 } 
