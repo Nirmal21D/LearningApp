@@ -181,11 +181,16 @@ export default function ProgressPage() {
   const renderSubjectDetails = () => {
     if (!selectedSubjectData) return null;
 
-    const completedVideos = getSubjectCompletedVideos(selectedSubjectData.id);
+    const subjectProgress = selectedSubjectData.progressPercentage || 0;
+    const completedVideos = selectedSubjectData.videosWatched || 0;
+    const totalVideos = selectedSubjectData.totalVideos || 0;
 
     return (
       <View style={styles.subjectDetailsCard}>
         <Text style={styles.subjectTitle}>{selectedSubjectData.name}</Text>
+        {selectedSubjectData.description && (
+          <Text style={styles.subjectDescription}>{selectedSubjectData.description}</Text>
+        )}
         <View style={styles.subjectStats}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
@@ -201,9 +206,31 @@ export default function ProgressPage() {
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
-              {completedVideos}/{selectedSubjectData.totalVideos || 0}
+              {completedVideos}/{totalVideos}
             </Text>
             <Text style={styles.statLabel}>Videos Completed</Text>
+          </View>
+        </View>
+        <View style={styles.overallProgressContainer}>
+          <Text style={styles.overallProgressLabel}>Overall Progress</Text>
+          <View style={styles.progressBarContainer}>
+            <View style={styles.progressBar}>
+              <View 
+                style={[
+                  styles.progressFill,
+                  { 
+                    width: `${subjectProgress}%`,
+                    backgroundColor: getPerformanceLabel(subjectProgress).color
+                  }
+                ]} 
+              />
+            </View>
+            <Text style={[
+              styles.progressPercentage,
+              { color: getPerformanceLabel(subjectProgress).color }
+            ]}>
+              {subjectProgress}%
+            </Text>
           </View>
         </View>
       </View>
@@ -251,6 +278,58 @@ export default function ProgressPage() {
     );
   };
 
+  const renderSubjectButtons = () => {
+    if (!progressData?.summary?.subjects) return null;
+
+    return (
+        <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            style={styles.subjectScroll}
+        >
+            {progressData.summary.subjects.map((subject) => {
+                const progress = subject.progressPercentage || 0;
+                return (
+                    <TouchableOpacity
+                        key={subject.id}
+                        style={[
+                            styles.subjectButton,
+                            selectedSubject === subject.id && styles.subjectButtonActive
+                        ]}
+                        onPress={() => setSelectedSubject(subject.id)}
+                    >
+                        <Text style={[
+                            styles.subjectButtonText,
+                            selectedSubject === subject.id && styles.subjectButtonTextActive
+                        ]}>
+                            {subject.name}
+                        </Text>
+                        <View style={styles.subjectProgress}>
+                            <Text style={[
+                                styles.subjectProgressText,
+                                selectedSubject === subject.id && styles.subjectButtonTextActive
+                            ]}>
+                                {subject.videosWatched}/{subject.totalVideos} Videos
+                            </Text>
+                            <View style={styles.subjectProgressBar}>
+                                <View 
+                                    style={[
+                                        styles.subjectProgressFill,
+                                        {
+                                            width: `${progress}%`,
+                                            backgroundColor: selectedSubject === subject.id ? '#fff' : '#2196F3'
+                                        }
+                                    ]} 
+                                />
+                            </View>
+                        </View>
+                    </TouchableOpacity>
+                );
+            })}
+        </ScrollView>
+    );
+  };
+
   if (error) {
     return (
       <SafeAreaView style={styles.container}>
@@ -284,24 +363,24 @@ export default function ProgressPage() {
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.filterContainer}>
-          {timeFilters.map((filter) => (
-            <TouchableOpacity
-              key={filter.id}
+                {timeFilters.map((filter) => (
+                  <TouchableOpacity
+                    key={filter.id}
               style={[
                 styles.filterButton,
                 selectedFilter === filter.value && styles.filterButtonActive
               ]}
               onPress={() => setSelectedFilter(filter.value)}
-            >
-              <Text style={[
+                  >
+                    <Text style={[
                 styles.filterButtonText,
                 selectedFilter === filter.value && styles.filterButtonTextActive
-              ]}>
-                {filter.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+                    ]}>
+                      {filter.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -313,7 +392,7 @@ export default function ProgressPage() {
             {renderSummaryContainer()}
 
             {progressData.chartData?.[selectedChartType]?.length > 0 && (
-              <View style={styles.chartContainer}>
+        <View style={styles.chartContainer}>
                 <View style={styles.chartHeader}>
                   <Text style={styles.chartTitle}>Progress Over Time</Text>
                   <View style={styles.chartTypeContainer}>
@@ -343,16 +422,16 @@ export default function ProgressPage() {
                     </TouchableOpacity>
                   </View>
                 </View>
-                <LineChart
+          <LineChart
                   data={chartData}
-                  width={Dimensions.get('window').width - 40}
-                  height={220}
-                  chartConfig={{
-                    backgroundColor: '#ffffff',
-                    backgroundGradientFrom: '#ffffff',
-                    backgroundGradientTo: '#ffffff',
-                    decimalPlaces: 0,
-                    color: (opacity = 1) => `rgba(33, 150, 243, ${opacity})`,
+            width={Dimensions.get('window').width - 40}
+            height={220}
+            chartConfig={{
+              backgroundColor: '#ffffff',
+              backgroundGradientFrom: '#ffffff',
+              backgroundGradientTo: '#ffffff',
+              decimalPlaces: 0,
+              color: (opacity = 1) => `rgba(33, 150, 243, ${opacity})`,
                     labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                     propsForDots: {
                       r: "6",
@@ -362,9 +441,9 @@ export default function ProgressPage() {
                     propsForLabels: {
                       fontSize: selectedChartType === 'daily' ? 10 : 12
                     }
-                  }}
-                  bezier
-                  style={styles.chart}
+            }}
+            bezier
+            style={styles.chart}
                   getDotColor={(dataPoint, dataPointIndex) => {
                     const score = dataPoint;
                     if (score >= 85) return '#4CAF50';
@@ -394,57 +473,13 @@ export default function ProgressPage() {
                       </View>
                     );
                   }}
-                />
-              </View>
+          />
+        </View>
             )}
 
             <View style={styles.subjectContainer}>
               <Text style={styles.sectionTitle}>Subject Progress</Text>
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                style={styles.subjectScroll}
-              >
-                {progressData.summary.subjects.map((subject) => {
-                  const completedVideos = getSubjectCompletedVideos(subject.id);
-                  return (
-                    <TouchableOpacity
-                      key={subject.id}
-                      style={[
-                        styles.subjectButton,
-                        selectedSubject === subject.id && styles.subjectButtonActive
-                      ]}
-                      onPress={() => setSelectedSubject(subject.id)}
-                    >
-                      <Text style={[
-                        styles.subjectButtonText,
-                        selectedSubject === subject.id && styles.subjectButtonTextActive
-                      ]}>
-                        {subject.name}
-                      </Text>
-                      <View style={styles.subjectProgress}>
-                        <Text style={[
-                          styles.subjectProgressText,
-                          selectedSubject === subject.id && styles.subjectButtonTextActive
-                        ]}>
-                          {completedVideos}/{subject.totalVideos || 0} Videos
-                        </Text>
-                        <View style={styles.subjectProgressBar}>
-                          <View 
-                            style={[
-                              styles.subjectProgressFill,
-                              {
-                                width: `${(completedVideos / (subject.totalVideos || 1)) * 100}%`,
-                                backgroundColor: selectedSubject === subject.id ? '#fff' : '#2196F3'
-                              }
-                            ]} 
-                          />
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+              {renderSubjectButtons()}
             </View>
 
             {renderSubjectDetails()}
@@ -484,9 +519,9 @@ export default function ProgressPage() {
                             <Text style={styles.chapterProgressText}>
                               {hasNoVideos ? 'No videos to watch' : 
                                 `${videoProgress.completed}/${chapter.totalVideos} Videos Completed`}
-                            </Text>
-                          </View>
-                          
+            </Text>
+          </View>
+
                           {/* Video List */}
                           <View style={styles.videoList}>
                             {chapter.videos.map((video, vIndex) => {
@@ -508,7 +543,7 @@ export default function ProgressPage() {
                                     ]}>
                                       {video.name || video.title || `Video ${vIndex + 1}`}
                                     </Text>
-                                  </View>
+            </View>
                                   <View style={styles.videoProgressBar}>
                                     <View 
                                       style={[
@@ -519,18 +554,18 @@ export default function ProgressPage() {
                                         }
                                       ]} 
                                     />
-                                  </View>
+          </View>
                                   {progress.lastWatched && (
                                     <Text style={styles.lastWatchedText}>
                                       Last watched: {new Date(progress.lastWatched.seconds * 1000).toLocaleDateString()}
                                     </Text>
                                   )}
-                                </View>
+            </View>
                               );
                             })}
-                          </View>
-                        </View>
-                        
+          </View>
+        </View>
+
                         <View style={[
                           styles.chapterScore,
                           { backgroundColor: getPerformanceLabel(completionPercentage).color + '20' }
@@ -547,17 +582,17 @@ export default function ProgressPage() {
             )}
 
             <View style={styles.recentTestsContainer}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Recent Tests</Text>
-                <TouchableOpacity>
-                  <Text style={styles.viewAllButton}>View All</Text>
-                </TouchableOpacity>
-              </View>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Tests</Text>
+            <TouchableOpacity>
+              <Text style={styles.viewAllButton}>View All</Text>
+            </TouchableOpacity>
+          </View>
               {recentTests.length > 0 ? (
-                <View style={styles.testsList}>
+          <View style={styles.testsList}>
                   {recentTests.map((test, index) => (
                     <View key={test.id || index} style={styles.testItem}>
-                      <View style={styles.testInfo}>
+                <View style={styles.testInfo}>
                         <Text style={styles.testName} numberOfLines={1}>
                           {test.test_name}
                         </Text>
@@ -565,25 +600,25 @@ export default function ProgressPage() {
                         <Text style={styles.testDate}>
                           {new Date(test.completed_at.seconds * 1000).toLocaleDateString()}
                         </Text>
-                      </View>
-                      <View style={[
-                        styles.testScore,
-                        { backgroundColor: getPerformanceLabel(test.score).color + '20' }
-                      ]}>
-                        <Text style={[
-                          styles.scoreValue,
-                          { color: getPerformanceLabel(test.score).color }
-                        ]}>{test.score}%</Text>
-                      </View>
-                    </View>
-                  ))}
                 </View>
+                <View style={[
+                  styles.testScore,
+                        { backgroundColor: getPerformanceLabel(test.score).color + '20' }
+                ]}>
+                  <Text style={[
+                    styles.scoreValue,
+                          { color: getPerformanceLabel(test.score).color }
+                  ]}>{test.score}%</Text>
+                </View>
+              </View>
+            ))}
+          </View>
               ) : (
                 <View style={styles.noTestsContainer}>
                   <Text style={styles.noTestsText}>No recent tests found</Text>
                 </View>
               )}
-            </View>
+        </View>
           </>
         )}
       </ScrollView>
@@ -1033,4 +1068,38 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-});
+  subjectDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 15,
+  },
+  overallProgressContainer: {
+    marginTop: 15,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  overallProgressLabel: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 8,
+  },
+  progressBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  progressBar: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressPercentage: {
+    fontSize: 16,
+    fontWeight: '600',
+    minWidth: 45,
+    textAlign: 'right',
+  },
+}); 

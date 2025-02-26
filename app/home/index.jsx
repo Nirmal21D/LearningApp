@@ -138,8 +138,8 @@ export default function Home() {
   };
 
   if (isLoading) {
-  return (
-    <SafeAreaView style={styles.container}>
+    return (
+      <SafeAreaView style={styles.container}>
         <Text style={styles.loadingText}>Loading...</Text>
       </SafeAreaView>
     );
@@ -175,17 +175,17 @@ export default function Home() {
         </TouchableOpacity> */}
         <Text style={styles.className}>Std 10</Text>
         <View style={styles.navRight}>
-        <TouchableOpacity style={styles.notificationButton}>
-          <View style={styles.notificationBadge} />
-          <Ionicons name="notifications-outline" size={24} color="#333" />
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.notificationButton}>
+            <View style={styles.notificationBadge} />
+            <Ionicons name="notifications-outline" size={24} color="#333" />
+          </TouchableOpacity>
           <TouchableOpacity 
             style={styles.logoutButton}
             onPress={handleLogout}
           >
             <Ionicons name="log-out-outline" size={24} color="#FF4444" />
           </TouchableOpacity>
-      </View>
+        </View>
       </View>
       <ScrollView 
         showsVerticalScrollIndicator={false}
@@ -290,7 +290,7 @@ export default function Home() {
               >
                 <View style={styles.filterIconContainer}>
                  
-          </View>
+                </View>
                 <Text style={styles.filterName}>Progress</Text>
               </TouchableOpacity>
               <TouchableOpacity 
@@ -304,7 +304,7 @@ export default function Home() {
               >
                 <View style={styles.filterIconContainer}>
                  
-        </View>
+                </View>
                 <Text style={styles.filterName}>Pomodoro</Text>
               </TouchableOpacity>
            
@@ -617,7 +617,7 @@ export default function Home() {
 
       {/* Place ChatBot before bottom nav but with adjusted style */}
       <View style={styles.chatBotWrapper}>
-        <ChatBot />
+      <ChatBot />
       </View>
 
       {/* Bottom Navigation */}

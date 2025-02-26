@@ -247,8 +247,16 @@ async function updateUserVideoStats(userId, subjectId) {
 // Get user's overall progress
 export async function getUserProgress(userId, timeRange = '3m') {
     try {
+        if (!userId) {
+            throw new Error('userId is required');
+        }
+
         // Get user document for subject enrollments
         const userDoc = await getDoc(doc(db, 'users', userId));
+        if (!userDoc.exists()) {
+            return getEmptyProgressData();
+        }
+
         const userData = userDoc.data();
         const joinedGroups = userData?.joinedGroups || [];
         
@@ -257,7 +265,7 @@ export async function getUserProgress(userId, timeRange = '3m') {
             .filter(group => group.startsWith('subject_'))
             .map(group => group.replace('subject_', ''));
 
-        // Get subject data
+        // Get subject data with proper progress calculation
         const subjectsData = {};
         const videosProgress = {};
         
@@ -265,26 +273,57 @@ export async function getUserProgress(userId, timeRange = '3m') {
             // Get subject details
             const subjectDoc = await getDoc(doc(db, 'subjects', subjectId));
             if (subjectDoc.exists()) {
-                subjectsData[subjectId] = subjectDoc.data();
+                const subjectData = subjectDoc.data();
+                subjectsData[subjectId] = subjectData;
                 
-                // Get videos for this subject
-                const videosRef = collection(db, 'videos');
-                const videosQuery = query(
-                    videosRef,
-                    where('subjectId', '==', subjectId)
-                );
-                const videosSnapshot = await getDocs(videosQuery);
-                
-                // Track video progress
-                for (const videoDoc of videosSnapshot.docs) {
-                    const videoProgress = await getUserVideoProgress(userId, videoDoc.id);
-                    if (videoProgress) {
-                        videosProgress[videoDoc.id] = {
-                            ...videoProgress,
-                            videoData: videoDoc.data()
-                        };
+                // Calculate total videos and completed videos per chapter
+                const chapterProgress = {};
+                let totalSubjectVideos = 0;
+                let completedSubjectVideos = 0;
+
+                // Process videos by chapter
+                if (subjectData.videos) {
+                    for (const [chapterKey, chapterVideos] of Object.entries(subjectData.videos)) {
+                        if (Array.isArray(chapterVideos)) {
+                            totalSubjectVideos += chapterVideos.length;
+                            
+                            // Get video progress for this chapter
+                            const chapterVideoProgress = await Promise.all(
+                                chapterVideos.map(async video => {
+                                    const progress = await getVideoProgress(userId, video.id);
+                                    if (progress) {
+                                        videosProgress[video.id] = {
+                                            ...progress,
+                                            videoData: video
+                                        };
+                                        return progress.completed ? 1 : 0;
+                                    }
+                                    return 0;
+                                })
+                            );
+                            
+                            const completedInChapter = chapterVideoProgress.reduce((sum, val) => sum + val, 0);
+                            completedSubjectVideos += completedInChapter;
+                            
+                            chapterProgress[chapterKey] = {
+                                total: chapterVideos.length,
+                                completed: completedInChapter,
+                                percentage: (completedInChapter / chapterVideos.length) * 100
+                            };
+                        }
                     }
                 }
+
+                // Update subject data with progress information
+                subjectsData[subjectId] = {
+                    ...subjectData,
+                    progress: {
+                        totalVideos: totalSubjectVideos,
+                        completedVideos: completedSubjectVideos,
+                        percentage: totalSubjectVideos > 0 ? (completedSubjectVideos / totalSubjectVideos) * 100 : 0,
+                        chapterProgress
+                    }
+                };
             }
         }
 
@@ -403,15 +442,23 @@ function formatProgressData(progressData, userData, subjectsData, videosProgress
     });
 
     // Format subjects data
-    const subjects = Object.entries(subjectProgress).map(([id, data]) => ({
+    const subjects = Object.entries(subjectsData).map(([id, data]) => ({
         id,
-        name: data.name,
-        averageScore: Math.round(data.totalScore / data.totalTests) || 0,
-        completedChapters: data.chapters.size,
-        totalChapters: (subjectsData[id]?.chapters?.length || 0),
-        testsAttempted: data.totalTests,
-        videosWatched: data.videosWatched,
-        totalVideos: data.totalVideos
+        name: data.name || 'Untitled Subject',
+        description: data.description || '',
+        totalChapters: data.totalChapters || data.chapters?.length || 0,
+        completedChapters: Object.values(data.progress?.chapterProgress || {})
+            .filter(ch => ch.percentage >= 90).length,
+        averageScore: Math.round(
+            progressData
+                .filter(test => test.subjectId === id && test.score?.percentage)
+                .reduce((sum, test) => sum + test.score.percentage, 0) / 
+            progressData.filter(test => test.subjectId === id && test.score?.percentage).length
+        ) || 0,
+        videosWatched: data.progress?.completedVideos || 0,
+        totalVideos: data.progress?.totalVideos || 0,
+        progressPercentage: Math.round(data.progress?.percentage || 0),
+        chapterProgress: data.progress?.chapterProgress || {}
     }));
 
     // Format chapters data
@@ -515,4 +562,27 @@ function getDateFromRange(timeRange) {
         default:
             return new Date(now.setMonth(now.getMonth() - 3));
     }
+}
+
+// Helper function to get empty progress data
+function getEmptyProgressData() {
+    return {
+        chartData: {
+            daily: [],
+            monthly: []
+        },
+        summary: {
+            averageScore: 0,
+            testsCompleted: 0,
+            totalTests: 0,
+            chaptersCompleted: 0,
+            totalChapters: 0,
+            videosWatched: 0,
+            totalVideos: 0,
+            weakAreas: [],
+            learningSpeed: 'Normal',
+            subjects: [],
+            chapters: []
+        }
+    };
 }

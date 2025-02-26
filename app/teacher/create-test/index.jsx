@@ -47,6 +47,7 @@ export default function CreateTest() {
     const [chapters, setChapters] = useState([]);
     const [selectedSubject, setSelectedSubject] = useState('');
     const [selectedChapter, setSelectedChapter] = useState('');
+    const [duration, setDuration] = useState('30'); // Default 30 minutes
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -96,7 +97,8 @@ export default function CreateTest() {
                 type: 'multiple_choice',
                 question: '',
                 options: ['', '', '', ''],
-                answer: '' // Single answer storing the option value
+                answer: '', // This will store the correct option
+                correctOption: '' // This is for UI tracking, will be removed before saving
             }
             : {
                 type: 'text',
@@ -115,8 +117,9 @@ export default function CreateTest() {
         question.options[optionIndex] = text;
         
         // If this option was the answer, update it
-        if (question.answer === oldOption) {
-            question.answer = text;
+        if (question.correctOption === oldOption) {
+            question.correctOption = text;
+            question.answer = text; // Also update answer field
         }
         
         setQuestions(newQuestions);
@@ -134,19 +137,45 @@ export default function CreateTest() {
             return;
         }
 
+        if (!duration || isNaN(parseInt(duration))) {
+            Alert.alert('Error', 'Please enter a valid duration in minutes');
+            return;
+        }
+
         if (questions.length === 0) {
             Alert.alert('Error', 'Please add at least one question');
             return;
         }
 
-        // Validate questions
-        const isValid = questions.every(q => {
+        // Prepare questions for saving - make sure no undefined values
+        const sanitizedQuestions = questions.map(q => {
             if (q.type === 'text') {
-                return q.question.trim() && q.answer.trim();
+                return {
+                    type: q.type,
+                    question: q.question.trim(),
+                    answer: q.answer.trim()
+                };
             } else {
-                return q.question.trim() && 
-                       q.options.every(opt => opt.trim()) && 
-                       q.answer.trim(); // Check for single answer
+                // For MCQs, make sure we're using the correctOption as the answer
+                // if answer isn't set yet
+                const answer = q.answer || q.correctOption || '';
+                return {
+                    type: q.type,
+                    question: q.question.trim(),
+                    options: q.options.map(opt => opt.trim()),
+                    answer: answer.trim()
+                };
+            }
+        });
+
+        // Validate questions
+        const isValid = sanitizedQuestions.every(q => {
+            if (q.type === 'text') {
+                return q.question && q.answer;
+            } else {
+                return q.question && 
+                       q.options.every(opt => opt) && 
+                       q.answer; // Check for single answer
             }
         });
 
@@ -162,15 +191,15 @@ export default function CreateTest() {
             const testData = {
                 title: title.trim(),
                 description: description.trim(),
-                questions: questions.map(q => ({
-                    ...q,
-                    question: q.question.trim(),
-                    options: q.type === 'multiple_choice' ? q.options.map(opt => opt.trim()) : undefined,
-                    answer: q.answer.trim()
-                })),
+                questions: sanitizedQuestions,
                 subjectId: selectedSubject,
                 subjectName,
                 chapter: selectedChapter,
+                duration: parseInt(duration), // Store as number
+                // Gamification fields
+                xpReward: Math.round(parseInt(duration) * 2), // XP is based on test duration
+                pointsPerQuestion: 10, // Base points per question
+                streakBonus: 5, // Bonus points for answering consecutive questions correctly
                 createdAt: serverTimestamp(),
             };
 
@@ -230,6 +259,7 @@ export default function CreateTest() {
                                     onPress={() => {
                                         const newQuestions = [...questions];
                                         newQuestions[index].correctOption = option;
+                                        newQuestions[index].answer = option; // Set answer to match correctOption
                                         setQuestions(newQuestions);
                                     }}
                                 >
@@ -383,6 +413,36 @@ export default function CreateTest() {
                             numberOfLines={4}
                         />
                     </InteractiveContainer>
+
+                    {/* Duration field */}
+                    <InteractiveContainer style={styles.inputContainer}>
+                        <Ionicons name="time-outline" size={24} color="#666" style={styles.inputIcon} />
+                        <TextInput 
+                            style={styles.input}
+                            value={duration}
+                            onChangeText={setDuration}
+                            placeholder="Test Duration (minutes)"
+                            placeholderTextColor="#999"
+                            keyboardType="numeric"
+                        />
+                    </InteractiveContainer>
+
+                    {/* Gamification Preview */}
+                    <View style={styles.gamificationPreview}>
+                        <Text style={styles.gamificationTitle}>Rewards Preview</Text>
+                        <View style={styles.rewardItem}>
+                            <Ionicons name="star-outline" size={20} color="#FFD700" />
+                            <Text style={styles.rewardText}>XP Reward: {parseInt(duration || 0) * 2} XP</Text>
+                        </View>
+                        <View style={styles.rewardItem}>
+                            <Ionicons name="trophy-outline" size={20} color="#FF9800" />
+                            <Text style={styles.rewardText}>Points per Question: 10 pts</Text>
+                        </View>
+                        <View style={styles.rewardItem}>
+                            <Ionicons name="flame-outline" size={20} color="#FF5722" />
+                            <Text style={styles.rewardText}>Streak Bonus: 5 pts per correct answer in a row</Text>
+                        </View>
+                    </View>
                 </View>
 
                 {/* Questions Section */}
@@ -791,5 +851,30 @@ const styles = StyleSheet.create({
         padding: 15,
         borderWidth: 1,
         borderColor: '#eee',
+    },
+    // New styles for gamification and duration
+    gamificationPreview: {
+        marginTop: 10,
+        backgroundColor: '#f8f9fa',
+        borderRadius: 12,
+        padding: 15,
+        borderWidth: 1,
+        borderColor: '#eee',
+    },
+    gamificationTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#333',
+        marginBottom: 12,
+    },
+    rewardItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+        gap: 8,
+    },
+    rewardText: {
+        fontSize: 14,
+        color: '#555',
     },
 });
