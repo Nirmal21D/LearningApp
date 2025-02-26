@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dimensions, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dimensions, Platform, Image, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Link } from 'expo-router';
 import { getFirestore, doc, getDoc, collection, getDocs } from 'firebase/firestore';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import {onAuthStateChanged } from 'firebase/auth';
 import ChatBot from '@/components/Chatbot';
 import { LinearGradient } from 'expo-linear-gradient';
 import { signOut } from 'firebase/auth';
 import { Alert } from 'react-native';
-import { auth } from '@/lib/firebase';
+
 import FAQComponent from '../../components/FAQ';
+import { auth, db } from '@/lib/firebase';
+import LeaderboardComponent from '@/components/Leaderboard';
 const { width } = Dimensions.get('window');
 
 export default function Profile() {
@@ -17,9 +19,8 @@ export default function Profile() {
   const [userInfo, setUserInfo] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
- 
-
-
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async user => {
@@ -36,15 +37,12 @@ export default function Profile() {
         const data = userDocSnap.data();
         setUserInfo(data);
 
-      
-
         if (data.userType === 'teacher') {
           router.replace('/teacher/dashboard');
           return;
         }
       } else {
         setUserInfo(null);
-        setProgressData(null);
       }
       setIsLoading(false);
     });
@@ -53,7 +51,6 @@ export default function Profile() {
   }, [router]);
 
   const handleLogout = async () => {
-    const auth = getAuth();
     try {
       await signOut(auth);
       router.replace('/');
@@ -62,9 +59,33 @@ export default function Profile() {
     }
   };
 
+  const fetchUserData = async () => {
+    try {
+      if (!auth.currentUser) return;
+      
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      if (userDoc.exists()) {
+        setUserInfo({
+          ...userDoc.data(),
+          email: auth.currentUser.email
+        });
+      }
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      setIsLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchUserData();
+    setRefreshing(false);
+  };
+
   if (isLoading) {
-  return (
-    <SafeAreaView style={styles.container}>
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
         <Text style={styles.loadingText}>Loading...</Text>
       </SafeAreaView>
     );
@@ -88,9 +109,6 @@ export default function Profile() {
       <View style={[styles.blurCircle, styles.blurCircle3]} />
 
       <View style={styles.navbar}>
-        {/* <TouchableOpacity style={styles.menuButton}>
-          <Ionicons name="menu-outline" size={28} color="#333" />
-        </TouchableOpacity> */}
         <Text style={styles.className}>Std 10</Text>
         <View style={styles.navRight}>
         <TouchableOpacity style={styles.notificationButton}>
@@ -108,18 +126,66 @@ export default function Profile() {
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
-        {/* Welcome Section */}
         <View style={[styles.welcomeSection, { borderRadius: 0 }]}>
           <Text style={styles.welcomeText}>Welcome,</Text>
           <Text style={styles.username}>{userInfo ? userInfo.username : 'Loading...'}</Text>
         </View>
 
-        
+        <View style={styles.userInfoContainer}>
+          <View style={styles.avatarContainer}>
+            <Image 
+              source={{ 
+                uri: userInfo?.photoURL || 
+                'https://ui-avatars.com/api/?name=' + userInfo?.username 
+              }} 
+              style={styles.avatar}
+            />
+          </View>
+          <Text style={styles.email}>{userInfo?.email}</Text>
+          
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Ionicons name="trophy" size={24} color="#FFD700" />
+              <Text style={styles.statValue}>{userInfo?.totalXP || 0}</Text>
+              <Text style={styles.statLabel}>Total XP</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Ionicons name="flame" size={24} color="#FF5722" />
+              <Text style={styles.statValue}>{userInfo?.highestStreak || 0}</Text>
+              <Text style={styles.statLabel}>Best Streak</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Ionicons name="school" size={24} color="#4CAF50" />
+              <Text style={styles.statValue}>{userInfo?.testsCompleted || 0}</Text>
+              <Text style={styles.statLabel}>Tests</Text>
+            </View>
+          </View>
+        </View>
 
-       
+        <TouchableOpacity 
+          style={styles.leaderboardToggle}
+          onPress={() => setShowLeaderboard(!showLeaderboard)}
+        >
+          <Ionicons 
+            name={showLeaderboard ? "chevron-up" : "chevron-down"} 
+            size={24} 
+            color="#333" 
+          />
+          <Text style={styles.leaderboardToggleText}>
+            {showLeaderboard ? 'Hide Leaderboard' : 'Show Leaderboard'}
+          </Text>
+        </TouchableOpacity>
 
-        {/* Course Categories */}
+        {showLeaderboard && (
+          <View style={styles.leaderboardContainer}>
+            <LeaderboardComponent />
+          </View>
+        )}
+
         <View style={styles.sectionContainer}>
           <View style={styles.filterGrid}>
               
@@ -144,12 +210,10 @@ export default function Profile() {
         <FAQComponent />
       </ScrollView>
 
-      {/* Place ChatBot before bottom nav but with adjusted style */}
       <View style={styles.chatBotWrapper}>
         <ChatBot />
       </View>
 
-      {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
         <TouchableOpacity 
           style={styles.navItem} 
@@ -273,7 +337,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-  statNumber: {
+  statValue: {
     fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
@@ -281,11 +345,6 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 14,
     color: 'rgba(255,255,255,0.8)',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    marginHorizontal: 15,
   },
   sectionContainer: {
     marginVertical: 20,
@@ -843,5 +902,61 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 3,
+  },
+  userInfoContainer: {
+    backgroundColor: '#fff',
+    padding: 20,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  avatarContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    overflow: 'hidden',
+    marginBottom: 16,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  avatar: {
+    width: '100%',
+    height: '100%',
+  },
+  email: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 16,
+  },
+  leaderboardToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  leaderboardToggleText: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+  leaderboardContainer: {
+    flex: 1,
+    minHeight: 400,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#0000ff',
   },
 });
