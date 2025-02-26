@@ -21,6 +21,7 @@ export default function Login() {
         router.push('/admin/dashboard'); // Redirect to admin dashboard
         return;
       }
+      
 
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       console.log('Login successful');
@@ -32,7 +33,9 @@ export default function Login() {
 
       if (userData.userType === 'teacher') {
         router.push('/teacher/dashboard');
-      } else {
+      }else if (formData.userType === 'careerGuider') {
+        router.push('/career-guider/dashboard');
+      }else {
         router.push('/home');
       }
       

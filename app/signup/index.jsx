@@ -100,7 +100,11 @@ export default function Signup() {
         // Redirect based on user type
         if (formData.userType === 'teacher') {
           router.push('/teacher/dashboard');
-        } else {
+        }
+       else if (formData.userType === 'careerGuider') {
+        router.push('/career-guider/dashboard');
+      }
+         else {
           router.push('/home');
         }
       } catch (error) {
@@ -230,6 +234,7 @@ export default function Signup() {
             >
               <Picker.Item label="Student" value="student" />
               <Picker.Item label="Teacher" value="teacher" />
+              <Picker.Item label="Career Guider" value="careerGuider" />
             </Picker>
           </View>
 

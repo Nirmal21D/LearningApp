@@ -85,6 +85,7 @@
     "react-native-gesture-handler": "~2.20.2",
     "react-native-get-random-values": "^1.11.0",
     "react-native-gifted-chat": "^2.6.5",
+    "react-native-html-to-pdf": "^0.12.0",
     "react-native-modal": "^13.0.1",
     "react-native-paper": "^5.13.1",
     "react-native-permissions": "^5.2.5",
@@ -97,13 +98,15 @@
     "react-native-svg": "^15.11.1",
     "react-native-tesseract-ocr": "^2.0.3",
     "react-native-toast-message": "^2.2.1",
+    "react-native-tts": "^4.1.1",
     "react-native-vector-icons": "^10.2.0",
     "react-native-video": "^6.10.0",
     "react-native-video-controls": "^2.8.1",
     "react-native-web": "~0.19.13",
     "react-native-webview": "^13.13.2",
     "recharts": "^2.15.0",
-    "three": "^0.173.0"
+    "three": "^0.173.0",
+    "victory-native": "^41.16.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

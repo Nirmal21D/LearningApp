@@ -156,6 +156,22 @@ export default function Home() {
         </View>
                 <Text style={styles.filterName}>Pomodoro</Text>
               </TouchableOpacity>
+
+
+              <TouchableOpacity 
+               
+                style={styles.filterCard}
+                onPress={() => {
+                  router.push({
+                    pathname: '/career'
+                  });
+                }}
+              >
+                <View style={styles.filterIconContainer}>
+                 
+        </View>
+                <Text style={styles.filterName}>Career</Text>
+              </TouchableOpacity>
            
           </View>
         </View>

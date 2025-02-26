@@ -17,6 +17,7 @@ import { auth } from '@/lib/firebase';
 import TeamsFeature from '@/components/TeamsFeature';
 import SessionNotification from '@/components/SessionNotification';
 import { getUserProgress } from '@/app/api/progress';
+import TodoListComponent from '../../components/Todo';
 const { width } = Dimensions.get('window');
 
 const courseFilters = [
@@ -59,7 +60,7 @@ export default function Home() {
   const [subjects, setSubjects] = useState([]);
   const [showTagForm, setShowTagForm] = useState();
   const [progressData, setProgressData] = useState(null);
-
+  const [userfortodo, setUserfortodo] = useState();
   const calculateOverallProgress = (data) => {
     if (!data) return 0;
     
@@ -100,6 +101,7 @@ export default function Home() {
     const unsubscribe = onAuthStateChanged(auth, async user => {
       setIsLoggedIn(!!user);
       if (user) {
+        setUserfortodo(user);
         const db = getFirestore();
         const userDocRef = doc(db, "users", user.uid);
         const userDocSnap = await getDoc(userDocRef);
@@ -117,6 +119,9 @@ export default function Home() {
           router.replace('/teacher/dashboard');
           return;
         }
+       else if (data.userType === 'careerGuider') {
+        router.push('/career-guider/dashboard');
+      }
       } else {
         setUserInfo(null);
         setProgressData(null);
@@ -318,6 +323,12 @@ export default function Home() {
           <Text style={styles.sectionTitle}>Teams & Communication</Text>
           <TeamsFeature />
         </View> */}
+
+            <TodoListComponent 
+              storageKey="tenthGradeTasks"
+              title="My Tasks" 
+              user={userfortodo}
+            />
 
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>

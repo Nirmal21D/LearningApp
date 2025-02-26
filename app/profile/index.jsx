@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { signOut } from 'firebase/auth';
 import { Alert } from 'react-native';
 import { auth } from '@/lib/firebase';
+import FAQComponent from '../../components/FAQ';
 const { width } = Dimensions.get('window');
 
 export default function Profile() {
@@ -16,6 +17,7 @@ export default function Profile() {
   const [userInfo, setUserInfo] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+ 
 
 
 
@@ -137,6 +139,9 @@ export default function Profile() {
               </TouchableOpacity>
           </View>
         </View>
+
+
+        <FAQComponent />
       </ScrollView>
 
       {/* Place ChatBot before bottom nav but with adjusted style */}
