@@ -10,6 +10,8 @@ import Animated, {
     withSpring, 
     useSharedValue 
 } from 'react-native-reanimated';
+import ExcelUpload from '../../../components/ExcelUpload'; // Adjust path as needed
+
 
 // Create an animated pressable component
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -106,6 +108,9 @@ export default function CreateTest() {
                 answer: ''
               };
         setQuestions([...questions, newQuestion]);
+    };
+    const handleQuestionsLoaded = (loadedQuestions) => {
+        setQuestions(loadedQuestions);
     };
 
     const handleUpdateOption = (questionIndex, optionIndex, text) => {
@@ -491,7 +496,26 @@ export default function CreateTest() {
                                 <Ionicons name="list-outline" size={20} color="white" />
                                 <Text style={styles.buttonText}>Add MCQ</Text>
                             </InteractiveContainer>
+
+                            
                         </View>
+                        <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>Import Questions</Text>
+                                <ExcelUpload 
+                                    onQuestionsLoaded={handleQuestionsLoaded}
+                                    setSelectedSubject={(subjectId) => {
+                                        // Find the subject that matches this ID
+                                        const subject = subjects.find(s => s.id === subjectId);
+                                        if (subject) {
+                                            setSelectedSubject(subjectId);
+                                        }
+                                    }}
+                                    setSelectedChapter={setSelectedChapter}
+                                    setTitle={setTitle}
+                                    setDescription={setDescription}
+                                    setDuration={setDuration}
+                                />
+                            </View>
                     </View>
                 </View>
 

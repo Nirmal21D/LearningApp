@@ -34,6 +34,7 @@
     "@react-navigation/stack": "^7.1.1",
     "@react-three/drei": "^10.0.0",
     "@react-three/fiber": "^9.0.4",
+    "@shopify/react-native-skia": "^1.11.8",
     "axios": "^1.7.9",
     "chart.js": "^4.0.0",
     "expo": "~52.0.23",
@@ -43,7 +44,7 @@
     "expo-camera": "^16.0.17",
     "expo-clipboard": "^7.0.1",
     "expo-constants": "~17.0.3",
-    "expo-document-picker": "^13.0.2",
+    "expo-document-picker": "^13.0.3",
     "expo-file-system": "^18.0.11",
     "expo-font": "~13.0.2",
     "expo-gl": "^15.0.4",
@@ -106,7 +107,8 @@
     "react-native-webview": "^13.13.2",
     "recharts": "^2.15.0",
     "three": "^0.173.0",
-    "victory-native": "^41.16.1"
+    "victory-native": "^41.16.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
