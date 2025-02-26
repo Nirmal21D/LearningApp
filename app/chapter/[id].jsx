@@ -398,7 +398,7 @@ export default function ChapterDetail() {
         : chapterId;
   
       console.log("Debug - Matched Chapter Key:", matchingChapterKey);
-  
+        console.log(subjectData.videos);
       // Extract videos for the specific chapter
       const chapterVideos = subjectData.videos && subjectData.videos[matchingChapterKey] 
         ? subjectData.videos[matchingChapterKey] 

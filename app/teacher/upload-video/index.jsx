@@ -325,6 +325,7 @@ export default function UploadVideoPage() {
             name: chapter || `Chapter ${index + 1}`,
           }))
         )
+        
       } else {
         setChapters([])
         console.error("Subject document does not exist")
@@ -422,8 +423,8 @@ export default function UploadVideoPage() {
         mapping[`chapter_${index}`] = `CH${index + 1}_${sanitizedSubjectName}`
         return mapping
       }, {})
-      
-      const mappedChapter =  selectedChapter
+         
+      const mappedChapter = chapterMapping[selectedChapter] || selectedChapter;
 
       // Create blob from file URI
       const response = await fetch(file.uri)
