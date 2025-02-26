@@ -328,6 +328,19 @@ useEffect(() => {
   checkSession();
 }, []);
 
+  const markSessionInactive = async (sessionId) => {
+    try {
+      const sessionRef = doc(db, "sessionRequests", sessionId);
+      await updateDoc(sessionRef, {
+        status: "completed",
+        endTime: new Date(),
+        duration: 60, // duration in minutes
+      });
+    } catch (error) {
+      console.error("Error marking session inactive:", error);
+    }
+  };
+
   const handleStartSession = async (session) => {
     try {
       if (!session || !session.id) {
@@ -343,16 +356,23 @@ useEffect(() => {
       // Use meet.jit.si with advanced configuration
       const jitsiUrl = `https://meet.jit.si/${safeRoomId}#config.prejoinPageEnabled=false&userInfo.displayName=${teacherName}&config.startWithAudioMuted=false&config.startWithVideoMuted=false&config.disableModeratorIndicator=false&config.enableLobbyChat=true&config.enableWelcomePage=false&config.enableClosePage=false&config.disableDeepLinking=true&config.p2p.enabled=true&config.resolution=720&config.constraints.video.height.ideal=720&config.constraints.video.width.ideal=1280`;
 
+      const startTime = new Date();
+      
       // Update the session document with new meeting details
       const sessionRef = doc(db, "sessionRequests", session.id);
       await updateDoc(sessionRef, {
         roomId: safeRoomId,
         status: "in-progress",
-        startTime: new Date(),
+        startTime: startTime,
         meetingUrl: jitsiUrl,
         platform: "meet.jit.si",
         teacherName: auth.currentUser.displayName || auth.currentUser.email
       });
+
+      // Schedule session to be marked as inactive after 1 hour
+      setTimeout(() => {
+        markSessionInactive(session.id);
+      }, 60 * 60 * 1000); // 1 hour in milliseconds
 
       // Share meeting link with student
       const studentMessageData = {
@@ -388,6 +408,47 @@ useEffect(() => {
       );
     }
   };
+
+  // Add this useEffect to check for expired sessions
+  useEffect(() => {
+    const checkExpiredSessions = async () => {
+      try {
+        const sessionsRef = collection(db, "sessionRequests");
+        const q = query(
+          sessionsRef,
+          where("teacherId", "==", auth.currentUser.uid),
+          where("status", "==", "in-progress")
+        );
+
+        const snapshot = await getDocs(q);
+        
+        snapshot.docs.forEach(async (doc) => {
+          const sessionData = doc.data();
+          if (sessionData.startTime) {
+            const startTime = sessionData.startTime.toDate();
+            const now = new Date();
+            const diffInHours = (now - startTime) / (1000 * 60 * 60);
+
+            // If session has been active for more than 1 hour
+            if (diffInHours >= 1) {
+              await markSessionInactive(doc.id);
+            }
+          }
+        });
+      } catch (error) {
+        console.error("Error checking expired sessions:", error);
+      }
+    };
+
+    // Check for expired sessions when component mounts
+    checkExpiredSessions();
+
+    // Set up interval to check every 5 minutes
+    const interval = setInterval(checkExpiredSessions, 5 * 60 * 1000);
+
+    // Cleanup interval on component unmount
+    return () => clearInterval(interval);
+  }, []);
 
   // Add a helper function to check if a session can be started
   const canStartSession = (session) => {
@@ -554,110 +615,284 @@ useEffect(() => {
   );
 
   const renderUpcomingSessions = () => {
-    if (loading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2196F3" />
-          <Text style={styles.loadingText}>Loading sessions...</Text>
+    return (
+      <View style={styles.sessionsHeader}>
+        <View style={styles.sessionsTitleContainer}>
+          <Text style={styles.sectionTitle}>Upcoming Sessions</Text>
+          <TouchableOpacity 
+            style={styles.reloadButton}
+            onPress={() => {
+              setLoading(true);
+              fetchApprovedSessions().finally(() => setLoading(false));
+            }}
+          >
+            <Ionicons name="refresh" size={20} color="#2196F3" />
+          </TouchableOpacity>
         </View>
+
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#2196F3" />
+            <Text style={styles.loadingText}>Loading sessions...</Text>
+          </View>
+        ) : !approvedSessions || approvedSessions.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No upcoming sessions</Text>
+          </View>
+        ) : (
+          <ScrollView style={styles.sessionsContainer}>
+            {approvedSessions.map((session) => (
+              <View key={session.id} style={styles.sessionCard}>
+                <View style={styles.sessionInfo}>
+                  <Text style={styles.sessionTopic}>
+                    {session.topic || "Untitled Session"}
+                  </Text>
+
+                  <Text style={styles.sessionSubject}>
+                    Subject: {session.teacherSubject || "Not specified"}
+                  </Text>
+
+                  {session.description && (
+                    <Text style={styles.sessionDescription}>
+                      {session.description}
+                    </Text>
+                  )}
+
+                  <Text style={styles.sessionTeacher}>
+                    Teacher: {session.teacherName || "Not specified"}
+                  </Text>
+
+                  <Text style={styles.sessionStudent}>
+                    Student ID: {session.studentId || "No student assigned"}
+                  </Text>
+
+                  <View style={styles.timeContainer}>
+                    <Ionicons name="time-outline" size={16} color="#666" />
+                    <Text style={styles.sessionTime}>
+                      {session.requestedDate.toLocaleString("en-US", {
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </Text>
+                  </View>
+
+                  <View style={styles.statusContainer}>
+                    <View style={styles.statusBadge}>
+                      <Text style={styles.statusText}>{session.status}</Text>
+                    </View>
+                    {session.roomId && (
+                      <Text style={styles.roomId}>Room: {session.roomId}</Text>
+                    )}
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.startButton}
+                  onPress={() => handleStartSession(session)}
+                >
+                  <Ionicons name="play" size={20} color="white" />
+                  <Text style={styles.startButtonText}>Start</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+      </View>
+    );
+  };
+
+  useEffect(() => {
+    // Set up real-time listener for active sessions
+    const listenToActiveSessions = () => {
+      if (!auth.currentUser) return;
+
+      const sessionsRef = collection(db, "sessionRequests");
+      const q = query(
+        sessionsRef,
+        where("teacherId", "==", auth.currentUser.uid),
+        where("status", "==", "in-progress")
       );
-    }
-  
-    if (!approvedSessions || approvedSessions.length === 0) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No upcoming sessions</Text>
-        </View>
-      );
-    }
+
+      // Set up real-time listener
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!snapshot.empty) {
+          const activeSessionData = {
+            id: snapshot.docs[0].id,
+            ...snapshot.docs[0].data(),
+          };
+          setActiveSession(activeSessionData);
+        } else {
+          setActiveSession(null);
+        }
+      }, (error) => {
+        console.error("Error listening to active sessions:", error);
+      });
+
+      // Cleanup listener on unmount
+      return () => unsubscribe();
+    };
+
+    listenToActiveSessions();
+  }, []);
+
+  const renderActiveSession = () => {
+    if (!activeSession) return null;
 
     return (
-      <ScrollView style={styles.sessionsContainer}>
-        {approvedSessions.map((session) => (
-          <View key={session.id} style={styles.sessionCard}>
-            <View style={styles.sessionInfo}>
-              <Text style={styles.sessionTopic}>
-                {session.topic || "Untitled Session"}
-              </Text>
-
-              <Text style={styles.sessionSubject}>
-                Subject: {session.teacherSubject || "Not specified"}
-              </Text>
-
-              {session.description && (
-                <Text style={styles.sessionDescription}>
-                  {session.description}
-                </Text>
-              )}
-
-              <Text style={styles.sessionTeacher}>
-                Teacher: {session.teacherName || "Not specified"}
-              </Text>
-
-              <Text style={styles.sessionStudent}>
-                Student ID: {session.studentId || "No student assigned"}
-              </Text>
-
-              <View style={styles.timeContainer}>
-                <Ionicons name="time-outline" size={16} color="#666" />
-                <Text style={styles.sessionTime}>
-                  {session.requestedDate.toLocaleString("en-US", {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </Text>
-              </View>
-
-              <View style={styles.statusContainer}>
-                <View style={styles.statusBadge}>
-                  <Text style={styles.statusText}>{session.status}</Text>
-                </View>
-                {session.roomId && (
-                  <Text style={styles.roomId}>Room: {session.roomId}</Text>
-                )}
-              </View>
+      <View style={styles.activeSessionWrapper}>
+        <View style={styles.activeSessionContainer}>
+          <View style={styles.activeSessionHeader}>
+            <View style={styles.activeSessionHeaderLeft}>
+              <Ionicons name="videocam" size={24} color="#fff" />
+              <Text style={styles.activeSessionHeaderText}>Live Session in Progress</Text>
             </View>
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={() => handleStartSession(session)}
-            >
-              <Ionicons name="play" size={20} color="white" />
-              <Text style={styles.startButtonText}>Start</Text>
-            </TouchableOpacity>
+            <Text style={styles.activeSessionDuration}>
+              Started at {new Date(activeSession.startTime?.seconds * 1000).toLocaleTimeString()}
+            </Text>
           </View>
-        ))}
-      </ScrollView>
+          
+          <View style={styles.activeSessionDetails}>
+            <Text style={styles.activeSessionTopic}>
+              {activeSession.topic || "Untitled Session"}
+            </Text>
+            
+            <View style={styles.activeSessionInfo}>
+              <View style={styles.infoRow}>
+                <Ionicons name="person-outline" size={16} color="#666" />
+                <Text style={styles.infoText}>
+                  Student: {activeSession.studentName || activeSession.studentId || "Unknown"}
+                </Text>
+              </View>
+              
+              {activeSession.roomId && (
+                <View style={styles.infoRow}>
+                  <Ionicons name="key-outline" size={16} color="#666" />
+                  <Text style={styles.infoText}>Room: {activeSession.roomId}</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.activeSessionActions}>
+              <TouchableOpacity 
+                style={styles.rejoinButton}
+                onPress={() => handleStartSession(activeSession)}
+              >
+                <Ionicons name="enter-outline" size={20} color="#fff" />
+                <Text style={styles.rejoinButtonText}>Rejoin Session</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.endButton}
+                onPress={() => {
+                  Alert.alert(
+                    "End Session",
+                    "Are you sure you want to end this session?",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      { 
+                        text: "End", 
+                        style: "destructive",
+                        onPress: () => markSessionInactive(activeSession.id)
+                      }
+                    ]
+                  );
+                }}
+              >
+                <Ionicons name="close-circle-outline" size={20} color="#fff" />
+                <Text style={styles.endButtonText}>End Session</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </View>
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView>
-      <View style={styles.header}>
+        {/* Header Section */}
+        <View style={styles.header}>
           <Text style={styles.title}>Teacher Dashboard</Text>
           <Text style={styles.subtitle}>Welcome back!</Text>
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
             <Ionicons name="log-out-outline" size={24} color="#E91E63" />
             <Text style={styles.logoutButtonText}>Logout</Text>
           </TouchableOpacity>
-          {activeSession && (
-            <View style={styles.activeSessionBanner}>
-              <Text style={styles.activeSessionText}>
-                Active Session: {activeSession.topic}
-              </Text>
-                <TouchableOpacity 
-                onPress={() => handleStartSession(activeSession)}
-                style={styles.rejoinButton}
-                >
-                <Text style={styles.rejoinButtonText}>Rejoin</Text>
-                </TouchableOpacity>
-            </View>
-          )}
         </View>
+
+        {/* Active Session Section - Moved outside header */}
+        {activeSession && (
+          <View style={styles.activeSessionWrapper}>
+            <View style={styles.activeSessionContainer}>
+              <View style={styles.activeSessionHeader}>
+                <View style={styles.activeSessionHeaderLeft}>
+                  <Ionicons name="videocam" size={24} color="#fff" />
+                  <Text style={styles.activeSessionHeaderText}>Live Session in Progress</Text>
+                </View>
+                <Text style={styles.activeSessionDuration}>
+                  Started at {new Date(activeSession.startTime?.seconds * 1000).toLocaleTimeString()}
+                </Text>
+              </View>
+              
+              <View style={styles.activeSessionDetails}>
+                <Text style={styles.activeSessionTopic}>
+                  {activeSession.topic || "Untitled Session"}
+                </Text>
+                
+                <View style={styles.activeSessionInfo}>
+                  <View style={styles.infoRow}>
+                    <Ionicons name="person-outline" size={16} color="#666" />
+                    <Text style={styles.infoText}>
+                      Student: {activeSession.studentName || activeSession.studentId || "Unknown"}
+                    </Text>
+                  </View>
+                  
+                  {activeSession.roomId && (
+                    <View style={styles.infoRow}>
+                      <Ionicons name="key-outline" size={16} color="#666" />
+                      <Text style={styles.infoText}>Room: {activeSession.roomId}</Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.activeSessionActions}>
+                  <TouchableOpacity 
+                    style={styles.rejoinButton}
+                    onPress={() => handleStartSession(activeSession)}
+                  >
+                    <Ionicons name="enter-outline" size={20} color="#fff" />
+                    <Text style={styles.rejoinButtonText}>Rejoin Session</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={styles.endButton}
+                    onPress={() => {
+                      Alert.alert(
+                        "End Session",
+                        "Are you sure you want to end this session?",
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          { 
+                            text: "End", 
+                            style: "destructive",
+                            onPress: () => markSessionInactive(activeSession.id)
+                          }
+                        ]
+                      );
+                    }}
+                  >
+                    <Ionicons name="close-circle-outline" size={20} color="#fff" />
+                    <Text style={styles.endButtonText}>End Session</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Teacher Stats */}
         <View style={styles.statsContainer}>
@@ -730,42 +965,42 @@ useEffect(() => {
               </TouchableOpacity>
             ))}
           </ScrollView>
-            </View>
+        </View>
 
         {/* Quick Actions Grid */}
         <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionGrid}>
             {quickActions.map(renderQuickAction)}
-                </View>
-            </View>
+          </View>
+        </View>
 
-            <TouchableOpacity 
-                style={styles.notificationButton}
-                onPress={handleQuickNotification}
-            >
-                <Ionicons 
-                    name="notifications" 
-                    size={24} 
-                    color="white" 
-                    style={styles.notificationIcon}
-                />
-                <Text style={styles.notificationButtonText}>
-                    Send Quick Notification
-                </Text>
-            </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.notificationButton}
+          onPress={handleQuickNotification}
+        >
+          <Ionicons 
+            name="notifications" 
+            size={24} 
+            color="white" 
+            style={styles.notificationIcon}
+          />
+          <Text style={styles.notificationButtonText}>
+            Send Quick Notification
+          </Text>
+        </TouchableOpacity>
 
         <View style={styles.callButtonContainer}>
           <CallButton roomId="optional-custom-room-id" />
         </View>
-        </ScrollView>
+      </ScrollView>
     </SafeAreaView>
-    );
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
+  container: {
+    flex: 1,
     backgroundColor: "#f5f5f5",
   },
   header: {
@@ -782,39 +1017,106 @@ const styles = StyleSheet.create({
     color: "#666",
     marginTop: 5,
   },
-  activeSessionBanner: {
-    backgroundColor: "#E91E63",
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 10,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  activeSessionWrapper: {
+    padding: 15,
+    backgroundColor: '#f8d7da', // Light red background
+    borderBottomWidth: 1,
+    borderBottomColor: '#f5c6cb',
   },
-  activeSessionText: {
-    color: "white",
+  activeSessionContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  activeSessionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  activeSessionDuration: {
+    color: '#fff',
+    fontSize: 12,
+    opacity: 0.9,
+  },
+  activeSessionHeader: {
+    backgroundColor: '#dc3545', // Darker red for header
+    padding: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  activeSessionHeaderText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  activeSessionDetails: {
+    padding: 15,
+  },
+  activeSessionTopic: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 10,
+  },
+  activeSessionInfo: {
+    marginBottom: 15,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  infoText: {
     fontSize: 14,
-    fontWeight: "500",
-    flex: 1,
+    color: '#666',
+  },
+  activeSessionActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
   },
   rejoinButton: {
-    backgroundColor: "white",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-    marginLeft: 10,
+    flex: 1,
+    backgroundColor: '#2196F3',
+    padding: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   rejoinButtonText: {
-    color: "#E91E63",
-    fontWeight: "600",
+    color: '#fff',
+    fontWeight: '600',
+  },
+  endButton: {
+    flex: 1,
+    backgroundColor: '#FF5252',
+    padding: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  endButtonText: {
+    color: '#fff',
+    fontWeight: '600',
   },
   section: {
     padding: 20,
-    },
-    sectionTitle: {
-        fontSize: 18,
+  },
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: "600",
-        marginBottom: 15,
+    marginBottom: 15,
     color: "#333",
   },
   sessionCard: {
@@ -941,11 +1243,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     borderRadius: 12,
     shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-    },
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   statCard: {
     alignItems: "center",
     padding: 10,
@@ -989,7 +1291,7 @@ const styles = StyleSheet.create({
   },
   recentUploadCard: {
     backgroundColor: "white",
-        padding: 15,
+    padding: 15,
     borderRadius: 12,
     marginRight: 15,
     width: 150,
@@ -1011,21 +1313,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#666",
     marginTop: 4,
-    },
-    notificationButton: {
+  },
+  notificationButton: {
     flexDirection: "row",
     backgroundColor: "#28a745",
-        padding: 15,
-        borderRadius: 10,
+    padding: 15,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     marginHorizontal: 20,
     marginBottom: 20,
-    },
-    notificationIcon: {
-        marginRight: 10,
-    },
-    notificationButtonText: {
+  },
+  notificationIcon: {
+    marginRight: 10,
+  },
+  notificationButtonText: {
     color: "white",
     fontSize: 16,
     fontWeight: "600",
@@ -1041,7 +1343,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     color: "#666",
-        fontSize: 16,
+    fontSize: 16,
   },
   emptyContainer: {
     padding: 20,
@@ -1050,8 +1352,8 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: 10,
     color: "#666",
-        fontSize: 16,
-    },
+    fontSize: 16,
+  },
   sessionsContainer: {
     padding: 10,
   },
@@ -1078,5 +1380,32 @@ const styles = StyleSheet.create({
     marginLeft: 5,
     color: '#E91E63',
     fontWeight: '600',
+  },
+  sessionsHeader: {
+    flex: 1,
+  },
+  sessionsTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+    paddingHorizontal: 20,
+  },
+  reloadButton: {
+    backgroundColor: '#E3F2FD',
+    padding: 8,
+    borderRadius: 20,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
 });

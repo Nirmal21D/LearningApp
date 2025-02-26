@@ -62,10 +62,6 @@ export default function ManageCurriculum() {
         router.push(`/admin/manage_curriculum/add_subject?curriculumId=${curriculumId}`);
     };
 
-    const handleManageSubject = (curriculumId) => {
-        router.push(`/admin/manage_curriculum/manage_subjects?curriculumId=${curriculumId}`);
-    };
-
     const deleteSubjectsForCurriculum = async (curriculumId) => {
         const subjectsRef = collection(db, 'subjects');
         const subjectsQuery = query(subjectsRef, where('curriculumId', '==', curriculumId));
@@ -145,12 +141,6 @@ export default function ManageCurriculum() {
                     <Ionicons name="add-outline" size={24} color="#4CAF50" />
                 </TouchableOpacity>
                 
-                <TouchableOpacity 
-                    style={styles.manageButton}
-                    onPress={() => handleManageSubject(item.id)}
-                >
-                    <Ionicons name="settings-outline" size={24} color="#FF9800" />
-                </TouchableOpacity>
                 
                 <TouchableOpacity 
                     style={styles.deleteButton}
