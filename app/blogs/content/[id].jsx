@@ -4,7 +4,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, onSnapshot, updateDoc, increment } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-
 import Comments from '@/components/Comment';
 import { db } from '@/lib/firebase';
 const colors = {
@@ -28,7 +27,6 @@ const BlogDetail = () => {
   const user = auth.currentUser;
   const [blog, setBlog] = useState(null);
   const [loading, setLoading] = useState(true);
-
 
   useEffect(() => {
     const blogRef = doc(db, 'blogs', id);
