@@ -15,16 +15,33 @@ const LearningStyleAssessment = ({ onClose, userId, visible }) => {
       const db = getFirestore();
       const userRef = doc(db, 'users', userId);
       const userSnap = await getDoc(userRef);
-      if (userSnap.exists() && userSnap.data().learningProfile?.tags?.length > 0) {
-        // User already has learning profile, don't show form
-        setShowForm(false);
-        onClose(); // Automatically close the modal if test was already taken
+  
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        
+        // Check if the user is a student
+        if (userData.type === 'student') {
+          if (userData.learningProfile?.tags?.length > 0) {
+            // Student already has a learning profile, don't show the form
+            setShowForm(false);
+            onClose(); // Automatically close the modal
+          } else {
+            // Student has no learning profile, show the form
+            setShowForm(true);
+          }
+        } else {
+          // If user is not a student, hide the form
+          setShowForm(false);
+          onClose();
+        }
       } else {
-        setShowForm(true);
+        setShowForm(false);
+        onClose();
       }
+  
       setLoading(false);
     };
-
+  
     if (userId) {
       checkUserTags();
     }

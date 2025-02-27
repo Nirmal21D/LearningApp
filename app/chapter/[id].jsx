@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect,useRef  } from "react";
 import {
   View,
   Text,
@@ -31,26 +31,191 @@ import { Linking } from "react-native";
 import { auth } from '@/lib/firebase';
 import { updateVideoProgress, getVideoProgress, getSubjectVideoProgress } from '@/app/api/progress';
 
+
 // Video Viewer Component
-const VideoViewer = ({ video, onClose }) => {
+const VideoViewer = ({ video, onProgress, onClose }) => {
+  const [status, setStatus] = useState({});
+  const videoRef = useRef(null);
+  
+  // Handle video URLs that might be direct or indirect
+  const getVideoSource = () => {
+    if (!video || !video.url) return null;
+    
+    // Check if it's a direct video URL that should be handled by the Video component
+    if (video.url.match(/\.(mp4|webm|mov)$/i) || 
+        video.url.includes('firebasestorage')) {
+      return { uri: video.url };
+    }
+    
+    // For URLs that might be streaming or embedded players, use WebView
+    return null;
+  };
+
+  const videoSource = getVideoSource();
+  
+  // Track video progress for the Video component
+  const handlePlaybackStatusUpdate = (status) => {
+    if (status.isLoaded && status.durationMillis > 0) {
+      const progress = status.positionMillis / status.durationMillis;
+      onProgress?.(progress);
+    }
+  };
+  
+  // HTML for WebView-based player (used for non-direct video URLs)
+  const generateVideoHtml = () => {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <style>
+          body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+          }
+          .video-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+          video {
+            max-width: 100%;
+            max-height: 100%;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="video-container">
+          <video
+            id="videoPlayer"
+            controls
+            autoplay
+            playsinline
+            webkit-playsinline
+            src="${video.url}"
+          ></video>
+        </div>
+        <script>
+          document.addEventListener('DOMContentLoaded', function() {
+            const video = document.getElementById('videoPlayer');
+            
+            video.addEventListener('timeupdate', function() {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'progress',
+                currentTime: video.currentTime,
+                duration: video.duration
+              }));
+            });
+            
+            video.addEventListener('ended', function() {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'progress',
+                currentTime: video.duration,
+                duration: video.duration
+              }));
+            });
+            
+            video.addEventListener('error', function(e) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'error',
+                message: 'Video playback error: ' + (e.message || 'Unknown error')
+              }));
+            });
+            
+            // Force video to start
+            video.play().catch(err => {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'error',
+                message: 'Failed to autoplay: ' + err.message
+              }));
+            });
+          });
+        </script>
+      </body>
+      </html>
+    `;
+  };
+
   return (
-    <View style={styles.modalContainer}>
-      <View style={styles.modalHeader}>
-        <TouchableOpacity onPress={onClose}>
-          <Ionicons name="close" size={24} color="#333" />
+    <View style={styles.videoPlayerContainer}>
+      <View style={styles.videoPlayerHeader}>
+        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <Ionicons name="close" size={24} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.modalTitle} numberOfLines={1}>
-          {video.title || "Video"}
+        <Text style={styles.videoTitle} numberOfLines={1}>
+          {video?.name || video?.title || "Video"}
         </Text>
       </View>
-      <WebView
-        source={{ uri: video.url }}
-        style={styles.webview}
-        originWhitelist={["*"]}
-      />
+      
+      {videoSource ? (
+        // Use the Expo Video component for direct video files
+        <Video
+          ref={videoRef}
+          source={videoSource}
+          style={styles.videoPlayer}
+          useNativeControls
+          resizeMode={ResizeMode.CONTAIN}
+          isLooping={false}
+          onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+          onError={(error) => {
+            console.error("Video playback error:", error);
+            Alert.alert("Error", "Could not play video. Trying alternative player...");
+            // Fall back to WebView player if direct video fails
+            setDirectVideoFailed(true);
+          }}
+        />
+      ) : (
+        // Use WebView for other video types or as fallback
+        <WebView
+          source={{
+            html: generateVideoHtml(),
+            baseUrl: '',
+          }}
+          style={styles.videoPlayer}
+          allowsFullscreenVideo={true}
+          allowsInlineMediaPlayback={true}
+          mediaPlaybackRequiresUserAction={false}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          startInLoadingState={true}
+          onMessage={(event) => {
+            try {
+              const data = JSON.parse(event.nativeEvent.data);
+              if (data.type === 'progress' && data.duration > 0) {
+                onProgress?.(data.currentTime / data.duration);
+              } else if (data.type === 'error') {
+                console.error('Video playback error:', data.message);
+                Alert.alert("Playback Error", "There was an error playing this video");
+              }
+            } catch (error) {
+              console.error('Error handling video message:', error);
+            }
+          }}
+          onError={(syntheticEvent) => {
+            const { nativeEvent } = syntheticEvent;
+            console.warn('WebView error: ', nativeEvent);
+          }}
+          renderLoading={() => (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#2196F3" />
+            </View>
+          )}
+        />
+      )}
     </View>
   );
 };
+
 const openMaterial = async (url) => {
   try {
     await Linking.openURL(url);
@@ -398,7 +563,7 @@ export default function ChapterDetail() {
         : chapterId;
   
       console.log("Debug - Matched Chapter Key:", matchingChapterKey);
-  
+        console.log(subjectData.videos);
       // Extract videos for the specific chapter
       const chapterVideos = subjectData.videos && subjectData.videos[matchingChapterKey] 
         ? subjectData.videos[matchingChapterKey] 
@@ -665,19 +830,52 @@ export default function ChapterDetail() {
     };
   }, [localVideoProgress, videoProgress, chapterData.videos]);
 
-  const renderVideos = () => {
-    if (!chapterData || !chapterData.videos) {
-      return (
-        <View style={styles.noMaterialContainer}>
-          <Text style={styles.noMaterialText}>Loading videos...</Text>
-        </View>
-      );
-    }
+  const handleVideoSelect = async (video) => {
+    try {
+      const videoUrl = getVideoUrl(video);
+      if (!videoUrl) {
+        Alert.alert("Error", "Video URL not available");
+        return;
+      }
 
-    if (chapterData.videos.length === 0) {
+      setSelectedVideo({
+        ...video,
+        url: videoUrl
+      });
+    } catch (error) {
+      console.error('Error selecting video:', error);
+      Alert.alert("Error", "Unable to play video");
+    }
+  };
+
+  const getVideoUrl = (video) => {
+    if (!video?.url) return null;
+    
+    // Handle different video URL formats
+    const url = video.url.trim();
+    
+    // If it's already a direct video URL or streaming URL
+    if (url.match(/\.(mp4|webm|ogg)$/i) || 
+        url.includes('streaming') || 
+        url.includes('manifest')) {
+      return url;
+    }
+    
+    // If it's a Firebase storage URL, ensure it has proper access
+    if (url.includes('firebase') || url.includes('googleapis')) {
+      return `${url}?alt=media`;
+    }
+    
+    return url;
+  };
+
+  const renderVideos = () => {
+    if (!chapterData || !chapterData.videos || chapterData.videos.length === 0) {
       return (
         <View style={styles.noMaterialContainer}>
-          <Text style={styles.noMaterialText}>No videos available for this chapter</Text>
+          <Text style={styles.noMaterialText}>
+            {!chapterData ? 'Loading videos...' : 'No videos available for this chapter'}
+          </Text>
         </View>
       );
     }
@@ -687,6 +885,7 @@ export default function ChapterDetail() {
       return localVideoProgress[videoId] || videoProgress[videoId] || {};
     };
 
+    // Calculate completed videos count
     const completedVideos = chapterData.videos.filter(video => 
       getVideoProgress(video.id)?.completed
     ).length;
@@ -694,87 +893,11 @@ export default function ChapterDetail() {
     return (
       <View>
         {selectedVideo && (
-          <View style={styles.videoPlayerContainer}>
-            <WebView
-              source={{ uri: selectedVideo.url }}
-              style={styles.videoPlayer}
-              allowsFullscreenVideo={true}
-              javaScriptEnabled={true}
-              onMessage={(event) => {
-                try {
-                  const data = JSON.parse(event.nativeEvent.data);
-                  if (data.type === 'progress' && data.duration > 0) {
-                    const progress = data.currentTime / data.duration;
-                    console.log('Video Progress:', {
-                      currentTime: data.currentTime,
-                      duration: data.duration,
-                      progress: progress
-                    });
-                    setCurrentVideoTime(data.currentTime);
-                    handleVideoProgress(selectedVideo, progress);
-                  }
-                } catch (error) {
-                  console.error('Error parsing video progress:', error);
-                }
-              }}
-              injectedJavaScript={`
-                var video = document.querySelector('video');
-                if (video) {
-                  video.addEventListener('loadedmetadata', function() {
-                    window.ReactNativeWebView.postMessage(JSON.stringify({
-                      type: 'progress',
-                      currentTime: video.currentTime,
-                      duration: video.duration
-                    }));
-                  });
-                  
-                  video.addEventListener('timeupdate', function() {
-                    window.ReactNativeWebView.postMessage(JSON.stringify({
-                      type: 'progress',
-                      currentTime: video.currentTime,
-                      duration: video.duration
-                    }));
-                  });
-                  
-                  video.addEventListener('ended', function() {
-                    window.ReactNativeWebView.postMessage(JSON.stringify({
-                      type: 'progress',
-                      currentTime: video.duration,
-                      duration: video.duration
-                    }));
-                  });
-                }
-              `}
-            />
-            <View style={styles.videoTitleContainer}>
-              <Text style={styles.videoTitle}>{selectedVideo.title || selectedVideo.name}</Text>
-              {getVideoProgress(selectedVideo.id)?.completed && (
-                <View style={styles.completionBadge}>
-                  <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
-                  <Text style={styles.completionText}>Completed</Text>
-                </View>
-              )}
-            </View>
-            <View style={styles.progressBarContainer}>
-              <View style={styles.progressBar}>
-                <View 
-                  style={[
-                    styles.progressFill, 
-                    { 
-                      width: `${(getVideoProgress(selectedVideo.id)?.progress || 0) * 100}%`,
-                      backgroundColor: getVideoProgress(selectedVideo.id)?.completed ? '#4CAF50' : '#2196F3' 
-                    }
-                  ]} 
-                />
-              </View>
-              <Text style={styles.progressText}>
-                {getVideoProgress(selectedVideo.id)?.completed 
-                  ? 'Completed'
-                  : `${Math.round((getVideoProgress(selectedVideo.id)?.progress || 0) * 100)}% watched`
-                }
-              </Text>
-            </View>
-          </View>
+          <VideoViewer
+            video={selectedVideo}
+            onProgress={(progress) => handleVideoProgress(selectedVideo, progress)}
+            onClose={() => setSelectedVideo(null)}
+          />
         )}
 
         <View style={styles.videosHeader}>
@@ -851,13 +974,7 @@ export default function ChapterDetail() {
 
               <View style={styles.materialActions}>
                 <TouchableOpacity
-                  onPress={() => {
-                    if (video.url) {
-                      setSelectedVideo(video);
-                    } else {
-                      Alert.alert("Error", "Video URL not available");
-                    }
-                  }}
+                  onPress={() => handleVideoSelect(video)}
                   style={styles.actionButton}
                 >
                   <Ionicons 
@@ -1065,14 +1182,16 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   videoPlayerContainer: {
+    width: '100%',
+    aspectRatio: 16/9,
+    backgroundColor: '#000',
+    borderRadius: 10,
+    overflow: 'hidden',
     marginBottom: 20,
   },
   videoPlayer: {
-    width: "100%",
-    height: 200,
-    backgroundColor: "#000",
-    borderRadius: 10,
-    marginBottom: 10,
+    flex: 1,
+    backgroundColor: '#000',
   },
   videoCard: {
     flexDirection: "row",
@@ -1152,6 +1271,50 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  videoPlayerContainer: {
+    width: '100%',
+    height: 250,
+    backgroundColor: '#000',
+    marginBottom: 15,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  videoPlayerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  videoTitle: {
+    color: '#FFF',
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+  },
+  videoPlayer: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   testInfo: {
     flex: 1,

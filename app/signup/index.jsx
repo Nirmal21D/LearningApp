@@ -30,6 +30,19 @@ export default function Signup() {
   const router = useRouter();
   const authContext = useAuth();
   const user = authContext?.user;
+  const colors = {
+    primary: '#2196F3',
+    background: '#f8f9fa',
+    textPrimary: '#1a1a1a',
+    textSecondary: '#666666',
+    categoryColors: {
+      Physics: '#ff6b6b',
+      Chemistry: '#4ecdc4',
+      Mathematics: '#45b7d1',
+      Biology: '#96ceb4',
+      'Study Skills': '#ff9f43',
+    }
+  };
 
   useEffect(() => {
     const fetchSubjects = async () => {
@@ -100,7 +113,11 @@ export default function Signup() {
         // Redirect based on user type
         if (formData.userType === 'teacher') {
           router.push('/teacher/dashboard');
-        } else {
+        }
+       else if (formData.userType === 'careerGuider') {
+        router.push('/career-guider/dashboard');
+      }
+         else {
           router.push('/home');
         }
       } catch (error) {
@@ -230,6 +247,7 @@ export default function Signup() {
             >
               <Picker.Item label="Student" value="student" />
               <Picker.Item label="Teacher" value="teacher" />
+              <Picker.Item label="Career Guider" value="careerGuider" />
             </Picker>
           </View>
 

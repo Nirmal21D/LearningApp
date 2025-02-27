@@ -312,7 +312,7 @@ export default function UploadVideoPage() {
 
   const fetchChapters = async () => {
     if (!selectedSubject) return
-
+    
     try {
       const subjectRef = doc(db, "subjects", selectedSubject)
       const subjectSnap = await getDoc(subjectRef)
@@ -325,14 +325,15 @@ export default function UploadVideoPage() {
             name: chapter || `Chapter ${index + 1}`,
           }))
         )
+        
       } else {
         setChapters([])
         console.error("Subject document does not exist")
         showNotification("Subject not found")
       }
     } catch (error) {
-      console.error("Chapters fetch error:", error)
-      showNotification("Could not fetch chapters")
+      console.error('Chapters fetch error:', error);
+      showNotification('Could not fetch chapters');
     }
   }
 
@@ -414,23 +415,25 @@ export default function UploadVideoPage() {
       const subjectName = subjectData.name || "Unknown"
       const chapters = subjectData.chapters || []
 
-      // Sanitize subject name for chapter mapping
+      // Sanitize subject name and create chapter mapping
       const sanitizedSubjectName = subjectName.replace(/\s+/g, "")
-
-      // Dynamically generate chapter mapping based on actual chapters
       const chapterMapping = chapters.reduce((mapping, chapter, index) => {
         mapping[`chapter_${index}`] = `CH${index + 1}_${sanitizedSubjectName}`
         return mapping
       }, {})
-      
-      const mappedChapter =  selectedChapter
+
+      // Get the mapped chapter name
+      const mappedChapter = chapterMapping[selectedChapter] || selectedChapter
 
       // Create blob from file URI
       const response = await fetch(file.uri)
       const blob = await response.blob()
 
-      // Upload video
-      const storageRef = ref(storage, `videos/${selectedCurriculum}/${selectedSubject}/${mappedChapter}/${file.name}`)
+      // Upload video with the correct chapter path
+      const storageRef = ref(
+        storage, 
+        `videos/${selectedCurriculum}/${selectedSubject}/${mappedChapter}/${file.name}`
+      )
       const snapshot = await uploadBytes(storageRef, blob)
       const downloadURL = await getDownloadURL(snapshot.ref)
 
@@ -447,7 +450,10 @@ export default function UploadVideoPage() {
         thumbnailURL = await getDownloadURL(thumbnailSnapshot.ref)
       }
 
-      // Prepare video data
+      // Get chapter name from the chapters array
+      const chapterName = chapters[parseInt(selectedChapter.split('_')[1])] || 'Unknown Chapter';
+
+      // Prepare video data with chapter information
       const videoData = {
         id: `video_${Date.now()}`,
         name: videoTitle,
@@ -461,6 +467,8 @@ export default function UploadVideoPage() {
         duration: videoDuration || null,
         description: videoDescription || null,
         learningStyleTags: selectedTags,
+        chapterName: chapterName, // Actual chapter name
+        chapterId: mappedChapter, // Mapped chapter ID for storage
         tags: videoTags
           ? videoTags
               .split(",")

@@ -1,617 +1,424 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
-  SafeAreaView, 
-  ScrollView, 
-  Image, 
-  Dimensions,
-  Platform 
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Image, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
+import { onSnapshot, collection, doc, updateDoc, increment } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { Feather, AntDesign, Ionicons } from '@expo/vector-icons';
+import { format, formatDistanceToNow } from 'date-fns';
 
-const { width } = Dimensions.get('window');
+import { db } from "../../lib/firebase";
 
-// Sample blog data
-const BLOG_DATA = [
-  {
-    id: '1',
-    title: 'How to Master Physics Problem Solving',
-    excerpt: 'Learn effective strategies to tackle complex physics problems with confidence.',
-    author: 'Dr. Sarah Chen',
-    date: 'Feb 20, 2025',
-    readTime: '6 min read',
-    category: 'Physics',
-    image: null, // Will use placeholder
-    featured: true,
-  },
-  {
-    id: '2',
-    title: 'Memory Techniques for Chemistry Formulas',
-    excerpt: 'Discover mnemonic devices and visualization techniques to remember complex chemical formulas.',
-    author: 'Prof. Michael Rodriguez',
-    date: 'Feb 15, 2025',
-    readTime: '4 min read',
-    category: 'Chemistry',
-    image: null,
-    featured: false,
-  },
-  {
-    id: '3',
-    title: 'The Ultimate Guide to Math Exam Preparation',
-    excerpt: 'Follow these proven strategies to prepare effectively for your upcoming mathematics exams.',
-    author: 'Emma Johnson',
-    date: 'Feb 10, 2025',
-    readTime: '8 min read',
-    category: 'Mathematics',
-    image: null,
-    featured: false,
-  },
-  {
-    id: '4',
-    title: 'The Science of Effective Studying',
-    excerpt: 'Research-backed methods to optimize your study sessions and retain information longer.',
-    author: 'Dr. James Wilson',
-    date: 'Feb 5, 2025',
-    readTime: '5 min read',
-    category: 'Study Skills',
-    image: null,
-    featured: false,
-  },
-  {
-    id: '5',
-    title: 'Understanding Biology Through Everyday Examples',
-    excerpt: 'Connect complex biological concepts to familiar everyday phenomena for better comprehension.',
-    author: 'Dr. Lisa Patel',
-    date: 'Jan 30, 2025',
-    readTime: '7 min read',
-    category: 'Biology',
-    image: null,
-    featured: true,
-  }
-];
-
-// Categories for filter
-const CATEGORIES = [
-  'All', 'Physics', 'Chemistry', 'Mathematics', 'Biology', 'Study Skills'
-];
-
-export default function Blogs() {
+const Blogs = () => {
   const router = useRouter();
+  const [blogs, setBlogs] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [filteredBlogs, setFilteredBlogs] = useState(BLOG_DATA);
-  
-  // Filter blogs when category changes
-  useEffect(() => {
-    if (selectedCategory === 'All') {
-      setFilteredBlogs(BLOG_DATA);
-    } else {
-      setFilteredBlogs(BLOG_DATA.filter(blog => blog.category === selectedCategory));
-    }
-  }, [selectedCategory]);
+  const [loading, setLoading] = useState(true);
+  const auth = getAuth();
+  const user = auth.currentUser;
 
-  // Get featured blogs
-  const featuredBlogs = BLOG_DATA.filter(blog => blog.featured);
+  // Sample categories - replace with your actual categories
+  const categories = ['Physics', 'Chemistry', 'Mathematics', 'Biology', 'ComputerScience', 'Other'];
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'blogs'), (snapshot) => {
+      const blogsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate()
+      }));
+      setBlogs(blogsData.sort((a, b) => b.createdAt - a.createdAt));
+      setLoading(false);
+    });
+    return unsubscribe;
+  }, []);
+
+  const handleVote = async (blogId, vote) => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    
+    const blogRef = doc(db, 'blogs', blogId);
+    const currentVote = blogs.find(b => b.id === blogId)?.userVotes?.[user.uid] || 0;
+
+    const updates = {
+      upvotes: increment(vote === 1 ? (currentVote === 1 ? -1 : 1) : 0),
+      downvotes: increment(vote === -1 ? (currentVote === -1 ? -1 : 1) : 0),
+      [`userVotes.${user.uid}`]: currentVote === vote ? null : vote
+    };
+
+    try {
+      await updateDoc(blogRef, updates);
+    } catch (error) {
+      console.error('Voting error:', error);
+      alert('Failed to update vote. Please try again.');
+    }
+  };
+
+  const filteredBlogs = selectedCategory === 'All' 
+    ? blogs 
+    : blogs.filter(blog => blog.category === selectedCategory);
+
+  const formatDate = (date) => {
+    if (!date) return '';
+    return formatDistanceToNow(date, { addSuffix: true });
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3b82f6" />
+        <Text style={styles.loadingText}>Loading posts...</Text>
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={['#E3F2FD', '#BBDEFB', '#E3F2FD']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
-      />
-      
-      {/* Background decoration */}
-      <View style={[styles.blurCircle, styles.blurCircle1]} />
-      <View style={[styles.blurCircle, styles.blurCircle2]} />
-      <View style={[styles.blurCircle, styles.blurCircle3]} />
-
-      {/* Navbar */}
-      <View style={styles.navbar}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.pageTitle}>Educational Blogs</Text>
-        <TouchableOpacity style={styles.searchButton}>
-          <Ionicons name="search-outline" size={24} color="#333" />
-        </TouchableOpacity>
+    <ScrollView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Community Posts</Text>
+        <Text style={styles.headerSubtitle}>Discover and share ideas with others</Text>
       </View>
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollViewContent}
+      {/* Create Button */}
+      <TouchableOpacity 
+        style={styles.createButton}
+        onPress={() => router.push('/create-blog')}
       >
-        {/* Featured Blogs Section */}
-        {featuredBlogs.length > 0 && (
-          <View style={styles.featuredSection}>
-            <Text style={styles.sectionTitle}>Featured Articles</Text>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.featuredScrollContainer}
-            >
-              {featuredBlogs.map(blog => (
-                <TouchableOpacity 
-                  key={blog.id}
-                  style={styles.featuredCard}
-                  onPress={() => router.push(`/blogDetail/${blog.id}`)}
-                >
-                  <View style={styles.featuredImageContainer}>
-                    <View style={styles.featuredImage} />
-                    <View style={styles.categoryBadge}>
-                      <Text style={styles.categoryText}>{blog.category}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.featuredContent}>
-                    <Text style={styles.featuredTitle}>{blog.title}</Text>
-                    <Text style={styles.featuredExcerpt} numberOfLines={2}>
-                      {blog.excerpt}
-                    </Text>
-                    <View style={styles.featuredMeta}>
-                      <Text style={styles.featuredAuthor}>{blog.author}</Text>
-                      <Text style={styles.featuredReadTime}>{blog.readTime}</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
+        <Feather name="plus-circle" size={18} color="white" />
+        <Text style={styles.createButtonText}>Create New Post</Text>
+      </TouchableOpacity>
 
-        {/* Categories Filter */}
-        <View style={styles.categoriesContainer}>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesScrollContainer}
+      {/* Categories */}
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        style={styles.categoriesContainer}
+      >
+        {categories.map(category => (
+          <TouchableOpacity 
+            key={category}
+            onPress={() => setSelectedCategory(category)}
+            style={[
+              styles.categoryButton,
+              selectedCategory === category ? styles.categoryButtonActive : styles.categoryButtonInactive
+            ]}
           >
-            {CATEGORIES.map(category => (
-              <TouchableOpacity 
-                key={category}
-                style={[
-                  styles.categoryPill,
-                  selectedCategory === category && styles.selectedCategoryPill
-                ]}
-                onPress={() => setSelectedCategory(category)}
-              >
-                <Text 
-                  style={[
-                    styles.categoryPillText,
-                    selectedCategory === category && styles.selectedCategoryPillText
-                  ]}
-                >
-                  {category}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* All Blogs List */}
-        <View style={styles.allBlogsSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>All Articles</Text>
-            <TouchableOpacity>
-              <Text style={styles.sortButton}>Sort by: Latest</Text>
-            </TouchableOpacity>
-          </View>
-
-          {filteredBlogs.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="document-text-outline" size={48} color="#BBDEFB" />
-              <Text style={styles.emptyStateText}>No articles found in this category</Text>
-            </View>
-          ) : (
-            filteredBlogs.map(blog => (
-              <TouchableOpacity 
-                key={blog.id}
-                style={styles.blogCard}
-                onPress={() => router.push(`/blogDetail/${blog.id}`)}
-              >
-                <View style={styles.blogImageContainer}>
-                  <View style={styles.blogImage} />
-                </View>
-                <View style={styles.blogContent}>
-                  <View style={styles.blogCategoryContainer}>
-                    <Text style={styles.blogCategory}>{blog.category}</Text>
-                  </View>
-                  <Text style={styles.blogTitle} numberOfLines={2}>{blog.title}</Text>
-                  <Text style={styles.blogExcerpt} numberOfLines={2}>{blog.excerpt}</Text>
-                  <View style={styles.blogMeta}>
-                    <Text style={styles.blogDate}>{blog.date}</Text>
-                    <Text style={styles.blogDot}>•</Text>
-                    <Text style={styles.blogReadTime}>{blog.readTime}</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
+            <Text 
+              style={[
+                styles.categoryText,
+                selectedCategory === category ? styles.categoryTextActive : styles.categoryTextInactive
+              ]}
+            >
+              {category}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </ScrollView>
 
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity 
-          style={styles.navItem} 
-          onPress={() => router.push('/chats')}
-        >
-          <Ionicons name="chatbubbles-outline" size={24} color="#666" />
-          <Text style={styles.navText}>Chats</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={() => router.push('/tools')}
-        >
-          <Ionicons name="build-outline" size={24} color="#666" />
-          <Text style={styles.navText}>Tools</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.navItem, styles.activeNavItem]}
-          onPress={() => router.push('/home')}
-        >
-          <View style={styles.homeIconContainer}>
-            <Ionicons name="home" size={24} color="#2196F3" />
-          </View>
-          <Text style={[styles.navText, styles.activeNavText]}>Home</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={() => router.push('/blogs')}
-        >
-          <Ionicons name="newspaper" size={24} color="#666" />
-          <Text style={styles.navText}>Blogs</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={() => router.push('/profile')}
-        >
-          <Ionicons name="person-outline" size={24} color="#666" />
-          <Text style={styles.navText}>Profile</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+      {/* Blog List */}
+      {filteredBlogs.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Feather name="inbox" size={60} color="#d1d5db" />
+          <Text style={styles.emptyTitle}>No posts found</Text>
+          <Text style={styles.emptySubtitle}>
+            {selectedCategory !== 'All' 
+              ? `There are no posts in the ${selectedCategory} category yet.` 
+              : 'Be the first to create a post!'}
+          </Text>
+        </View>
+      ) : (
+        filteredBlogs.map(blog => (
+          <TouchableOpacity 
+            key={blog.id} 
+            style={styles.blogCard}
+            onPress={() => router.push(`/blogs/content/${blog.id}`)}
+          >
+            {/* Post Header */}
+            <View style={styles.blogHeader}>
+              {blog.category && (
+                <View style={styles.categoryBadge}>
+                  <Text style={styles.categoryBadgeText}>{blog.category}</Text>
+                </View>
+              )}
+              <Text style={styles.blogTitle}>{blog.title}</Text>
+              
+              {/* Author Info */}
+              <View style={styles.authorContainer}>
+                <Image 
+                  source={{ uri: blog.authorPhotoURL || 'https://via.placeholder.com/40' }} 
+                  style={styles.authorAvatar}
+                />
+                <Text style={styles.authorName}>{blog.authorName || 'Anonymous'}</Text>
+                <Text style={styles.dotSeparator}>•</Text>
+                <Text style={styles.dateText}>{formatDate(blog.createdAt)}</Text>
+              </View>
+            </View>
+            
+            {/* Post Content */}
+            <View style={styles.contentContainer}>
+              <Text style={styles.contentText} numberOfLines={2}>
+                {blog.content}
+              </Text>
+            </View>
+            
+            {/* Post Image (if available) */}
+            {blog.imageURL && (
+              <Image 
+                source={{ uri: blog.imageURL }} 
+                style={styles.blogImage}
+                resizeMode="cover"
+              />
+            )}
+            
+            {/* Post Footer */}
+            <View style={styles.blogFooter}>
+              {/* Voting Section */}
+              <View style={styles.votingContainer}>
+                <TouchableOpacity 
+                  onPress={() => handleVote(blog.id, 1)}
+                  style={styles.voteButton}
+                >
+                  <AntDesign 
+                    name="arrowup" 
+                    size={16} 
+                    color={blog.userVotes?.[user?.uid] === 1 ? '#3b82f6' : '#9ca3af'} 
+                  />
+                </TouchableOpacity>
+                <Text style={styles.voteCount}>{(blog.upvotes || 0) - (blog.downvotes || 0)}</Text>
+                <TouchableOpacity 
+                  onPress={() => handleVote(blog.id, -1)}
+                  style={styles.voteButton}
+                >
+                  <AntDesign 
+                    name="arrowdown" 
+                    size={16} 
+                    color={blog.userVotes?.[user?.uid] === -1 ? '#3b82f6' : '#9ca3af'} 
+                  />
+                </TouchableOpacity>
+              </View>
+              
+              {/* Comments Section */}
+              <View style={styles.commentsContainer}>
+                <Ionicons name="chatbubble-outline" size={16} color="#9ca3af" />
+                <Text style={styles.commentsCount}>{blog.commentsCount || 0}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        ))
+      )}
+      
+      {/* Bottom padding */}
+      <View style={styles.bottomPadding} />
+    </ScrollView>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    position: 'relative',
-    backgroundColor: 'transparent',
+    backgroundColor: '#f3f4f6',
   },
-  navbar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: Platform.OS === 'web' ? 20 : 15,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    backgroundColor: 'transparent',
-    zIndex: 1,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f5f5f5',
-    alignItems: 'center',
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
-  },
-  pageTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1A237E',
-  },
-  searchButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f5f5f5',
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#f9fafb',
   },
-  scrollViewContent: {
-    paddingBottom: Platform.OS === 'web' ? 90 : 120,
+  loadingText: {
+    marginTop: 16,
+    color: '#4b5563',
   },
-  blurCircle: {
-    position: 'absolute',
-    borderRadius: 999,
-    zIndex: 0,
-  },
-  blurCircle1: {
-    width: Platform.OS === 'web' ? 250 : 200,
-    height: Platform.OS === 'web' ? 250 : 200,
-    backgroundColor: 'rgba(173, 216, 255, 0.45)',
-    top: Platform.OS === 'web' ? 20 : 10,
-    left: Platform.OS === 'web' ? -80 : -60,
-    transform: [
-      { scale: 1.2 },
-      { rotate: '-15deg' }
-    ],
-  },
-  blurCircle2: {
-    width: Platform.OS === 'web' ? 220 : 180,
-    height: Platform.OS === 'web' ? 220 : 180,
-    backgroundColor: 'rgba(173, 216, 255, 0.45)',
-    top: Platform.OS === 'web' ? 240 : 180,
-    right: Platform.OS === 'web' ? -40 : -30,
-    transform: [
-      { scale: 1.1 },
-      { rotate: '30deg' }
-    ],
-  },
-  blurCircle3: {
-    width: Platform.OS === 'web' ? 200 : 160,
-    height: Platform.OS === 'web' ? 200 : 160,
-    backgroundColor: 'rgba(173, 216, 255, 0.45)',
-    bottom: Platform.OS === 'web' ? 30 : 80,
-    left: Platform.OS === 'web' ? -60 : -40,
-    transform: [
-      { scale: 1 },
-      { rotate: '15deg' }
-    ],
-  },
-  featuredSection: {
-    marginVertical: 15,
-    paddingHorizontal: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1A237E',
-    marginBottom: 15,
-  },
-  featuredScrollContainer: {
-    paddingBottom: 15,
-    paddingRight: 20,
-  },
-  featuredCard: {
-    width: width * 0.75,
-    marginRight: 15,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    backdropFilter: Platform.OS === 'web' ? 'blur(8px)' : undefined,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
+  header: {
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    // elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 1,
+    elevation: 1,
   },
-  featuredImageContainer: {
-    position: 'relative',
-    height: 160,
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1f2937',
   },
-  featuredImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#BBDEFB',
+  headerSubtitle: {
+    color: '#6b7280',
+    marginTop: 4,
   },
-  categoryBadge: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    backgroundColor: 'rgba(33, 150, 243, 0.85)',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  categoryText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  featuredContent: {
-    padding: 15,
-  },
-  featuredTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  featuredExcerpt: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  featuredMeta: {
+  createButton: {
+    backgroundColor: '#2563eb',
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 8,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  featuredAuthor: {
-    fontSize: 14,
-    color: '#1A237E',
-    fontWeight: '500',
-  },
-  featuredReadTime: {
-    fontSize: 12,
-    color: '#666',
-  },
-  categoriesContainer: {
-    marginVertical: 15,
-    
-  },
-  categoriesScrollContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 5,
-  },
-  categoryPill: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, x)',
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
-  },
-  selectedCategoryPill: {
-    backgroundColor: '#2196F3',
-  },
-  categoryPillText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  selectedCategoryPillText: {
-    color: 'white',
-  },
-  allBlogsSection: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  sortButton: {
-    fontSize: 14,
-    color: '#2196F3',
-  },
-  blogCard: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    backdropFilter: Platform.OS === 'web' ? 'blur(8px)' : undefined,
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 6,
-    gap: 1,
-    marginBottom: 5,
-    // elevation: 2,
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  blogImageContainer: {
-    width: 100,
-    height: 100,
+  createButtonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
-  blogImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#BBDEFB',
-  },
-  blogContent: {
-    flex: 1,
-    padding: 12,
-  },
-  blogCategoryContainer: {
-    paddingVertical: 2,
+  categoriesContainer: {
     paddingHorizontal: 8,
-    backgroundColor: 'rgba(33, 150, 243, 0.1)',
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-    marginBottom: 5,
+    paddingVertical: 16,
   },
-  blogCategory: {
-    fontSize: 10,
-    color: '#2196F3',
+  categoryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginHorizontal: 8,
+    borderRadius: 20,
+  },
+  categoryButtonActive: {
+    backgroundColor: '#2563eb',
+  },
+  categoryButtonInactive: {
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+  },
+  categoryText: {
+    fontWeight: '500',
+  },
+  categoryTextActive: {
+    color: 'white',
+  },
+  categoryTextInactive: {
+    color: '#4b5563',
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyTitle: {
+    color: '#6b7280',
+    marginTop: 16,
+    fontSize: 18,
+  },
+  emptySubtitle: {
+    color: '#9ca3af',
+    textAlign: 'center',
+    marginHorizontal: 40,
+    marginTop: 8,
+  },
+  blogCard: {
+    backgroundColor: 'white',
+    marginHorizontal: 16,
+    marginVertical: 12,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+    overflow: 'hidden',
+  },
+  blogHeader: {
+    padding: 16,
+    paddingBottom: 8,
+  },
+  categoryBadge: {
+    backgroundColor: '#dbeafe',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+    marginBottom: 8,
+  },
+  categoryBadgeText: {
+    color: '#1d4ed8',
+    fontSize: 12,
     fontWeight: '500',
   },
   blogTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 5,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
   },
-  blogExcerpt: {
-    fontSize: 12,
-    color: '#666',
-    lineHeight: 18,
-    marginBottom: 8,
-  },
-  blogMeta: {
+  authorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 8,
   },
-  blogDate: {
-    fontSize: 11,
-    color: '#888',
+  authorAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#e5e7eb',
   },
-  blogDot: {
-    fontSize: 11,
-    color: '#888',
-    marginHorizontal: 5,
+  authorName: {
+    marginLeft: 8,
+    color: '#4b5563',
+    fontSize: 14,
   },
-  blogReadTime: {
-    fontSize: 11,
-    color: '#888',
+  dotSeparator: {
+    marginHorizontal: 4,
+    color: '#9ca3af',
   },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-  },
-  emptyStateText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    paddingVertical: Platform.OS === 'ios' ? 20 : 10,
-    paddingHorizontal: 15,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    // elevation: 10,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: Platform.OS === 'ios' ? 80 : 70,
-    zIndex: 998,
-  },
-  navItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    minWidth: 60,
-  },
-  activeNavItem: {
-    transform: [{ translateY: -5 }],
-  },
-  homeIconContainer: {
-    backgroundColor: '#E3F2FD',
-    padding: 1,
-    borderRadius: 999,
-    marginBottom: 2,
-    transform: [{ scale: 1.5 }],
-  },
-  navText: {
+  dateText: {
+    color: '#9ca3af',
     fontSize: 12,
-    color: '#666',
+  },
+  contentContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  contentText: {
+    color: '#4b5563',
     marginTop: 4,
   },
-  activeNavText: {
-    color: '#2196F3',
-    fontWeight: '600',
-  }
+  blogImage: {
+    width: '100%',
+    height: 192,
+    marginTop: 8,
+  },
+  blogFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+  },
+  votingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  voteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
+  voteCount: {
+    fontWeight: 'bold',
+    color: '#4b5563',
+  },
+  commentsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  commentsCount: {
+    color: '#6b7280',
+    marginLeft: 4,
+  },
+  bottomPadding: {
+    height: 80,
+  },
 });
+
+export default Blogs;

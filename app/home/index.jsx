@@ -17,7 +17,23 @@ import { auth } from '@/lib/firebase';
 import TeamsFeature from '@/components/TeamsFeature';
 import SessionNotification from '@/components/SessionNotification';
 import { getUserProgress } from '@/app/api/progress';
+import TodoListComponent from '../../components/Todo';
+import AudioQA from '../../components/AudioQA';
+import SpeechToText from '../../components/SpeechToText';
 const { width } = Dimensions.get('window');
+const colors = {
+  primary: '#2196F3',
+  background: '#f8f9fa',
+  textPrimary: '#1a1a1a',
+  textSecondary: '#666666',
+  categoryColors: {
+    Physics: '#ff6b6b',
+    Chemistry: '#4ecdc4',
+    Mathematics: '#45b7d1',
+    Biology: '#96ceb4',
+    'Study Skills': '#ff9f43',
+  }
+};
 
 const courseFilters = [
   { id: 1, name: 'Live Courses', icon: 'videocam-outline' },
@@ -59,7 +75,7 @@ export default function Home() {
   const [subjects, setSubjects] = useState([]);
   const [showTagForm, setShowTagForm] = useState();
   const [progressData, setProgressData] = useState(null);
-
+  const [userfortodo, setUserfortodo] = useState();
   const calculateOverallProgress = (data) => {
     if (!data) return 0;
     
@@ -100,6 +116,7 @@ export default function Home() {
     const unsubscribe = onAuthStateChanged(auth, async user => {
       setIsLoggedIn(!!user);
       if (user) {
+        setUserfortodo(user);
         const db = getFirestore();
         const userDocRef = doc(db, "users", user.uid);
         const userDocSnap = await getDoc(userDocRef);
@@ -117,6 +134,9 @@ export default function Home() {
           router.replace('/teacher/dashboard');
           return;
         }
+       else if (data.userType === 'careerGuider') {
+        router.push('/career-guider/dashboard');
+      }
       } else {
         setUserInfo(null);
         setProgressData(null);
@@ -138,8 +158,8 @@ export default function Home() {
   };
 
   if (isLoading) {
-  return (
-    <SafeAreaView style={styles.container}>
+    return (
+      <SafeAreaView style={styles.container}>
         <Text style={styles.loadingText}>Loading...</Text>
       </SafeAreaView>
     );
@@ -175,17 +195,17 @@ export default function Home() {
         </TouchableOpacity> */}
         <Text style={styles.className}>Std 10</Text>
         <View style={styles.navRight}>
-        <TouchableOpacity style={styles.notificationButton}>
-          <View style={styles.notificationBadge} />
-          <Ionicons name="notifications-outline" size={24} color="#333" />
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.notificationButton}>
+            <View style={styles.notificationBadge} />
+            <Ionicons name="notifications-outline" size={24} color="#333" />
+          </TouchableOpacity>
           <TouchableOpacity 
             style={styles.logoutButton}
             onPress={handleLogout}
           >
             <Ionicons name="log-out-outline" size={24} color="#FF4444" />
           </TouchableOpacity>
-      </View>
+        </View>
       </View>
       <ScrollView 
         showsVerticalScrollIndicator={false}
@@ -290,7 +310,7 @@ export default function Home() {
               >
                 <View style={styles.filterIconContainer}>
                  
-          </View>
+                </View>
                 <Text style={styles.filterName}>Progress</Text>
               </TouchableOpacity>
               <TouchableOpacity 
@@ -304,7 +324,7 @@ export default function Home() {
               >
                 <View style={styles.filterIconContainer}>
                  
-        </View>
+                </View>
                 <Text style={styles.filterName}>Pomodoro</Text>
               </TouchableOpacity>
            
@@ -318,6 +338,12 @@ export default function Home() {
           <Text style={styles.sectionTitle}>Teams & Communication</Text>
           <TeamsFeature />
         </View> */}
+
+            <TodoListComponent 
+              storageKey="tenthGradeTasks"
+              title="My Tasks" 
+              user={userfortodo}
+            />
 
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
@@ -613,11 +639,13 @@ export default function Home() {
             <Ionicons name="arrow-forward" size={20} color="white" />
           </TouchableOpacity>
         </View>
+        <SpeechToText/>
       </ScrollView>
 
       {/* Place ChatBot before bottom nav but with adjusted style */}
       <View style={styles.chatBotWrapper}>
-        <ChatBot />
+      <ChatBot />
+      <AudioQA/>
       </View>
 
       {/* Bottom Navigation */}

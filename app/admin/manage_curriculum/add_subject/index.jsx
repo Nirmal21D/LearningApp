@@ -17,7 +17,7 @@ export default function AddSubject() {
     });
     const [loading, setLoading] = useState(false);
 
-    const createSubjectGroupChat = async (subjectId, subjectData, teacherId) => {
+    const createSubjectGroupChat = async (subjectId, subjectData, teacherId = null) => {
         try {
             console.log('Creating group chat for subject:', subjectData.name);
 
@@ -26,13 +26,17 @@ export default function AddSubject() {
                 query(collection(db, 'users'), where('userType', '==', 'student'))
             );
 
-            // Create participants object with teacher
+            // Create participants object
             const participants = {};
-            participants[teacherId] = {
-                userType: 'teacher',
-                joined: Date.now(),
-                username: 'Teacher'
-            };
+            
+            // Add teacher if exists
+            if (teacherId) {
+                participants[teacherId] = {
+                    userType: 'teacher',
+                    joined: Date.now(),
+                    username: 'Teacher'
+                };
+            }
 
             // Add all students to participants
             studentsSnapshot.forEach((doc) => {
@@ -54,7 +58,7 @@ export default function AddSubject() {
                 description: subjectData.description,
                 createdAt: Date.now(),
                 participants,
-                teacherId,
+                teacherId: teacherId || 'unassigned',
                 curriculumId,
                 lastMessage: {
                     text: `Welcome to ${subjectData.name} group chat!`,
@@ -91,31 +95,35 @@ export default function AddSubject() {
                 return;
             }
 
-            // Find teacher for this subject
-            const teachersSnapshot = await getDocs(
-                query(collection(db, 'users'), 
-                where('userType', '==', 'teacher'),
-                where('selectedSubject', '==', subject.name))
-            );
+            let teacherId = null;
 
-            if (teachersSnapshot.empty) {
-                Alert.alert('Error', 'No teacher found for this subject');
-                return;
+            // Try to find teacher but don't require one
+            try {
+                const teachersSnapshot = await getDocs(
+                    query(collection(db, 'users'), 
+                    where('userType', '==', 'teacher'),
+                    where('selectedSubject', '==', subject.name))
+                );
+
+                if (!teachersSnapshot.empty) {
+                    teacherId = teachersSnapshot.docs[0].id;
+                }
+            } catch (error) {
+                console.warn('Error finding teacher:', error);
+                // Continue without teacher
             }
 
-            const teacherId = teachersSnapshot.docs[0].id;
-
-            // First create the subject in Firestore
+            // Create the subject in Firestore
             const subjectData = {
                 ...subject,
                 createdAt: serverTimestamp(),
                 totalChapters: subject.chapters.length,
                 materials: [],
                 curriculumId,
-                teacherId
+                teacherId: teacherId || 'unassigned' // Use 'unassigned' if no teacher found
             };
 
-            // Add subject to Firestore first
+            // Add subject to Firestore
             const subjectRef = await addDoc(collection(db, 'subjects'), subjectData);
             const subjectId = subjectRef.id;
 
@@ -123,7 +131,7 @@ export default function AddSubject() {
             const groupChatId = await createSubjectGroupChat(
                 subjectId,
                 subjectData,
-                teacherId
+                teacherId // This can be null
             );
 
             // Update subject with group chat ID
@@ -131,8 +139,13 @@ export default function AddSubject() {
                 groupChatId
             });
 
-            Alert.alert('Success', 'Subject and group chat created successfully!');
-            router.push(`/admin/manage_curriculum/subjects?curriculumId=${curriculumId}`);
+            Alert.alert(
+                'Success', 
+                teacherId 
+                    ? 'Subject and group chat created successfully!' 
+                    : 'Subject and group chat created successfully! No teacher assigned yet.'
+            );
+            router.push(`/admin/dashboard`);
 
         } catch (error) {
             console.error('Error:', error);
