@@ -1,15 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, Share, Linking, Animated, ActivityIndicator,Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Share,
+  Linking,
+  StyleSheet,
+  Dimensions
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { VictoryBar, VictoryChart, VictoryTheme, VictoryAxis } from 'victory-native';
-import TextToSpeech from 'react-native-tts';
+import { VictoryChart, VictoryBar, VictoryAxis, VictoryTheme } from 'victory-native';
+import * as TextToSpeech from 'expo-speech';
 import RNHTMLtoPDF from 'react-native-html-to-pdf';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import Reanimated, { Easing } from 'react-native-reanimated';
 
-// Initialize Gemini
-const genAI = new GoogleGenerativeAI('AIzaSyAKASQbhtjqI22tS55IKcsmuQlnhQivrqM'); // Replace with your API key
-const AnimatedProgress = Reanimated.createAnimatedComponent(Reanimated.View);
 const CareerAssessment = () => {
   const [currentSection, setCurrentSection] = useState('interests');
   const [showResults, setShowResults] = useState(false);
@@ -20,7 +29,16 @@ const CareerAssessment = () => {
     academics: {},
     personalityTraits: {},
   });
-
+  const [state, setState] = useState({
+    careers: [],
+    expanded: {},
+    comparisons: [],
+    loading: true,
+    showComparison: false
+  });
+  const [expandedDescriptions, setExpandedDescriptions] = useState({});
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const genAI = new GoogleGenerativeAI('AIzaSyAKASQbhtjqI22tS55IKcsmuQlnhQivrqM'); 
   // Interest assessment questions
   const interestQuestions = [
     { id: 'int1', question: "I enjoy solving mathematical problems", field: "math" },
@@ -56,14 +74,16 @@ const CareerAssessment = () => {
     { id: 'per4', question: "I prefer practical tasks over theoretical concepts", trait: "practical" },
     { id: 'per5', question: "I'm comfortable with public speaking and presentations", trait: "extroversion" },
   ];
-  const [state, setState] = useState({
-    careers: [],
-    expanded: {},
-    comparisons: [],
-    loading: true,
-    showComparison: false
-  });
-  const progressAnim = useRef(new Reanimated.Value(0)).current;
+
+  // Start animation when component loads
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: 1,
+      duration: 1000,
+      easing: Easing.out(Easing.exp),
+      useNativeDriver: false
+    }).start();
+  }, []);
 
   // Load saved data
   useEffect(() => {
@@ -71,30 +91,29 @@ const CareerAssessment = () => {
       try {
         const saved = await AsyncStorage.getItem('careerData');
         if (saved) setState(prev => ({...prev, ...JSON.parse(saved)}));
-      } catch (e) { /* Handle error */ }
+      } catch (e) {
+        console.error('Error loading data:', e);
+      }
     };
     loadData();
   }, []);
 
   // Save data
   useEffect(() => {
-    AsyncStorage.setItem('careerData', JSON.stringify(state));
+    const saveData = async () => {
+      try {
+        await AsyncStorage.setItem('careerData', JSON.stringify(state));
+      } catch (e) {
+        console.error('Error saving data:', e);
+      }
+    };
+    saveData();
   }, [state.careers, state.comparisons]);
 
-  // Animated progress
-  Reanimated.useEffect(() => {
-    Reanimated.timing(progressAnim, {
-      toValue: 1,
-      duration: 1000,
-      easing: Easing.out(Easing.exp),
-    }).start();
-  }, []);
-
-
-  
   // Fetch career recommendations
   const fetchCareers = async (answers) => {
     try {
+      // Assume genAI is defined elsewhere and available
       const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
       const prompt = `Generate career recommendations based on: ${JSON.stringify(answers)}`;
       const result = await model.generateContent(prompt);
@@ -103,7 +122,7 @@ const CareerAssessment = () => {
       const parsedCareers = text.split('\n').map(line => ({
         id: Math.random().toString(36).substr(2, 9),
         title: line.split(':')[0],
-        description: line.split(':')[1],
+        description: line.split(':')[1] || '',
         metrics: {
           demand: Math.floor(Math.random() * 100),
           salary: Math.floor(Math.random() * 100),
@@ -117,7 +136,7 @@ const CareerAssessment = () => {
       
       setState(prev => ({ ...prev, careers: parsedCareers, loading: false }));
     } catch (error) {
-      console.error(error);
+      console.error('Error fetching careers:', error);
       setState(prev => ({ ...prev, loading: false }));
     }
   };
@@ -151,7 +170,7 @@ const CareerAssessment = () => {
   // Navigate between assessment sections
   const navigateToSection = (section) => {
     setCurrentSection(section);
-    setShowResults(false);
+    setShowResults(section === 'results');
   };
 
   // Check if assessment is complete enough to submit
@@ -226,7 +245,7 @@ const interestQuestions = [
 
     try {
       const result = await model.generateContent(prompt);
-      const response = await result.response;
+      const response = result.response;
       const text = response.text();
       return text;
     } catch (error) {
@@ -241,11 +260,12 @@ const interestQuestions = [
       alert('Please complete at least 3 questions in each section before submitting.');
       return;
     }
-
+    setState(prev => ({ ...prev, loading: true }));
     const aiRecommendations = await generateCareerRecommendations(answers);
     setCareerRecommendations(aiRecommendations);
     setShowResults(true);
     setCurrentSection('results');
+    setState(prev => ({ ...prev, loading: false }));
   };
 
   // Calculate completion percentage
@@ -262,44 +282,42 @@ const interestQuestions = [
     return Math.round((answeredQuestions / totalQuestions) * 100);
   };
 
-  // Render results section
- // Render results section
-// Render results section
-const renderResults = () => {
-    const [expandedDescriptions, setExpandedDescriptions] = useState({});
+  // Toggle description visibility
+  const toggleDescription = (careerTitle) => {
+    setExpandedDescriptions(prev => ({
+      ...prev,
+      [careerTitle]: !prev[careerTitle]
+    }));
+  };
 
-    const toggleDescription = (careerTitle) => {
-      setExpandedDescriptions(prev => ({
-        ...prev,
-        [careerTitle]: !prev[careerTitle]
-      }));
-    };
-    // Improved parser with error handling
-    const parseCareerRecommendations = (text) => {
-      try {
-        return text.split(/\d+\./g)
-          .slice(1) // Skip empty first element
-          .map(section => {
-            const getSectionContent = (regex) => {
-              const match = section.match(regex);
-              return match ? match[1].trim().replace(/\n/g, ' ') : '';
-            };
-  
-            return {
-              title: getSectionContent(/\*\*Career Title\*\*: (.+?)(\n|$)/i),
-              description: getSectionContent(/\*\*Description\*\*: (.+?)(\n\*\*|$)/is),
-              skills: getSectionContent(/\*\*Key Skills\*\*: (.+?)(\n\*\*|$)/is).split(/,\s*|\n- /),
-              resources: getSectionContent(/\*\*Recommended Resources\*\*: (.+?)(\n\*\*|$)/is)
-                .split('\n').filter(r => r.trim()),
-              outlook: getSectionContent(/\*\*Job Market Outlook\*\*: (.+?)$/is)
-            };
-          });
-      } catch (error) {
-        console.error('Error parsing recommendations:', error);
-        return [];
-      }
-    };
-  
+  // Parse career recommendations
+  const parseCareerRecommendations = (text) => {
+    try {
+      return text.split(/\d+\./g)
+        .slice(1) // Skip empty first element
+        .map(section => {
+          const getSectionContent = (regex) => {
+            const match = section.match(regex);
+            return match ? match[1].trim().replace(/\n/g, ' ') : '';
+          };
+
+          return {
+            title: getSectionContent(/\*\*Career Title\*\*: (.+?)(\n|$)/i),
+            description: getSectionContent(/\*\*Description\*\*: (.+?)(\n\*\*|$)/is),
+            skills: getSectionContent(/\*\*Key Skills\*\*: (.+?)(\n\*\*|$)/is).split(/,\s*|\n- /).filter(s => s.trim()),
+            resources: getSectionContent(/\*\*Recommended Resources\*\*: (.+?)(\n\*\*|$)/is)
+              .split('\n').filter(r => r.trim()),
+            outlook: getSectionContent(/\*\*Job Market Outlook\*\*: (.+?)$/is)
+          };
+        });
+    } catch (error) {
+      console.error('Error parsing recommendations:', error);
+      return [];
+    }
+  };
+
+  // Render results section
+  const renderResults = () => {
     const careerList = parseCareerRecommendations(careerRecommendations);
   
     return (
@@ -333,50 +351,50 @@ const renderResults = () => {
   
                   {/* Description */}
                   <View style={styles.descriptionContainer}>
-                        {/* Role Overview */}
-                        <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionIcon}>📋</Text>
-                            <Text style={styles.sectionTitle}>Role Overview</Text>
+                    {/* Role Overview */}
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionIcon}>📋</Text>
+                        <Text style={styles.sectionTitle}>Role Overview</Text>
+                    </View>
+                    <Text style={styles.descriptionText}>
+                        {career.description.split('. ')[0]}.
+                    </Text>
+
+                    {/* Key Aspects */}
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionIcon}>🔑</Text>
+                        <Text style={styles.sectionTitle}>Key Aspects</Text>
+                    </View>
+                    {career.description.split('. ').slice(1, 3).map((point, i) => (
+                        <View key={i} style={styles.bulletPoint}>
+                        <Text style={styles.bulletIcon}>•</Text>
+                        <Text style={styles.bulletText}>{point.replace(/^\d+\)\s*/, '').trim()}</Text>
                         </View>
-                        <Text style={styles.descriptionText}>
-                            {career.description.split('. ')[0]}.
+                    ))}
+
+                    {/* Why It Fits You */}
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionIcon}>✅</Text>
+                        <Text style={styles.sectionTitle}>Why It Fits You</Text>
+                    </View>
+                    <View style={styles.highlightBox}>
+                        <Text style={styles.highlightText}>
+                        {career.description.match(/your(.+?)\./i)?.[0] || 
+                        "This role aligns well with your assessed skills and interests"}
                         </Text>
+                    </View>
 
-                        {/* Key Aspects */}
+                    {/* Daily Responsibilities */}
+                    {career.description.includes('day-to-day') && (
                         <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionIcon}>🔑</Text>
-                            <Text style={styles.sectionTitle}>Key Aspects</Text>
+                        <Text style={styles.sectionIcon}>📅</Text>
+                        <Text style={styles.sectionTitle}>Typical Day</Text>
                         </View>
-                        {career.description.split('. ').slice(1, 3).map((point, i) => (
-                            <View key={i} style={styles.bulletPoint}>
-                            <Text style={styles.bulletIcon}>•</Text>
-                            <Text style={styles.bulletText}>{point.replace(/^\d+\)\s*/, '').trim()}</Text>
-                            </View>
-                        ))}
-
-                        {/* Why It Fits You */}
-                        <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionIcon}>✅</Text>
-                            <Text style={styles.sectionTitle}>Why It Fits You</Text>
-                        </View>
-                        <View style={styles.highlightBox}>
-                            <Text style={styles.highlightText}>
-                            {career.description.match(/your(.+?)\./i)?.[0] || 
-                            "This role aligns well with your assessed skills and interests"}
-                            </Text>
-                        </View>
-
-                        {/* Daily Responsibilities */}
-                        {career.description.includes('day-to-day') && (
-                            <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionIcon}>📅</Text>
-                            <Text style={styles.sectionTitle}>Typical Day</Text>
-                            </View>
-                        )}
-                        <Text style={styles.descriptionDetails}>
-                            {career.description.split('day-to-day')[1]?.split('.')[0]}
-                        </Text>
-                        </View>
+                    )}
+                    <Text style={styles.descriptionDetails}>
+                        {career.description.split('day-to-day')[1]?.split('.')[0]}
+                    </Text>
+                  </View>
   
                   {/* Skills Progress */}
                   <Text style={styles.subHeader}>Key Competencies</Text>
@@ -444,15 +462,93 @@ const renderResults = () => {
       </View>
     );
   };
-  
-  // Updated Styles
- 
-  
 
+  // Component for career card
+  const CareerCard = ({ career }) => (
+    <View style={styles.card}>
+      <View style={styles.header}>
+        <Text style={styles.title}>{career.title}</Text>
+        <View style={styles.controls}>
+          <TouchableOpacity onPress={() => TextToSpeech.speak(career.description)}>
+            <Text>🔊</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.button, state.comparisons.includes(career.id) && styles.selectedButton]}
+            onPress={() => setState(prev => ({
+              ...prev,
+              comparisons: prev.comparisons.includes(career.id)
+                ? prev.comparisons.filter(id => id !== career.id)
+                : [...prev.comparisons, career.id]
+            }))}
+          >
+            <Text>🔍 Compare</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <Text 
+        numberOfLines={state.expanded[career.id] ? undefined : 3} 
+        style={styles.description}
+      >
+        {career.description}
+      </Text>
+      {career.description.length > 150 && (
+        <TouchableOpacity onPress={() => setState(prev => ({
+          ...prev,
+          expanded: { ...prev.expanded, [career.id]: !prev.expanded[career.id] }
+        }))}>
+          <Text style={styles.readMore}>
+            {state.expanded[career.id] ? '▲ Less' : '▼ More'}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      <VictoryChart theme={VictoryTheme.material} domainPadding={20}>
+        <VictoryAxis tickValues={['Demand', 'Salary', 'Growth']} />
+        <VictoryAxis dependentAxis tickFormat={(t) => `${t}%`} />
+        <VictoryBar
+          data={Object.entries(career.metrics).map(([key, value]) => ({ x: key, y: value }))}
+          style={{ data: { fill: '#4CAF50' } }}
+        />
+      </VictoryChart>
+
+      <Animated.View
+        style={[
+          styles.progress,
+          {
+            width: progressAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: ['0%', `${career.metrics.demand}%`]
+            })
+          }
+        ]}
+      />
+
+      <View style={styles.actions}>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={async () => {
+            const pdf = await RNHTMLtoPDF.convert({
+              html: `<h1>${career.title}</h1><p>${career.description}</p>`
+            });
+            Share.share({ url: pdf.filePath });
+          }}
+        >
+          <Text>📄 Report</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => Linking.openURL(career.courses[0].url)}
+        >
+          <Text>🎓 Courses</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 
   // Render different assessment sections
   const renderSection = () => {
-    if (showResults) {
+    if (currentSection === 'results' && showResults) {
       return renderResults();
     }
 
@@ -615,127 +711,6 @@ const renderResults = () => {
         );
     }
   };
-   // Component Functions
-   const CareerCard = ({ career }) => (
-    <View style={styles.card}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{career.title}</Text>
-        <View style={styles.controls}>
-          <TouchableOpacity onPress={() => TextToSpeech.speak(career.description)}>
-            <Text>🔊</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.button, state.comparisons.includes(career.id) && styles.selectedButton]}
-            onPress={() => setState(prev => ({
-              ...prev,
-              comparisons: prev.comparisons.includes(career.id)
-                ? prev.comparisons.filter(id => id !== career.id)
-                : [...prev.comparisons, career.id]
-            }))}
-          >
-            <Text>🔍 Compare</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <Text 
-        numberOfLines={state.expanded[career.id] ? undefined : 3} 
-        style={styles.description}
-      >
-        {career.description}
-      </Text>
-      {career.description.length > 150 && (
-        <TouchableOpacity onPress={() => setState(prev => ({
-          ...prev,
-          expanded: { ...prev.expanded, [career.id]: !prev.expanded[career.id] }
-        }))}>
-          <Text style={styles.readMore}>
-            {state.expanded[career.id] ? '▲ Less' : '▼ More'}
-          </Text>
-        </TouchableOpacity>
-      )}
-
-      <VictoryChart theme={VictoryTheme.material} domainPadding={20}>
-        <VictoryAxis tickValues={['Demand', 'Salary', 'Growth']} />
-        <VictoryAxis dependentAxis tickFormat={(t) => `${t}%`} />
-        <VictoryBar
-          data={Object.entries(career.metrics).map(([key, value]) => ({ x: key, y: value }))}
-          style={{ data: { fill: '#4CAF50' } }}
-        />
-      </VictoryChart>
-
-      <AnimatedProgress
-        style={[
-          styles.progress,
-          {
-            width: progressAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: ['0%', `${career.metrics.demand}%`]
-            })
-          }
-        ]}
-      />
-
-      <View style={styles.actions}>
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={async () => {
-            const pdf = await RNHTMLtoPDF.convert({
-              html: `<h1>${career.title}</h1><p>${career.description}</p>`
-            });
-            Share.share({ url: pdf.filePath });
-          }}
-        >
-          <Text>📄 Report</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => Linking.openURL(career.courses[0].url)}
-        >
-          <Text>🎓 Courses</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  return (
-    <View style={styles.container}>
-      {state.loading ? (
-        <ActivityIndicator size="large" style={styles.loader} />
-      ) : (
-        <>
-          <ScrollView>
-            {state.careers.map(career => (
-              <CareerCard key={career.id} career={career} />
-            ))}
-          </ScrollView>
-
-          <Modal visible={state.showComparison}>
-            <View style={styles.modal}>
-              {state.comparisons.map(id => {
-                const career = state.careers.find(c => c.id === id);
-                return <Text key={id}>{career?.title}</Text>;
-              })}
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setState(prev => ({ ...prev, showComparison: false }))}
-              >
-                <Text>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </Modal>
-
-          <TouchableOpacity
-            style={styles.compareButton}
-            onPress={() => setState(prev => ({ ...prev, showComparison: true }))}
-          >
-            <Text>Compare ({state.comparisons.length})</Text>
-          </TouchableOpacity>
-        </>
-      )}
-    </View>
-  );
-
 
   return (
     <ScrollView style={styles.container}>
@@ -792,6 +767,11 @@ const renderResults = () => {
 
 // Styles
 const styles = StyleSheet.create({
+  progress: {
+    height: 5,
+    backgroundColor: '#4CAF50',
+    marginVertical: 5,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
