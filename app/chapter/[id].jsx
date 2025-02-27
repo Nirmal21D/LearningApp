@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Platform,
   Alert,
-  Dimensions,
+
   ActivityIndicator,
   
 } from "react-native";
