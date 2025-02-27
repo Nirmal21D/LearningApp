@@ -71,6 +71,10 @@ export default function Layout() {
         name="profile/index"
         options={{ headerShown: false }}
       /> 
+      {/* <Stack.Screen
+        name="subject/[id]"
+        options={{ headerShown: false }}
+      />  */}
     </Stack>
   );
 } 
