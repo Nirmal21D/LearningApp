@@ -16,7 +16,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Speech from 'expo-speech';
 import { getFirestore, addDoc, collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-
+import { deleteDoc } from 'firebase/firestore';
 const AudioQA = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [audioQuestions, setAudioQuestions] = useState([]);
@@ -151,16 +151,31 @@ const AudioQA = () => {
       
       // Clear from AsyncStorage
       await AsyncStorage.removeItem('audioQuestions');
-      
+      Speech.stop();
       // Clear from Firestore if user is logged in
       const auth = getAuth();
       const user = auth.currentUser;
-      
+      console.log(user);
+      console.log(user.uid);
+      // Inside your clearAudioQuestions function
       if (user) {
-        // Note: This is just clearing from the app's perspective.
-        // For complete deletion from Firestore, you would need to actually delete documents,
-        // but that requires a server-side function or more complex client-side code
-        console.log('User is logged in, but Firestore deletion requires additional implementation');
+        const db = getFirestore();
+        const audioQuestionsRef = collection(db, 'audio_questions');
+        const q = query(audioQuestionsRef, where('userId', '==', user.uid));
+        
+        try {
+          // Get all matching documents
+          const querySnapshot = await getDocs(q);
+          
+          // Delete documents sequentially
+          for (const doc of querySnapshot.docs) {
+            await deleteDoc(doc.ref);
+          }
+          
+          console.log('Firestore documents deleted successfully');
+        } catch (error) {
+          console.error('Error deleting Firestore documents:', error);
+        }
       }
       
       Alert.alert('Success', 'Audio question history has been cleared.');
@@ -373,7 +388,7 @@ Keep your answers concise, accurate and targeted for 10th grade level understand
       await saveAudioQuestionToStorage(updatedQuestions);
       
       // 5. Save to Firestore
-      await saveAudioQuestionToFirestore(newQuestion);
+      
       
       // 6. Set as current question to generate answer
       setCurrentQuestion(newQuestion);
@@ -473,21 +488,11 @@ Keep your answers concise, accurate and targeted for 10th grade level understand
   const renderQuestionItem = ({ item }) => (
     <View style={styles.questionItem}>
       <View style={styles.header}>
+      
         <Text style={styles.headerText}>Audio Q&A</Text>
+        
         <View style={styles.headerButtons}>
-            <TouchableOpacity 
-            onPress={confirmClearHistory}
-            style={styles.clearButton}
-            disabled={audioQuestions.length === 0}
-            >
-            <Ionicons name="trash-outline" size={22} color={audioQuestions.length === 0 ? "#ccc" : "#FF6B6B"} />
-            </TouchableOpacity>
-            <TouchableOpacity 
-            onPress={() => setIsVisible(false)}
-            style={styles.closeButton}
-            >
-            <Ionicons name="close" size={24} color="#666" />
-            </TouchableOpacity>
+           
         </View>
         </View>
       
@@ -558,6 +563,14 @@ Keep your answers concise, accurate and targeted for 10th grade level understand
           <View style={styles.audioQAContainer}>
             <View style={styles.header}>
               <Text style={styles.headerText}>Audio Q&A</Text>
+              <TouchableOpacity 
+            onPress={confirmClearHistory}
+            style={styles.clearButton}
+            disabled={audioQuestions.length === 0}
+            >
+            <Ionicons name="trash-outline" size={22} color={audioQuestions.length === 0 ? "#ccc" : "#FF6B6B"} />
+            </TouchableOpacity>
+            
               <TouchableOpacity 
                 onPress={() => setIsVisible(false)}
                 style={styles.closeButton}
