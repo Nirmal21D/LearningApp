@@ -8,7 +8,19 @@ import { getAuth } from 'firebase/auth';
 import Comments from '../../../components/Comment';
 import { db } from '../../../lib/firebase';
 
-
+const colors = {
+  primary: '#2196F3',
+  background: '#f8f9fa',
+  textPrimary: '#1a1a1a',
+  textSecondary: '#666666',
+  categoryColors: {
+    Physics: '#ff6b6b',
+    Chemistry: '#4ecdc4',
+    Mathematics: '#45b7d1',
+    Biology: '#96ceb4',
+    'Study Skills': '#ff9f43',
+  }
+};
 const BlogDetail = () => {
   const { id } = useLocalSearchParams();
   const router = useRouter();
@@ -16,19 +28,7 @@ const BlogDetail = () => {
   const user = auth.currentUser;
   const [blog, setBlog] = useState(null);
   const [loading, setLoading] = useState(true);
-  const colors = {
-    primary: '#2196F3',
-    background: '#f8f9fa',
-    textPrimary: '#1a1a1a',
-    textSecondary: '#666666',
-    categoryColors: {
-      Physics: '#ff6b6b',
-      Chemistry: '#4ecdc4',
-      Mathematics: '#45b7d1',
-      Biology: '#96ceb4',
-      'Study Skills': '#ff9f43',
-    }
-  };
+  
 
   useEffect(() => {
     const blogRef = doc(db, 'blogs', id);

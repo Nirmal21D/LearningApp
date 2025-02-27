@@ -3,27 +3,85 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, Dim
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from "react-native-webview";
+import { Video } from 'expo-av';
 import { getFirestore, doc, getDoc, updateDoc, arrayUnion, increment } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import RecommendedVideos from '@/components/RecommendedVideos';
-import SimilarTaggedVideos from  "../../components/VideoRelaatedRecommendation"
+import SimilarTaggedVideos from "../../components/VideoRelaatedRecommendation";
 import { collection, getDocs } from 'firebase/firestore';
-
 
 const { width } = Dimensions.get('window');
 
+// VideoViewer Component
+const VideoViewer = ({ video, onProgress, onClose }) => {
+  const [status, setStatus] = useState({});
+  const videoRef = useRef(null);
+ 
+  // Handle video URLs that might be direct or indirect
+  const getVideoSource = () => {
+    if (!video || !video.url) return null;
+   
+    // Check if it's a direct video URL that should be handled by the Video component
+    if (video.url.match(/\.(mp4|webm|mov)$/i) ||
+        video.url.includes('firebasestorage')) {
+      return { uri: video.url };
+    }
+   
+    // For URLs that might be streaming or embedded players, use WebView
+    return null;
+  };
+
+  const videoSource = getVideoSource();
+
+  return (
+    <View style={styles.videoViewerContainer}>
+      {videoSource ? (
+        <Video
+          ref={videoRef}
+          source={videoSource}
+          style={styles.video}
+          useNativeControls
+          resizeMode="contain"
+          onPlaybackStatusUpdate={(status) => {
+            setStatus(status);
+            if (onProgress && status.positionMillis) {
+              onProgress(status.positionMillis / 1000); // Convert to seconds
+            }
+          }}
+        />
+      ) : (
+        <WebView
+          source={{ uri: video.url }}
+          style={styles.video}
+          originWhitelist={["*"]}
+        />
+      )}
+
+      {onClose && (
+        <TouchableOpacity 
+          style={styles.closeButton}
+          onPress={onClose}
+        >
+          <Ionicons name="close-circle" size={32} color="white" />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+};
+
 export default function VideoPlayer() {
   const params = useLocalSearchParams();
-  const { videoId, videoName, videoUrl } = params; // Ensure videoUrl is correctly used
+  const { videoId, videoName, videoUrl } = params;
   const [videoData, setVideoData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const videoRef = useRef(null);
+  const [currentProgress, setCurrentProgress] = useState(0);
   const router = useRouter();
   const auth = getAuth();
   const db = getFirestore();
 
   useEffect(() => {
+    console.log(videoId, videoName, videoUrl);
     const fetchVideoData = async () => {
       try {
         if (!videoId) {
@@ -72,25 +130,23 @@ export default function VideoPlayer() {
   
         // Update view count inside the correct subject document
         if (auth.currentUser) {
-            console.log(foundSubject.videos[foundVideo.chapterId]); // Debugging to check if we get the correct array
+          console.log(foundSubject.videos[foundVideo.chapterId]); // Debugging to check if we get the correct array
           
-            const subjectDocRef = doc(db, "subjects", foundSubject.id);
+          const subjectDocRef = doc(db, "subjects", foundSubject.id);
           
-            // Get the correct chapter's video array
-            const chapterVideos = foundSubject.videos[foundVideo.chapterId] || [];
+          // Get the correct chapter's video array
+          const chapterVideos = foundSubject.videos[foundVideo.chapterId] || [];
           
-            // Update the view count by matching the video by name instead of ID
-            const updatedVideos = chapterVideos.map(video =>
-              video.name === foundVideo.name ? { ...video, viewCount: (video.viewCount || 0) + 1 } : video
-            );
+          // Update the view count by matching the video by name instead of ID
+          const updatedVideos = chapterVideos.map(video =>
+            video.name === foundVideo.name ? { ...video, viewCount: (video.viewCount || 0) + 1 } : video
+          );
           
-            // Update Firestore with the modified array
-            await updateDoc(subjectDocRef, {
-              [`videos.${foundVideo.chapterId}`]: updatedVideos,
-            });
-          }
-          
-          
+          // Update Firestore with the modified array
+          await updateDoc(subjectDocRef, {
+            [`videos.${foundVideo.chapterId}`]: updatedVideos,
+          });
+        }
       } catch (error) {
         console.error("Error fetching video:", error);
         setError("Failed to load video");
@@ -102,6 +158,10 @@ export default function VideoPlayer() {
     fetchVideoData();
   }, [videoId]);
   
+  const handleVideoProgress = (seconds) => {
+    setCurrentProgress(seconds);
+    // You could also save the progress to Firestore here
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -129,10 +189,9 @@ export default function VideoPlayer() {
               <Text style={styles.errorText}>{error}</Text>
             </View>
           ) : (
-            <WebView
-                source={{ uri: videoData?.url || videoUrl }} // Ensure the correct URL is used
-                style={styles.video}
-                originWhitelist={["*"]}
+            <VideoViewer 
+              video={videoData}
+              onProgress={handleVideoProgress}
             />
           )}
         </View>
@@ -166,6 +225,13 @@ export default function VideoPlayer() {
                 <View style={styles.metadataItem}>
                   <Ionicons name="eye-outline" size={16} color="#666" style={styles.metadataIcon} />
                   <Text style={styles.metadataText}>{videoData.viewCount} views</Text>
+                </View>
+              )}
+              
+              {currentProgress > 0 && (
+                <View style={styles.metadataItem}>
+                  <Ionicons name="time-outline" size={16} color="#4CAF50" style={styles.metadataIcon} />
+                  <Text style={styles.metadataText}>Watched: {Math.floor(currentProgress / 60)}:{(currentProgress % 60).toString().padStart(2, '0')}</Text>
                 </View>
               )}
             </View>
@@ -246,6 +312,19 @@ const styles = StyleSheet.create({
   video: {
     width: '100%',
     height: '100%',
+  },
+  videoViewerContainer: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
   },
   loadingContainer: {
     width: '100%',
