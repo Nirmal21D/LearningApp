@@ -75,11 +75,21 @@ export default function AdminDashboard() {
         }
     ];
 
+    const navigateToAnalytics = () => {
+        router.push('/admin/app-analytics');  // New route
+    };
+
     return (
         <ScrollView style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.title}>Admin Dashboard</Text>
-                <Text style={styles.subtitle}>Manage your educational content</Text>
+                <TouchableOpacity 
+                    style={styles.analyticsButton}
+                    onPress={navigateToAnalytics}
+                >
+                    <Ionicons name="stats-chart" size={24} color="#fff" />
+                    <Text style={styles.analyticsButtonText}>View Analytics</Text>
+                </TouchableOpacity>
             </View>
 
             {/* Stats Section */}
@@ -251,5 +261,18 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#666',
         marginTop: 4,
+    },
+    analyticsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#9C27B0',
+        padding: 12,
+        borderRadius: 8,
+        marginTop: 10,
+    },
+    analyticsButtonText: {
+        color: '#fff',
+        marginLeft: 8,
+        fontWeight: '600',
     },
 });

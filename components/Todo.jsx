@@ -15,7 +15,9 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import * as Permissions from 'expo-permissions';
+import auth from '@/lib/firebase';
 import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 
 // Configure notifications
 Notifications.setNotificationHandler({
@@ -85,8 +87,6 @@ const TodoListComponent = ({ storageKey = 'studentTasks', title = 'My Tasks', us
   }, [taskItems, notificationsEnabled]);
 
   const fetchUserData = async () => {
-    
-  
     const unsubscribe = onAuthStateChanged(auth, async user => {
       setIsLoggedIn(!!user);
       if (user) {
@@ -100,7 +100,9 @@ const TodoListComponent = ({ storageKey = 'studentTasks', title = 'My Tasks', us
         const data = userDocSnap.data();
         setUserInfo(data); 
       }
-    }) 
+    });
+
+    // Call unsubscribe when the component is unmounted
     return () => unsubscribe();
   };
 
