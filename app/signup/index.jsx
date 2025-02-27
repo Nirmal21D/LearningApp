@@ -135,11 +135,11 @@ export default function Signup() {
       >
         {/* Header section with back button and titles */}
         <View style={styles.headerSection}>
-          <View style={styles.topBarContainer}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color="#333" />
-            </TouchableOpacity>
-          </View>
+        <BlurView intensity={0} tint="light" style={[styles.backButton, styles.glassEffect]}>
+              <TouchableOpacity onPress={() => router.back()}>
+                <Ionicons name="arrow-back" size={24} color="#333"/>
+              </TouchableOpacity>
+            </BlurView>
           <View style={styles.headerContainer}>
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>Sign up to get started</Text>
@@ -253,7 +253,7 @@ export default function Signup() {
             <Text style={styles.signupButtonText}>Sign Up</Text>
           </TouchableOpacity>
 
-          <View style={styles.dividerContainer}>
+          {/* <View style={styles.dividerContainer}>
             <View style={styles.divider} />
             <Text style={styles.dividerText}>Or continue with</Text>
             <View style={styles.divider} />
@@ -262,7 +262,7 @@ export default function Signup() {
           <TouchableOpacity style={styles.googleButton}>
             <Ionicons name="logo-google" size={20} color="#666" />
             <Text style={styles.googleButtonText}>Continue with Google</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           <View style={styles.loginContainer}>
             <Text style={styles.loginText}>Already have an account? </Text>
@@ -297,17 +297,17 @@ const styles = StyleSheet.create({
   // New header section that contains both the back button and titles
   headerSection: {
     width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
+    // alignItems: 'center',
     marginBottom: 16,
     marginTop: Platform.OS === 'web' ? 10 : 20,
   },
   topBarContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    top: Platform.OS === 'web' ? 20 : 1,
+    left: Platform.OS === 'web' ? 20 : 10,
   },
   headerContainer: {
-    marginLeft: 15,
+    marginLeft: 12,
   },
   title: {
     fontSize: Platform.OS === 'web' ? 32 : 26,
@@ -322,14 +322,16 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   formContainer: {
-    marginTop: 20,
     gap: 20,
     padding: Platform.OS === 'web' ? 25 : 20,
-    borderRadius: 24,
+    borderRadius: 28,
     backgroundColor: 'rgba(255, 255, 255, 0.10)',
     backdropFilter: Platform.OS === 'web' ? 'blur(3px)' : undefined,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 24,
     borderTopColor: 'rgba(255, 255, 255, 0.9)',
     borderLeftColor: 'rgba(255, 255, 255, 0.9)',
     borderRightColor: 'rgba(255, 255, 255, 0.7)',
@@ -339,11 +341,17 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     borderRadius: 16,
+    shadowOpacity: 0.01,
     padding: Platform.OS === 'web' ? 16 : 12,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.85)',
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.02,
+    shadowRadius: 12,
+
   },
   inputIcon: {
     marginRight: 10,
@@ -357,19 +365,18 @@ const styles = StyleSheet.create({
   pickerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     borderRadius: 16,
     padding: Platform.OS === 'web' ? 16 : 12,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.85)',
+    borderColor: 'rgba(255, 255, 255, 0.5)',
     shadowColor: '#000',
     height: 55,
   },
   picker: {
     flex: 1,
-    height: 50,
-    color: '#333',
-    marginLeft: 12,
+    height: 55,
+    color: '#666',
     backgroundColor: 'transparent',
   },
   errorText: {
@@ -379,18 +386,22 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
   signupButton: {
-    backgroundColor: 'rgba(33, 150, 243, 0.95)',
+    backgroundColor: 'rgba(33, 150, 243, 0.75)',
     padding: Platform.OS === 'web' ? 16 : 14,
     borderRadius: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 5,
   },
   signupButtonText: {
-    color: 'white',
-    fontSize: Platform.OS === 'web' ? 17 : 16,
+    color: '#ffffff',
+    fontSize: 16,
     fontWeight: '600',
-    letterSpacing: 0.5,
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -406,20 +417,20 @@ const styles = StyleSheet.create({
     color: '#666',
     paddingHorizontal: 10,
   },
-  googleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    padding: Platform.OS === 'web' ? 16 : 14,
-    borderRadius: 16,
-    borderWidth: 1.5,
-  },
-  googleButtonText: {
-    marginLeft: 10,
-    color: '#666',
-    fontSize: 16,
-  },
+  // googleButton: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   justifyContent: 'center',
+  //   backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  //   padding: Platform.OS === 'web' ? 16 : 14,
+  //   borderRadius: 16,
+  //   borderWidth: 1.5,
+  // },
+  // googleButtonText: {
+  //   marginLeft: 10,
+  //   color: '#666',
+  //   fontSize: 16,
+  // },
   loginContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -434,16 +445,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   backButton: {
-    width: 45,
-    height: 45,
-    borderRadius: 23,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.85)',
-    shadowColor: '#000',
+    left: 6,
   },
+  glassEffect: {
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 9,
+    // elevation: 3,
+  },
+
   blurCircle: {
     position: 'absolute',
     borderRadius: 999,
@@ -464,7 +483,7 @@ const styles = StyleSheet.create({
     width: Platform.OS === 'web' ? 220 : 180,
     height: Platform.OS === 'web' ? 220 : 180,
     backgroundColor: 'rgba(173, 216, 255, 0.45)',
-    top: Platform.OS === 'web' ? 340 : 30,
+    top: Platform.OS === 'web' ? 390 : 320,
     right: Platform.OS === 'web' ? -40 : -30,
     transform: [
       { scale: 1.1 },
@@ -475,7 +494,7 @@ const styles = StyleSheet.create({
     width: Platform.OS === 'web' ? 200 : 160,
     height: Platform.OS === 'web' ? 200 : 160,
     backgroundColor: 'rgba(173, 216, 255, 0.45)',
-    bottom: Platform.OS === 'web' ? 30 : 80,
+    bottom: Platform.OS === 'web' ? 30 : 60,
     left: Platform.OS === 'web' ? -60 : -40,
     transform: [
       { scale: 1 },
