@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, Share, Linking, Animated, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, Share, Linking, Animated, ActivityIndicator,Dimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VictoryBar, VictoryChart, VictoryTheme, VictoryAxis } from 'victory-native';
 import TextToSpeech from 'react-native-tts';

@@ -14,12 +14,26 @@ import { auth } from '@/lib/firebase';
 const { width } = Dimensions.get('window');
 
 
+
 export default function Home() {
   const router = useRouter();
   
   const [userInfo, setUserInfo] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const colors = {
+    primary: '#2196F3',
+    background: '#f8f9fa',
+    textPrimary: '#1a1a1a',
+    textSecondary: '#666666',
+    categoryColors: {
+      Physics: '#ff6b6b',
+      Chemistry: '#4ecdc4',
+      Mathematics: '#45b7d1',
+      Biology: '#96ceb4',
+      'Study Skills': '#ff9f43',
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async user => {

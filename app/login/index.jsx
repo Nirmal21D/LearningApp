@@ -14,6 +14,19 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(''); // State for error messages
+  const colors = {
+    primary: '#2196F3',
+    background: '#f8f9fa',
+    textPrimary: '#1a1a1a',
+    textSecondary: '#666666',
+    categoryColors: {
+      Physics: '#ff6b6b',
+      Chemistry: '#4ecdc4',
+      Mathematics: '#45b7d1',
+      Biology: '#96ceb4',
+      'Study Skills': '#ff9f43',
+    }
+  };
 
   const handleLogin = async () => {
     try { 
@@ -33,7 +46,7 @@ export default function Login() {
 
       if (userData.userType === 'teacher') {
         router.push('/teacher/dashboard');
-      }else if (formData.userType === 'careerGuider') {
+      }else if (userData.userType === 'careerGuider') {
         router.push('/career-guider/dashboard');
       }else {
         router.push('/home');

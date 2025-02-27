@@ -18,7 +18,22 @@ import TeamsFeature from '@/components/TeamsFeature';
 import SessionNotification from '@/components/SessionNotification';
 import { getUserProgress } from '@/app/api/progress';
 import TodoListComponent from '../../components/Todo';
+import AudioQA from '../../components/AudioQA';
+import SpeechToText from '../../components/SpeechToText';
 const { width } = Dimensions.get('window');
+const colors = {
+  primary: '#2196F3',
+  background: '#f8f9fa',
+  textPrimary: '#1a1a1a',
+  textSecondary: '#666666',
+  categoryColors: {
+    Physics: '#ff6b6b',
+    Chemistry: '#4ecdc4',
+    Mathematics: '#45b7d1',
+    Biology: '#96ceb4',
+    'Study Skills': '#ff9f43',
+  }
+};
 
 const courseFilters = [
   { id: 1, name: 'Live Courses', icon: 'videocam-outline' },
@@ -624,11 +639,13 @@ export default function Home() {
             <Ionicons name="arrow-forward" size={20} color="white" />
           </TouchableOpacity>
         </View>
+        <SpeechToText/>
       </ScrollView>
 
       {/* Place ChatBot before bottom nav but with adjusted style */}
       <View style={styles.chatBotWrapper}>
       <ChatBot />
+      <AudioQA/>
       </View>
 
       {/* Bottom Navigation */}
