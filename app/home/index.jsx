@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dimensions, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dimensions, Platform, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Link } from 'expo-router';
 import { getFirestore, doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import TextExtractor from '@/components/TextExtractor';
 import ChatBot from '@/components/Chatbot';
 import { LinearGradient } from 'expo-linear-gradient';
 import { signOut } from 'firebase/auth';
@@ -357,23 +356,23 @@ export default function Home() {
               <Text style={styles.seeAllButton}>All Reviews</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView
+          <FlatList
             horizontal
             showsHorizontalScrollIndicator={false}
-            style={styles.reviewsContainer}
-          >
-            {reviews.map((review) => (
-              <View key={review.id} style={styles.reviewCard}>
+            data={reviews}
+            keyExtractor={(item) => item.id.toString()} 
+            renderItem={({ item }) => (
+              <View style={styles.reviewCard}>
                 <View style={styles.reviewHeader}>
                   <View style={styles.reviewerInfo}>
                     <View style={styles.reviewerAvatar}>
                       <Text style={styles.reviewerInitial}>
-                        {review.name.charAt(0)}
+                        {item.name.charAt(0)}
                       </Text>
                     </View>
                     <View style={styles.reviewerDetails}>
-                      <Text style={styles.reviewerName}>{review.name}</Text>
-                      <Text style={styles.reviewSubject}>{review.subject}</Text>
+                      <Text style={styles.reviewerName}>{item.name}</Text>
+                      <Text style={styles.reviewSubject}>{item.subject}</Text>
                     </View>
                   </View>
                 </View>
@@ -381,17 +380,18 @@ export default function Home() {
                   {[...Array(5)].map((_, i) => (
                     <Ionicons
                       key={i}
-                      name={i < review.rating ? "star" : "star-outline"}
+                      name={i < item.rating ? "star" : "star-outline"}
                       size={16}
-                      color={i < review.rating ? "#FFD700" : "#666"}
+                      color={i < item.rating ? "#FFD700" : "#666"}
                     />
                   ))}
                 </View>
-                <Text style={styles.reviewContent}>{review.content}</Text>
+                <Text style={styles.reviewContent}>{item.content}</Text>
               </View>
-            ))}
-          </ScrollView>
+            )}
+          />
         </View>
+
         <ScrollView>
           {/* Learning Recommendations Section */}
           {progressData && (
@@ -644,7 +644,7 @@ export default function Home() {
             <Ionicons name="arrow-forward" size={20} color="white" />
           </TouchableOpacity>
         </View>
-        <SpeechToText />
+      
       </ScrollView>
 
       {/* Place ChatBot before bottom nav but with adjusted style */}
