@@ -808,38 +808,49 @@ const TodoListComponent = ({ storageKey = 'studentTasks', title = 'My Tasks', us
     </View>
   );
 };
+
 const styles = StyleSheet.create({
   componentContainer: {
     flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 10,
+    padding: 20,
+    margin: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1A237E',
+    marginBottom: 10,
   },
   inputContainer: {
     flexDirection: 'row',
-    margin: 15,
-    marginBottom: 10,
+    marginBottom: 15,
   },
   input: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: '#ffffff',
     borderRadius: 10,
-    padding: 15,
+    padding: 10,
     fontSize: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
   },
   addButton: {
-    width: 80,
-    backgroundColor: '#4A6FA5',
+    backgroundColor: '#2196F3',
     borderRadius: 10,
+    padding: 10,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 10,
   },
   addButtonText: {
     color: 'white',
-    fontSize: 16,
     fontWeight: 'bold',
   },
   categorySelector: {
@@ -1121,6 +1132,18 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 18,
     color: '#FF3B30',
+    textAlign: 'center',
+  },
+  notificationAlert: {
+    backgroundColor: '#2196F3',
+    borderRadius: 10,
+    padding: 10,
+    marginHorizontal: 15,
+    marginBottom: 10,
+  },
+  notificationAlertText: {
+    color: 'white',
+    fontWeight: 'bold',
     textAlign: 'center',
   },
 });

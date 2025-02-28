@@ -11,13 +11,18 @@ import {
   Share,
   Linking,
   StyleSheet,
-  Dimensions
+  Dimensions,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VictoryChart, VictoryBar, VictoryAxis, VictoryTheme } from 'victory-native';
 import * as TextToSpeech from 'expo-speech';
 import RNHTMLtoPDF from 'react-native-html-to-pdf';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 const CareerAssessment = () => {
   const [currentSection, setCurrentSection] = useState('interests');
@@ -409,7 +414,7 @@ const interestQuestions = [
   
                   {/* Resources Accordion */}
                   <Text style={styles.subHeader}>Learning Path</Text>
-                  <View style={styles.accordion}>
+                  <View style={styles.skillsContainer}>
                     {career.resources.map((resource, i) => (
                       <View key={i} style={styles.accordionItem}>
                         <Text style={styles.resourceType}>
@@ -436,6 +441,9 @@ const interestQuestions = [
                     <TouchableOpacity style={styles.shareButton}>
                       <Text style={styles.buttonText}>📤 Share</Text>
                     </TouchableOpacity>
+                    <TouchableOpacity style={styles.retakeButton} onPress={() => navigateToSection('personalityTraits')}>
+                      <Text style={styles.buttonText}>🔄 Retake</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               ))}
@@ -452,13 +460,6 @@ const interestQuestions = [
             <Text style={styles.loadingText}>Analyzing your profile...</Text>
           </View>
         )}
-  
-        <TouchableOpacity 
-          style={styles.floatingActionButton}
-          onPress={() => navigateToSection('personalityTraits')}
-        >
-          <Text style={styles.fabText}>🔄 Retake</Text>
-        </TouchableOpacity>
       </View>
     );
   };
@@ -713,75 +714,82 @@ const interestQuestions = [
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.progressContainer}>
-        <Text style={styles.progressText}>Assessment Progress: {calculateCompletion()}%</Text>
-        <View style={styles.progressBarContainer}>
-          <View style={[styles.progressBar, { width: `${calculateCompletion()}%` }]} />
-        </View>
-      </View>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#E3F2FD', '#BBDEFB', '#E3F2FD']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
 
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tab, currentSection === 'interests' ? styles.activeTab : null]}
-          onPress={() => navigateToSection('interests')}
+      <View style={[styles.blurCircle, styles.blurCircle1]} />
+      <View style={[styles.blurCircle, styles.blurCircle2]} />
+      <View style={[styles.blurCircle, styles.blurCircle3]} />
+
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoidView}
         >
-          <Text style={styles.tabText}>Interests</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tab, currentSection === 'aptitude' ? styles.activeTab : null]}
-          onPress={() => navigateToSection('aptitude')}
-        >
-          <Text style={styles.tabText}>Aptitude</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tab, currentSection === 'academics' ? styles.activeTab : null]}
-          onPress={() => navigateToSection('academics')}
-        >
-          <Text style={styles.tabText}>Academics</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tab, currentSection === 'personalityTraits' ? styles.activeTab : null]}
-          onPress={() => navigateToSection('personalityTraits')}
-        >
-          <Text style={styles.tabText}>Personality</Text>
-        </TouchableOpacity>
-
-        {showResults && (
-          <TouchableOpacity
-            style={[styles.tab, currentSection === 'results' ? styles.activeTab : null]}
-            onPress={() => setCurrentSection('results')}
-          >
-            <Text style={styles.tabText}>Results</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {renderSection()}
-    </ScrollView>
+          <ScrollView style={styles.scrollView}>
+            <View style={styles.glassEffectContainer}>
+              <Text style={styles.title}>Career Assessment</Text>
+              {renderSection()}
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 };
 
 // Styles
 const styles = StyleSheet.create({
-  progress: {
-    height: 5,
-    backgroundColor: '#4CAF50',
-    marginVertical: 5,
-  },
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'transparent',
+  },
+  safeArea: {
+    flex: 1,
+  },
+  keyboardAvoidView: {
+    flex: 1,
+  },
+  scrollView: {
+    flexGrow: 1,
     padding: 20,
+  },
+  glassEffectContainer: {
+    padding: 20,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    backdropFilter: 'blur(10px)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 24,
+    marginHorizontal: 10,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1A237E',
+    marginBottom: 20,
   },
   progressContainer: {
     marginBottom: 20,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    padding: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
   },
   progressText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: 'bold',
     color: '#333',
     marginBottom: 5,
   },
@@ -803,14 +811,51 @@ const styles = StyleSheet.create({
   tab: {
     padding: 10,
     borderRadius: 5,
-    backgroundColor: '#e0e0e0',
-  },
-  activeTab: {
     backgroundColor: '#4caf50',
+    flex: 1,
+    marginHorizontal: 5,
+    alignItems: 'center',
   },
   tabText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  button: {
+    backgroundColor: '#4caf50',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 20,
+    color: '#636e72',
+    fontSize: 16,
+  },
+  errorContainer: {
+    backgroundColor: '#ffebee',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+  },
+  errorText: {
+    color: '#c62828',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  errorHint: {
+    color: '#c62828',
     fontSize: 14,
-    color: '#333',
+    marginTop: 8,
   },
   sectionContainer: {
     marginBottom: 20,
@@ -900,7 +945,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   backButton: {
-    backgroundColor: '#e0e0e0',
+    backgroundColor: '#ffA500',
     padding: 15,
     borderRadius: 10,
     flex: 1,
@@ -922,20 +967,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-  buttonText: {
-    fontSize: 16,
-    color: '#fff',
-  },
   aiResponseText: {
     fontSize: 16,
     lineHeight: 24,
     color: '#333',
-    marginTop: 10,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#666',
-    fontStyle: 'italic',
     marginTop: 10,
   },
   careerCard: {
@@ -955,41 +990,52 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
   },
-  careerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#2d3436',
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
-    marginRight: 10,
   },
-  matchBadge: {
+  careerTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#2d3436',
+    marginRight: 12,
+  },
+  rankBadge: {
     backgroundColor: '#4caf50',
-    borderRadius: 15,
+    borderRadius: 12,
     paddingVertical: 4,
     paddingHorizontal: 10,
   },
-  matchText: {
+  rankText: {
     color: '#fff',
-    fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+  },
+  starIcon: {
+    fontSize: 18,
+    marginLeft: 2,
   },
   careerDescription: {
-    fontSize: 15,
-    color: '#636e72',
-    lineHeight: 22,
-    marginBottom: 15,
-  },
-  subHeading: {
     fontSize: 16,
-    fontWeight: '600',
+    lineHeight: 24,
+    color: '#636e72',
+    marginBottom: 25,
+  },
+  subHeader: {
+    fontSize: 18,
+    fontWeight: '700',
     color: '#2d3436',
-    marginBottom: 8,
-    marginTop: 12,
+    marginBottom: 15,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4caf50',
+    paddingLeft: 12,
   },
   skillsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    marginBottom: 20,
   },
   skillPill: {
     backgroundColor: '#dfe6e9',
@@ -1026,15 +1072,16 @@ const styles = StyleSheet.create({
   },
   carouselCard: {
     width: Dimensions.get('window').width - 40,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(245, 245, 245, 0.10)',
     borderRadius: 20,
-    padding: 25,
-    marginHorizontal: 20,
+    padding: 15,
+    marginHorizontal: 2,
+    width: 318,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
-    elevation: 5,
+    // elevation: 5,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1089,11 +1136,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   skillMeter: {
-    height: 36,
+    height: 48,
     backgroundColor: '#f5f6fa',
     borderRadius: 8,
     marginBottom: 8,
-    overflow: 'hidden',
+    // overflow: 'hidden',
   },
   meterFill: {
     position: 'absolute',
@@ -1129,14 +1176,15 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   outlookContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     marginBottom: 20,
   },
   outlookLabel: {
     fontSize: 14,
     color: '#636e72',
-    marginRight: 8,
+    marginRight: 3,
+    fontWeight: '500',
   },
   outlookPill: {
     backgroundColor: '#e3f2fd',
@@ -1150,7 +1198,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   actionBar: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     gap: 10,
     marginTop: 15,
   },
@@ -1164,6 +1212,13 @@ const styles = StyleSheet.create({
   shareButton: {
     flex: 1,
     backgroundColor: '#2196f3',
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+  },
+  retakeButton: {
+    flex: 1,
+    backgroundColor: '#FFA500',
     borderRadius: 12,
     padding: 14,
     alignItems: 'center',
@@ -1189,31 +1244,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
     marginLeft: 8,
-  },
-  errorContainer: {
-    backgroundColor: '#ffebee',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-  },
-  errorText: {
-    color: '#c62828',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  errorHint: {
-    color: '#c62828',
-    fontSize: 14,
-    marginTop: 8,
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    padding: 40,
-  },
-  loadingText: {
-    marginTop: 20,
-    color: '#636e72',
-    fontSize: 16,
   },
   descriptionContainer: {
     marginBottom: 20,
@@ -1281,37 +1311,47 @@ const styles = StyleSheet.create({
     marginLeft: 30,
     marginTop: 5,
   },
-  container: { flex: 1, padding: 16 },
-  card: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 3,
+  activeTab: {
+    backgroundColor: '#4caf50',
   },
-  header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  title: { fontSize: 18, fontWeight: '600', color: '#2D3436' },
-  controls: { flexDirection: 'row', gap: 8 },
-  button: { padding: 8, borderWidth: 1, borderRadius: 8, borderColor: '#E0E0E0' },
-  selectedButton: { backgroundColor: '#E3F2FD', borderColor: '#2196F3' },
-  description: { fontSize: 14, color: '#636E72', lineHeight: 20 },
-  readMore: { color: '#2196F3', marginTop: 8 },
-  progress: { height: 8, backgroundColor: '#4CAF50', borderRadius: 4, marginVertical: 12 },
-  actions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
-  actionButton: { padding: 8, backgroundColor: '#F5F5F5', borderRadius: 8 },
-  loader: { flex: 1, justifyContent: 'center' },
-  compareButton: {
+  blurCircle: {
     position: 'absolute',
-    bottom: 20,
-    alignSelf: 'center',
-    backgroundColor: '#4CAF50',
-    padding: 16,
-    borderRadius: 24,
-    elevation: 4,
+    borderRadius: 999,
+    zIndex: 0,
   },
-  modal: { flex: 1, padding: 24, backgroundColor: 'white' },
-  closeButton: { position: 'absolute', top: 24, right: 24 },
-
+  blurCircle1: {
+    width: Platform.OS === 'web' ? 250 : 200,
+    height: Platform.OS === 'web' ? 250 : 200,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    top: Platform.OS === 'web' ? 20 : 10,
+    left: Platform.OS === 'web' ? -80 : -60,
+    transform: [
+      { scale: 1.2 },
+      { rotate: '-15deg' }
+    ],
+  },
+  blurCircle2: {
+    width: Platform.OS === 'web' ? 220 : 180,
+    height: Platform.OS === 'web' ? 220 : 180,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    top: Platform.OS === 'web' ? 390 : 320,
+    right: Platform.OS === 'web' ? -40 : -30,
+    transform: [
+      { scale: 1.1 },
+      { rotate: '30deg' }
+    ],
+  },
+  blurCircle3: {
+    width: Platform.OS === 'web' ? 200 : 160,
+    height: Platform.OS === 'web' ? 200 : 160,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    bottom: Platform.OS === 'web' ? 30 : 60,
+    left: Platform.OS === 'web' ? -60 : -40,
+    transform: [
+      { scale: 1 },
+      { rotate: '15deg' }
+    ],
+  },
 });
 
 export default CareerAssessment;

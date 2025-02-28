@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   footer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
     backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
     borderRadius: 16,
     padding: Platform.OS === 'web' ? 20 : 15,
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(245, 245, 245, 0.10)',
+    backgroundColor: 'rgba(245, 245, 245, 0.8)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -385,16 +385,16 @@ const styles = StyleSheet.create({
     transform: [{ translateY: -5 }],
   },
   homeIconContainer: {
-    backgroundColor: '#E3F2FD',
+    // backgroundColor: '#E3F2FD',
     padding: 1,
     borderRadius: 999,
-    marginBottom: 2,
+    marginTop: 6,
     transform: [{ scale: 1.45 }],
   },
   navText: {
     fontSize: 12,
     color: '#666',
-    marginTop: 4,
+    marginTop: 1,
   },
   activeNavText: {
     color: '#2196F3',
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     width: Platform.OS === 'web' ? 220 : 180,
     height: Platform.OS === 'web' ? 220 : 180,
     backgroundColor: 'rgba(173, 216, 255, 0.45)',
-    top: Platform.OS === 'web' ? 340 : 30,
+    top: Platform.OS === 'web' ? 390 : 320,
     right: Platform.OS === 'web' ? -40 : -30,
     transform: [
       { scale: 1.1 },
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     width: Platform.OS === 'web' ? 200 : 160,
     height: Platform.OS === 'web' ? 200 : 160,
     backgroundColor: 'rgba(173, 216, 255, 0.45)',
-    bottom: Platform.OS === 'web' ? 30 : 80,
+    bottom: Platform.OS === 'web' ? 30 : 60,
     left: Platform.OS === 'web' ? -60 : -40,
     transform: [
       { scale: 1 },
@@ -462,8 +462,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   section: {
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-    backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(3px)' : undefined,
     borderRadius: 16,
     padding: Platform.OS === 'web' ? 20 : 15,
     marginHorizontal: 20,
