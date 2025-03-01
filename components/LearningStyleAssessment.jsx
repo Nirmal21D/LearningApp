@@ -9,18 +9,18 @@ const LearningStyleAssessment = ({ onClose, userId, visible }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
-
+  
   useEffect(() => {
     const checkUserTags = async () => {
       const db = getFirestore();
       const userRef = doc(db, 'users', userId);
       const userSnap = await getDoc(userRef);
-  
+     
       if (userSnap.exists()) {
         const userData = userSnap.data();
         
         // Check if the user is a student
-        if (userData.type === 'student') {
+        if (userData.userType === 'student') {
           if (userData.learningProfile?.tags?.length > 0) {
             // Student already has a learning profile, don't show the form
             setShowForm(false);
@@ -406,8 +406,9 @@ const LearningStyleAssessment = ({ onClose, userId, visible }) => {
     if (stylePercentages[primaryStyle] >= 50) {
       learningProfile.tags.push('strong-preference');
     }
-
+    setShowForm(false);
     return learningProfile;
+    
   }, [answers]);
 
   const handleAnswer = async (answer) => {

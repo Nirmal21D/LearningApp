@@ -14,7 +14,7 @@ import { auth } from '@/lib/firebase';
 import { getUserProgress } from '@/app/api/progress';
 import TodoListComponent from '../../components/Todo';
 import AudioQA from '../../components/AudioQA';
-import SpeechToText from '../../components/SpeechToText';
+
 import StudyNotes from '../../components/StudyNotes';
 import { 
   addDoc,
@@ -232,6 +232,7 @@ export default function Home() {
           userId={getAuth().currentUser.uid}
           onClose={() => setShowTagForm(false)}
         />
+        
       )}
       <View style={styles.navbar}>
         {/* <TouchableOpacity style={styles.menuButton}>
