@@ -289,11 +289,11 @@ const ChatComponent = ({ chatId, teacherName, teacherSubject }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
   },
   header: {
     padding: 15,
-    backgroundColor: "#2196F3",
+    backgroundColor: 'rgba(33, 150, 243, 0.75)',
     alignItems: "center",
   },
   headerTitle: {
@@ -310,13 +310,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    
   },
   messagesList: {
-    padding: 15,
+    padding: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
   },
   messageContainer: {
     marginVertical: 4,
     paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
   },
   ownMessage: {
     alignSelf: 'flex-end',
@@ -328,18 +331,21 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 12,
     maxWidth: '80%',
+    
   },
   ownMessageContent: {
     backgroundColor: '#2196F3',
   },
   otherMessageContent: {
-    backgroundColor: '#E8E8E8',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
   },
   messageText: {
     fontSize: 15,
+    
   },
   ownMessageText: {
     color: '#FFFFFF',
+    
   },
   otherMessageText: {
     color: '#000000',

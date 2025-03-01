@@ -145,7 +145,7 @@ export default function TeacherChats() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
   },
   header: {
     padding: 15,
