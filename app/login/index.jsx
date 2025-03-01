@@ -76,19 +76,11 @@ export default function Login() {
       if (userData.userType === 'teacher') {
         // Check if teacher is approved
         if (!userData.isApproved) {
-<<<<<<< HEAD
-          // Alert.alert(
-          //   'Account Pending Approval',
-          //   'Your account is pending approval from an administrator. Please try again later.',
-          //   [{ text: 'OK' }]
-          // );
-=======
           /* Alert.alert(
             'Account Pending Approval',
             'Your account is pending approval from an administrator. Please try again later.',
             [{ text: 'OK' }]
           ); */
->>>>>>> 7c32d31bd4bf6ec492b3079122112532e70232f6
           return;
         }
         router.push('/teacher/dashboard');

@@ -278,7 +278,6 @@ const StudyNotes = ({ subjectFilter }) => {
       setNotes(regular);
 
       if (notesList.length === 0) {
-<<<<<<< HEAD
         // Alert.alert(
         //   "No Notes",
         // "Would you like to create your first note?",
@@ -287,16 +286,6 @@ const StudyNotes = ({ subjectFilter }) => {
         //     { text: "Create Note", onPress: () => setShowNoteModal(true) }
         //   ]
         // );
-=======
-        /* Alert.alert(
-          "No Notes",
-        "Would you like to create your first note?",
-          [
-          { text: "Not Now", style: "cancel" },
-            { text: "Create Note", onPress: () => setShowNoteModal(true) }
-          ]
-        ); */
->>>>>>> 7c32d31bd4bf6ec492b3079122112532e70232f6
       }
   };
 
