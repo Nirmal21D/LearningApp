@@ -71,7 +71,8 @@
             "./assets/sounds/notification.wav"
           ]
         }
-      ]
+      ],
+      "expo-router"
     ],
     "experiments": {
       "typedRoutes": true
@@ -82,8 +83,6 @@
         "NSMicrophoneUsageDescription": "This app needs access to microphone.",
         "NSPhotoLibraryUsageDescription": "This app needs access to photos.",
         "UIBackgroundModes": [
-          "audio",
-          "remote-notification",
           "audio",
           "remote-notification"
         ],
