@@ -16,6 +16,11 @@ import TodoListComponent from '../../components/Todo';
 import AudioQA from '../../components/AudioQA';
 import SpeechToText from '../../components/SpeechToText';
 import StudyNotes from '../../components/StudyNotes';
+import { 
+  addDoc,
+  serverTimestamp  // Add this
+} from 'firebase/firestore';
+import { Modal } from 'react-native-paper';
 const { width } = Dimensions.get('window');
 const colors = {
   primary: '#2196F3',
@@ -72,6 +77,10 @@ export default function Home() {
   const [showTagForm, setShowTagForm] = useState();
   const [progressData, setProgressData] = useState(null);
   const [userfortodo, setUserfortodo] = useState();
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewContent, setReviewContent] = useState('');
+  const [reviewRating, setReviewRating] = useState(0);
+  const [timeSpent, setTimeSpent] = useState(0);
   const calculateOverallProgress = (data) => {
     if (!data) return 0;
 
@@ -108,6 +117,45 @@ export default function Home() {
     fetchSubjects();
   }, []);
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeSpent(prevTime => prevTime + 1);
+    }, 60000); // Increment time spent every minute
+
+    if (timeSpent >= 10) {
+      setShowReviewModal(true);
+      clearInterval(timer);
+    }
+
+    return () => clearInterval(timer);
+  }, [timeSpent]);
+  const handleReviewSubmit = async () => {
+    if (!reviewContent.trim() || reviewRating === 0) {
+      Alert.alert('Error', 'Please provide a review and rating.');
+      return;
+    }
+
+    try {
+      const db = getFirestore();
+      await addDoc(collection(db, 'reviews'), {
+        userId: userInfo.uid,
+        userName: userInfo.username,
+        content: reviewContent,
+        rating: reviewRating,
+        createdAt: serverTimestamp(),
+      });
+
+      setShowReviewModal(false);
+      setReviewContent('');
+      setReviewRating(0);
+      Alert.alert('Thank you!', 'Your review has been submitted.');
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      Alert.alert('Error', 'Failed to submit review. Please try again.');
+    }
+  };
+
+ 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async user => {
       setIsLoggedIn(!!user);
@@ -695,7 +743,71 @@ export default function Home() {
           <Ionicons name="person-outline" size={24} color="#666" />
           <Text style={styles.navText}>Profile</Text>
         </TouchableOpacity>
+      
+      
+      
       </View>
+
+
+      {/* Review Modal */}
+{showReviewModal && (
+  <Modal
+    animationType="slide"
+    transparent={true}
+    visible={showReviewModal}
+    onRequestClose={() => setShowReviewModal(false)}
+  >
+    <View style={styles.modalContainer}>
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>How was your experience?</Text>
+        <Text style={styles.modalSubtitle}>Please rate your experience</Text>
+        
+        {/* Star Rating */}
+        <View style={styles.ratingContainer}>
+          {[1, 2, 3, 4, 5].map((star) => (
+            <TouchableOpacity
+              key={star}
+              onPress={() => setReviewRating(star)}
+            >
+              <Ionicons
+                name={star <= reviewRating ? "star" : "star-outline"}
+                size={32}
+                color="#FFD700"
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Review Input */}
+        <TextInput
+          style={styles.reviewInput}
+          placeholder="Write your review here..."
+          placeholderTextColor="#666"
+          multiline
+          numberOfLines={4}
+          value={reviewContent}
+          onChangeText={setReviewContent}
+        />
+
+        {/* Action Buttons */}
+        <View style={styles.modalButtonContainer}>
+          <TouchableOpacity
+            style={[styles.modalButton, styles.cancelButton]}
+            onPress={() => setShowReviewModal(false)}
+          >
+            <Text style={styles.buttonText}>Maybe Later</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modalButton, styles.submitButton]}
+            onPress={handleReviewSubmit}
+          >
+            <Text style={styles.buttonText}>Submit Review</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  </Modal>
+)}
     </SafeAreaView>
   );
 }
@@ -1354,6 +1466,70 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     // elevation: 3,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    width: '90%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 20,
+    gap: 10,
+  },
+  reviewInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 20,
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#e0e0e0',
+  },
+  submitButton: {
+    backgroundColor: '#2196F3',
+  },
+  buttonText: {
+    fontWeight: '600',
+  },
+  submitButtonText: {
+    color: 'white',
+  },
+  cancelButtonText: {
+    color: '#333',
   },
 });
 
