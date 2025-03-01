@@ -29,6 +29,7 @@ import { db, auth } from "@/lib/firebase";
 import CallButton from "@/components/CallButton";
 import { ref, push } from 'firebase/database';
 import { signOut, getAuth } from "firebase/auth";
+import { getDatabase } from 'firebase/database';
 
 export default function TeacherDashboard() {
     const router = useRouter();
@@ -39,6 +40,7 @@ export default function TeacherDashboard() {
     const [loading, setLoading] = useState(true);
     const [isLoading, setIsLoading] = useState(true);
     const [subjectProgress, setSubjectProgress] = useState({});
+    const database = getDatabase();
 
     useEffect(() => {
         checkTeacherApproval();
@@ -177,18 +179,23 @@ export default function TeacherDashboard() {
             }
 
             const userData = userDoc.data();
+            
+            // Check if user is a teacher first
             if (userData.userType !== 'teacher') {
                 Alert.alert('Error', 'Invalid user type');
                 router.replace('/login');
                 return;
             }
 
+            // Set teacher info regardless of approval status
+            setTeacherInfo(userData);
+
+            // Only redirect if not approved
             if (!userData.approved) {
                 router.replace('/teacher/waiting-approval');
                 return;
             }
 
-            setTeacherInfo(userData);
             setIsLoading(false);
         } catch (error) {
             console.error('Error checking teacher approval:', error);
@@ -373,7 +380,7 @@ export default function TeacherDashboard() {
             // Create chat ID by sorting and joining IDs
             const chatId = [auth.currentUser.uid, session.studentId].sort().join('_');
             
-            // Get reference to the chat messages
+            // Get reference to the chat messages using the initialized database
             const messagesRef = ref(database, `privateChats/${chatId}/messages`);
             
             // Share the meeting link in chat

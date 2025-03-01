@@ -17,14 +17,14 @@ import { db, database, auth } from '@/lib/firebase';
 
 const TeacherChatsScreen = () => {
   const router = useRouter();
-  const [chatSessions, setChatSessions] = useState([]);
+  const [students, setStudents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadChatSessions();
+    loadStudents();
   }, []);
 
-  const loadChatSessions = async () => {
+  const loadStudents = async () => {
     try {
       if (!auth.currentUser) {
         console.error('No authenticated user');
@@ -38,80 +38,91 @@ const TeacherChatsScreen = () => {
       );
 
       const studentsSnapshot = await getDocs(studentsQuery);
-      const students = studentsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      // For each student, check if there's a chat with the current teacher
-      const chatPromises = students.map(async (student) => {
-        const chatId = `${student.id}_${auth.currentUser.uid}`;
+      
+      // Get all students first
+      const studentsData = await Promise.all(studentsSnapshot.docs.map(async (doc) => {
+        const studentData = doc.data();
+        const chatId = `${doc.id}_${auth.currentUser.uid}`;
+        
+        // Check for existing chat
         const chatRef = ref(database, `privateChats/${chatId}/messages`);
         const chatSnapshot = await get(chatRef);
         
+        let lastMessage = null;
         if (chatSnapshot.exists()) {
-          // Get the last message
           const messages = Object.values(chatSnapshot.val());
-          const lastMessage = messages[messages.length - 1];
-          
-          return {
-            id: chatId,
-            studentName: student.username,
-            studentId: student.id,
-            lastMessage,
-            timestamp: lastMessage.timestamp
-          };
+          lastMessage = messages[messages.length - 1];
         }
-        return null;
+
+        return {
+          id: doc.id,
+          chatId: chatId,
+          username: studentData.username || 'Student',
+          email: studentData.email,
+          hasChat: chatSnapshot.exists(),
+          lastMessage: lastMessage,
+          timestamp: lastMessage?.timestamp || 0
+        };
+      }));
+
+      // Sort: students with chats first, then alphabetically
+      const sortedStudents = studentsData.sort((a, b) => {
+        if (a.hasChat && !b.hasChat) return -1;
+        if (!a.hasChat && b.hasChat) return 1;
+        if (a.timestamp !== b.timestamp) return b.timestamp - a.timestamp;
+        return a.username.localeCompare(b.username);
       });
 
-      const chats = (await Promise.all(chatPromises)).filter(chat => chat !== null);
-      
-      // Sort chats by timestamp
-      chats.sort((a, b) => b.timestamp - a.timestamp);
-      
-      setChatSessions(chats);
+      setStudents(sortedStudents);
       setIsLoading(false);
     } catch (error) {
-      console.error('Error loading chat sessions:', error);
-      Alert.alert('Error', 'Failed to load chat sessions');
+      console.error('Error loading students:', error);
+      Alert.alert('Error', 'Failed to load students');
       setIsLoading(false);
     }
   };
 
-  const handleOpenChat = (session) => {
+  const handleOpenChat = (student) => {
     router.push({
       pathname: '/chat/private',
       params: {
-        chatId: session.id,
-        studentName: session.studentName,
-        recipientId: session.studentId,
+        chatId: student.chatId,
+        studentName: student.username,
+        recipientId: student.id,
         isTeacher: true
       }
     });
   };
 
-  const renderChatItem = ({ item }) => (
+  const renderStudentItem = ({ item }) => (
     <TouchableOpacity
       style={styles.chatItem}
       onPress={() => handleOpenChat(item)}
     >
       <View style={styles.chatIcon}>
-        <Ionicons name="person-circle-outline" size={40} color="#2196F3" />
+        <Ionicons 
+          name={item.hasChat ? "person-circle" : "person-circle-outline"} 
+          size={40} 
+          color={item.hasChat ? "#2196F3" : "#757575"} 
+        />
       </View>
       <View style={styles.chatInfo}>
-        <Text style={styles.studentName}>{item.studentName}</Text>
+        <Text style={styles.studentName}>
+          {item.username}
+          {item.hasChat && <Text style={styles.activeChat}> • Active Chat</Text>}
+        </Text>
+        <Text style={styles.studentEmail}>{item.email}</Text>
         {item.lastMessage && (
           <Text style={styles.lastMessage} numberOfLines={1}>
             {item.lastMessage.text}
           </Text>
         )}
       </View>
-      {item.lastMessage && (
-        <Text style={styles.timestamp}>
-          {new Date(item.lastMessage.timestamp).toLocaleTimeString()}
-        </Text>
-      )}
+      <Ionicons 
+        name={item.hasChat ? "chatbubbles" : "chatbubbles-outline"} 
+        size={24} 
+        color={item.hasChat ? "#2196F3" : "#757575"} 
+      />
     </TouchableOpacity>
   );
 
@@ -119,6 +130,7 @@ const TeacherChatsScreen = () => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#2196F3" />
+        <Text style={styles.loadingText}>Loading students...</Text>
       </View>
     );
   }
@@ -129,17 +141,18 @@ const TeacherChatsScreen = () => {
         <Text style={styles.headerTitle}>Student Messages</Text>
       </View>
 
-      {chatSessions.length > 0 ? (
+      {students.length > 0 ? (
         <FlatList
-          data={chatSessions}
-          renderItem={renderChatItem}
+          data={students}
+          renderItem={renderStudentItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
       ) : (
         <View style={styles.emptyContainer}>
-          <Ionicons name="chatbubbles-outline" size={48} color="#757575" />
-          <Text style={styles.emptyText}>No chat sessions yet</Text>
+          <Ionicons name="people-outline" size={48} color="#757575" />
+          <Text style={styles.emptyText}>No students found</Text>
         </View>
       )}
     </SafeAreaView>
@@ -156,6 +169,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
   header: {
     padding: 16,
     backgroundColor: '#fff',
@@ -170,12 +188,14 @@ const styles = StyleSheet.create({
   listContainer: {
     padding: 16,
   },
+  separator: {
+    height: 8,
+  },
   chatItem: {
     flexDirection: 'row',
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
     alignItems: 'center',
     elevation: 2,
     shadowColor: '#000',
@@ -195,13 +215,19 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 4,
   },
-  lastMessage: {
+  activeChat: {
+    color: '#2196F3',
+    fontSize: 14,
+  },
+  studentEmail: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 2,
   },
-  timestamp: {
-    fontSize: 12,
+  lastMessage: {
+    fontSize: 14,
     color: '#999',
+    fontStyle: 'italic',
   },
   emptyContainer: {
     flex: 1,
@@ -214,7 +240,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#757575',
     textAlign: 'center',
-  },
+  }
 });
 
 export default TeacherChatsScreen;
