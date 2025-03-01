@@ -23,12 +23,9 @@ export default function Signup() {
     mobile: '',
     userType: 'student',
     selectedSubject: '',
-<<<<<<< HEAD
     isPremium: false,
-    freeTrialsRemaining: 5 // Initial number of free trials
-=======
+    freeTrialsRemaining: 5, // Initial number of free trials
     parent_number: '', // Add parent_number field
->>>>>>> 7c32d31bd4bf6ec492b3079122112532e70232f6
   });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});

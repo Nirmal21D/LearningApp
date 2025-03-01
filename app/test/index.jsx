@@ -397,19 +397,6 @@ export default function TestPage() {
             await setDoc(userProgressRef, {
                 userId: user.uid,
                 testId,
-<<<<<<< HEAD
-=======
-                userAnswers,
-                finalScoreData,
-                testData
-            );
-
-            // Send notification to parent about test results
-            await notifyParent(user.uid, finalScoreData, testData);
-
-            setScore(finalScoreData);
-            setPreviousAttempt({ 
->>>>>>> 7c32d31bd4bf6ec492b3079122112532e70232f6
                 answers: userAnswers,
                 score: scoreData,
                 subjectId: testData.subjectId,
