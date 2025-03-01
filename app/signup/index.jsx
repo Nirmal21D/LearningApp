@@ -23,6 +23,7 @@ export default function Signup() {
     mobile: '',
     userType: 'student',
     selectedSubject: '',
+    parent_number: '', // Add parent_number field
   });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
@@ -92,6 +93,11 @@ export default function Signup() {
       newErrors.mobile = 'Mobile number is required';
     }
 
+    // Add validation for parent_number when user is student
+    if (formData.userType === 'student' && !formData.parent_number) {
+      newErrors.parent_number = 'Parent/Guardian number is required';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -117,6 +123,11 @@ export default function Signup() {
           userData.approved = false;
           userData.status = 'pending';
           userData.submittedAt = new Date();
+        }
+        
+        // Add parent_number field if user is a student
+        if (formData.userType === 'student') {
+          userData.parent_number = formData.parent_number;
         }
 
         await setDoc(doc(db, 'users', user.uid), userData);
@@ -215,6 +226,24 @@ export default function Signup() {
             />
           </View>
           {errors.mobile && <Text style={styles.errorText}>{errors.mobile}</Text>}
+
+          {/* Parent number field - only show for students */}
+          {formData.userType === 'student' && (
+            <>
+              <View style={styles.inputContainer}>
+                <Ionicons name="people-outline" size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Parent/Guardian Number"
+                  value={formData.parent_number}
+                  onChangeText={(text) => setFormData({...formData, parent_number: text})}
+                  keyboardType="phone-pad"
+                  autoCapitalize="none"
+                />
+              </View>
+              {errors.parent_number && <Text style={styles.errorText}>{errors.parent_number}</Text>}
+            </>
+          )}
 
           <View style={styles.inputContainer}>
             <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />

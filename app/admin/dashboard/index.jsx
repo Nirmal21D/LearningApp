@@ -121,6 +121,7 @@ export default function AdminDashboard() {
     );
 
     return (
+        <ScrollView>
         <View style={styles.container}>
             <View style={styles.header}>
                 <View>
@@ -460,4 +461,4 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         paddingHorizontal: 6,
     },
-});
+}});

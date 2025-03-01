@@ -209,6 +209,87 @@ export default function TestPage() {
             Alert.alert('Error', 'Failed to save your test results. Please try again.');
         }
     };
+    const sendWhatsAppMessage = async (to, message, imageBase64 = null) => {
+        try {
+          const response = await fetch("http://192.168.67.226:3000/api/send-whatsapp", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ to, message, imageBase64 }),
+          });
+      
+          const result = await response.json();
+          console.log("Response:", result);
+          return result;
+        } catch (error) {
+          console.error("Error sending WhatsApp message:", error);
+          return { success: false, error: error.message };
+        }
+      };
+      
+    
+      
+      const notifyParent = async (userId, testResults, testInfo) => {
+        try {
+            // Get user data to find parent's phone number
+            const userRef = doc(db, 'users', userId);
+            const userDoc = await getDoc(userRef);
+            
+            if (!userDoc.exists()) {
+                console.log("User document not found");
+                return false;
+            }
+            
+            const userData = userDoc.data();
+            const parentPhone = userData.parent_number ;
+            
+            if (!parentPhone) {
+                console.log("No parent phone number found for this student");
+                return false;
+            }
+            
+            // Format the message with test results
+            const studentName = userData.displayName || userData.name || "Your child";
+            const testDate = new Date().toLocaleDateString();
+            const testTime = new Date().toLocaleTimeString();
+            
+            // Create a nicely formatted message
+            const message = 
+                `📝 *Test Result Notification* 📝\n\n` +
+                `Dear Parent,\n\n` + 
+                `${studentName} has completed a test in the Learning App.\n\n` +
+                `*Test Details:*\n` +
+                `📚 Subject: ${testInfo.subjectName || "Subject"}\n` +
+                `📖 Chapter: ${testInfo.chapter || "Chapter"}\n` +
+                `🔤 Test: ${testInfo.title}\n` +
+                `📅 Date: ${testDate} at ${testTime}\n\n` +
+                
+                `*Results:*\n` +
+                `✅ Score: ${testResults.percentage}%\n` +
+                `✓ Correct: ${testResults.correct} out of ${testResults.total} questions\n` +
+                `🔥 Max streak: ${testResults.maxStreak}x\n` +
+                `⭐ XP earned: ${testResults.xpEarned}\n\n` +
+                
+                `Please encourage your child to continue learning! They can review their answers and view recommended videos in the app.`;
+                
+            // Send WhatsApp message to parent
+            console.log(`Sending test results to parent: ${parentPhone}`);
+            const result = await sendWhatsAppMessage(parentPhone, message);
+            
+            if (result && result.success) {
+                console.log("Successfully sent test results to parent");
+                return true;
+            } else {
+                console.log("Failed to send message to parent:", result?.error || "Unknown error");
+                return false;
+            }
+        } catch (error) {
+            console.error("Error notifying parent:", error);
+            return false;
+        }
+    };
+    
 
     const handleSubmitTest = async () => {
         try {
@@ -317,6 +398,9 @@ export default function TestPage() {
                 finalScoreData,
                 testData
             );
+
+            // Send notification to parent about test results
+            await notifyParent(user.uid, finalScoreData, testData);
 
             setScore(finalScoreData);
             setPreviousAttempt({ 

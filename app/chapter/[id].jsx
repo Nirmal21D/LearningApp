@@ -661,13 +661,7 @@ export default function ChapterDetail() {
                 <Ionicons name="eye-outline" size={24} color="#2196F3"
                 onPress={() => {
                   if (material.url) {
-                    router.push({
-                      pathname: `material/${material.id}`,
-                      params: {
-                        materialId: material.id,
-                        materialName: material.name || "Material",
-                      },
-                  })
+                    openMaterial(material.url);
                   } else {
                     Alert.alert("Error", "No preview available");
                   }
