@@ -150,7 +150,7 @@ const Blogs = () => {
                   source={{ uri: blog.authorPhotoURL || 'https://via.placeholder.com/40' }} 
                   style={styles.authorAvatar}
                 />
-                <Text style={styles.authorName}>{blog.authorName || 'Anonymous'}</Text>
+                <Text style={styles.authorName}>{blog.author || 'Anonymous'}</Text>
                 <Text style={styles.dotSeparator}>•</Text>
                 <Text style={styles.dateText}>{formatDate(blog.createdAt)}</Text>
               </View>
