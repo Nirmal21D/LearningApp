@@ -67,7 +67,7 @@ export default function VideoCallScreen() {
         await NavigationBar.setVisibilityAsync("hidden");
         await NavigationBar.setBehaviorAsync("overlay");
       } catch (error) {
-        console.error("Error hiding navigation bar:", error);
+        // console.error("Error hiding navigation bar:", error);
       }
     }
   };
@@ -294,7 +294,10 @@ export default function VideoCallScreen() {
   };
 
   const handleClose = () => {
-    console.log("Closing video call");
+    // Force immediate navigation
+    InteractionManager.runAfterInteractions(() => {
+      router.back();
+    });
   };
 
   if (isLoading) {

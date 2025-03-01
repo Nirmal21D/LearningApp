@@ -18,10 +18,27 @@
         "CAMERA",
         "RECORD_AUDIO",
         "MODIFY_AUDIO_SETTINGS",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
         "WAKE_LOCK",
-        "POST_NOTIFICATIONS"
+<<<<<<< HEAD
+        "ACCESS_WIFI_STATE",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "FOREGROUND_SERVICE_MEDIA_PROJECTION"
+=======
+        "POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.CAMERA",
+        "android.permission.INTERNET",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WAKE_LOCK",
+        "android.permission.BLUETOOTH"
+>>>>>>> 7c32d31bd4bf6ec492b3079122112532e70232f6
       ],
       "useNextNotificationsApi": true,
       "config": {
@@ -50,8 +67,8 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera.",
-          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone."
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera for video calls.",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for video calls."
         }
       ],
       [
@@ -59,23 +76,46 @@
         {
           "icon": "./assets/images/notification-icon.png",
           "color": "#ffffff",
-          "sounds": ["./assets/sounds/notification.wav"]
+          "sounds": [
+            "./assets/sounds/notification.wav"
+          ]
         }
-      ]
+      ],
+      "expo-router"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "ios": {
       "infoPlist": {
-        "NSCameraUsageDescription": "This app needs access to camera.",
-        "NSMicrophoneUsageDescription": "This app needs access to microphone.",
-        "NSPhotoLibraryUsageDescription": "This app needs access to photos.",
-        "UIBackgroundModes": ["audio", "remote-notification"],
+        "NSCameraUsageDescription": "This app needs camera access for video calls",
+        "NSMicrophoneUsageDescription": "This app needs microphone access for video calls",
+        "NSLocalNetworkUsageDescription": "This app needs network access for video calls",
+        "UIBackgroundModes": [
+          "audio",
+          "voip",
+          "fetch"
+        ],
+        "UIViewControllerBasedStatusBarAppearance": false,
         "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true
+<<<<<<< HEAD
+          "NSAllowsArbitraryLoads": true,
+          "NSAllowsLocalNetworking": true
         }
+=======
+          "NSAllowsArbitraryLoads": true
+        },
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bitcode": false,
+      "bundleIdentifier": "com.yourcompany.learningapp"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "c1c4141d-6d95-4e4c-9e1e-1ec3ce2e0375"
+>>>>>>> 7c32d31bd4bf6ec492b3079122112532e70232f6
       }
-    }
+    },
+    "owner": "nirmal_21"
   }
 }
