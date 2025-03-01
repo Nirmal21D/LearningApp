@@ -79,45 +79,71 @@ export default function ManageContent() {
                         text: 'Delete',
                         style: 'destructive',
                         onPress: async () => {
-                            const subjectRef = doc(db, 'subjects', item.subjectId);
-                            const subjectSnap = await getDoc(subjectRef);
-                            
-                            if (!subjectSnap.exists()) {
-                                throw new Error('Subject not found');
-                            }
+                            try {
+                                const subjectRef = doc(db, 'subjects', item.subjectId);
+                                const subjectSnap = await getDoc(subjectRef);
+                                
+                                if (!subjectSnap.exists()) {
+                                    throw new Error('Subject not found');
+                                }
 
-                            const subjectData = subjectSnap.data();
-                            let updateData = {};
+                                const subjectData = subjectSnap.data();
+                                let updateData = {};
 
-                            if (item.type === 'material' && subjectData.materials?.[item.chapterId]) {
-                                const updatedMaterials = subjectData.materials[item.chapterId]
-                                    .filter(m => m.url !== item.url);
-                                updateData[`materials.${item.chapterId}`] = updatedMaterials;
-                            }
-                            else if (item.type === 'video' && subjectData.videos?.[item.chapterId]) {
-                                const updatedVideos = subjectData.videos[item.chapterId]
-                                    .filter(v => v.url !== item.url);
-                                updateData[`videos.${item.chapterId}`] = updatedVideos;
-                            }
-                            else if (item.type === 'lab' && subjectData.labs?.[item.chapterId]) {
-                                const updatedLabs = subjectData.labs[item.chapterId]
-                                    .filter(l => l.url !== item.url);
-                                updateData[`labs.${item.chapterId}`] = updatedLabs;
-                            }
+                                // Handle materials deletion
+                                if (item.type === 'material' && subjectData.materials?.[item.chapterId]) {
+                                    const updatedMaterials = subjectData.materials[item.chapterId]
+                                        .filter(m => m.url !== item.url);
+                                    
+                                    // If array is empty, remove the chapter key entirely
+                                    if (updatedMaterials.length === 0) {
+                                        const newMaterials = { ...subjectData.materials };
+                                        delete newMaterials[item.chapterId];
+                                        updateData.materials = newMaterials;
+                                    } else {
+                                        updateData.materials = {
+                                            ...subjectData.materials,
+                                            [item.chapterId]: updatedMaterials
+                                        };
+                                    }
+                                }
+                                // Handle videos deletion
+                                else if (item.type === 'video' && subjectData.videos?.[item.chapterId]) {
+                                    const updatedVideos = subjectData.videos[item.chapterId]
+                                        .filter(v => v.url !== item.url);
+                                    
+                                    // If array is empty, remove the chapter key entirely
+                                    if (updatedVideos.length === 0) {
+                                        const newVideos = { ...subjectData.videos };
+                                        delete newVideos[item.chapterId];
+                                        updateData.videos = newVideos;
+                                    } else {
+                                        updateData.videos = {
+                                            ...subjectData.videos,
+                                            [item.chapterId]: updatedVideos
+                                        };
+                                    }
+                                }
 
-                            if (Object.keys(updateData).length > 0) {
-                                await updateDoc(subjectRef, updateData);
-                                setContent(prevContent => prevContent.filter(c => c.url !== item.url));
-                                Alert.alert('Success', `${item.type} deleted successfully`);
-                            } else {
-                                throw new Error(`No ${item.type} found to delete`);
+                                if (Object.keys(updateData).length > 0) {
+                                    await updateDoc(subjectRef, updateData);
+                                    setContent(prevContent => prevContent.filter(c => c.url !== item.url));
+                                    Alert.alert('Success', `${item.type} deleted successfully`);
+                                    // Refresh the content list
+                                    fetchContent();
+                                } else {
+                                    throw new Error(`No ${item.type} found to delete`);
+                                }
+                            } catch (error) {
+                                console.error('Error in deletion:', error);
+                                Alert.alert('Error', `Failed to delete ${item.type}: ${error.message}`);
                             }
                         }
                     }
                 ]
             );
         } catch (error) {
-            console.error('Error deleting content:', error);
+            console.error('Error in delete handler:', error);
             Alert.alert('Error', `Failed to delete ${item.type}: ${error.message}`);
         }
     };

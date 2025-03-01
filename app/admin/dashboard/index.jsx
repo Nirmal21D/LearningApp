@@ -70,6 +70,14 @@ export default function AdminDashboard() {
             badge: stats.pendingApprovals > 0 ? stats.pendingApprovals : null
         },
         {
+            title: 'Manage Curriculum',
+            icon: 'people',
+            route: '/admin/manage_curriculum',
+            color: '#9C27B0',
+            description: 'Approve and manage teacher accounts',
+            badge: stats.pendingApprovals > 0 ? stats.pendingApprovals : null
+        },
+        {
             title: 'Content Management',
             icon: 'library',
             route: '/admin/manage_content',

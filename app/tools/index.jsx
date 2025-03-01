@@ -1,19 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dimensions, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dimensions, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Link } from 'expo-router';
-import { getFirestore, doc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, collection, getDocs, updateDoc, setDoc, writeBatch, increment } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import TextExtractor from '@/components/TextExtractor';
 import ChatBot from '@/components/Chatbot';
 import { LinearGradient } from 'expo-linear-gradient';
 import { signOut } from 'firebase/auth';
-import { Alert } from 'react-native';
 import LearningStyleAssessment from '@/components/LearningStyleAssessment';
 import { auth } from '@/lib/firebase';
 const { width } = Dimensions.get('window');
 
+// Define premium tools and their usage limits for free users
+const PREMIUM_TOOLS = {
+  labs: { limit: 3, name: 'Labs' },
+  career: { limit: 2, name: 'Career Assessment' },
+  chatbot: { limit: 5, name: 'AI Chatbot' }
+};
 
+// Free tools without restrictions
+const FREE_TOOLS = ['pomodoro'];
 
 export default function Home() {
   const router = useRouter();
@@ -21,6 +28,8 @@ export default function Home() {
   const [userInfo, setUserInfo] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [usageData, setUsageData] = useState({});
+  
   const colors = {
     primary: '#2196F3',
     background: '#f8f9fa',
@@ -50,7 +59,32 @@ export default function Home() {
         const data = userDocSnap.data();
         setUserInfo(data);
 
-
+        // Get usage data
+        if (!data.isPremium) {
+          const usageDocRef = doc(db, "usage", user.uid);
+          try {
+            const usageDocSnap = await getDoc(usageDocRef);
+            if (usageDocSnap.exists()) {
+              setUsageData(usageDocSnap.data());
+            } else {
+              // Initialize usage document if it doesn't exist
+              const initialUsage = Object.keys(PREMIUM_TOOLS).reduce((acc, tool) => {
+                acc[tool] = 0;
+                return acc;
+              }, {});
+              
+              await updateDoc(usageDocRef, initialUsage);
+              setUsageData(initialUsage);
+            }
+          } catch (error) {
+            console.error("Error getting usage data:", error);
+            // Initialize default usage if document doesn't exist
+            setUsageData(Object.keys(PREMIUM_TOOLS).reduce((acc, tool) => {
+              acc[tool] = 0;
+              return acc;
+            }, {}));
+          }
+        }
 
         if (data.userType === 'teacher') {
           router.replace('/teacher/dashboard');
@@ -58,7 +92,6 @@ export default function Home() {
         }
       } else {
         setUserInfo(null);
-        setProgressData(null);
       }
       setIsLoading(false);
     });
@@ -76,9 +109,251 @@ export default function Home() {
     }
   };
 
+  const handleToolPress = async (toolName) => {
+    // Skip restriction check for free tools
+    if (FREE_TOOLS.includes(toolName.toLowerCase())) {
+      router.push(`/${toolName.toLowerCase()}`);
+      return;
+    }
+    
+    // If premium user, allow unrestricted access
+    if (userInfo?.isPremium) {
+      router.push(`/${toolName.toLowerCase()}`);
+      return;
+    }
+    
+    // Check usage limits for free users
+    const toolData = PREMIUM_TOOLS[toolName.toLowerCase()];
+    if (!toolData) {
+      router.push(`/${toolName.toLowerCase()}`);
+      return;
+    }
+    
+    const currentUsage = usageData[toolName.toLowerCase()] || 0;
+    
+    if (currentUsage >= toolData.limit) {
+      // Show upgrade prompt
+      Alert.alert(
+        'Usage Limit Reached',
+        `You've reached the free limit for ${toolData.name}. Upgrade to Premium for unlimited access.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Upgrade', onPress: () => router.push('/upgrade') }
+        ]
+      );
+    } else {
+      // Increment usage and proceed
+      const db = getFirestore();
+      const user = auth.currentUser;
+      if (user) {
+        const usageDocRef = doc(db, "usage", user.uid);
+        const newUsage = { ...usageData, [toolName.toLowerCase()]: currentUsage + 1 };
+        
+        try {
+          await updateDoc(usageDocRef, newUsage);
+          setUsageData(newUsage);
+          router.push(`/${toolName.toLowerCase()}`);
+        } catch (error) {
+          console.error("Error updating usage:", error);
+          router.push(`/${toolName.toLowerCase()}`);
+        }
+      }
+    }
+  };
+
+  const getRemainingUses = (toolName) => {
+    if (!userInfo || userInfo.isPremium) return 'Unlimited';
+    
+    const toolData = PREMIUM_TOOLS[toolName.toLowerCase()];
+    if (!toolData) return 'Unlimited';
+    
+    const currentUsage = usageData[toolName.toLowerCase()] || 0;
+    return `${toolData.limit - currentUsage}/${toolData.limit}`;
+  };
+
+  const checkAccess = async (toolId) => {
+    if (!auth.currentUser) {
+        Alert.alert('Login Required', 'Please login to continue');
+        router.push('/login');
+        return false;
+    }
+
+    try {
+        const userRef = doc(db, 'users', auth.currentUser.uid);
+        const userDoc = await getDoc(userRef);
+        const userData = userDoc.data();
+
+        // Check text extractor usage limit (3 free uses)
+        if (toolId === 'text-extractor') {
+            const usageRef = doc(db, 'toolUsage', auth.currentUser.uid);
+            const usageDoc = await getDoc(usageRef);
+            
+            let usageData = usageDoc.exists() ? usageDoc.data() : { textExtractor: 0 };
+            const currentUsage = usageData.textExtractor || 0;
+
+            if (currentUsage < 3) {
+                // Still has free uses
+                await setDoc(usageRef, {
+                    ...usageData,
+                    textExtractor: currentUsage + 1,
+                    lastUsed: new Date().toISOString()
+                }, { merge: true });
+                
+                if (currentUsage === 2) { // Last free use
+                    Alert.alert(
+                        'Last Free Use',
+                        'This is your last free use of the Text Extractor. Future uses will require Premium access or EduTokens.'
+                    );
+                }
+                return true;
+            }
+        }
+
+        // Free tools - always accessible
+        if (toolId === 'calculator' || toolId === 'notes') {
+            return true;
+        }
+
+        // Premium user - has access to all tools
+        if (userData.isPremium) {
+            return true;
+        }
+
+        // Token costs for premium tools
+        const tokenCosts = {
+            'text-extractor': 5,
+            'olabs': 10,
+            'one-to-one': 20
+        };
+
+        const tokenCost = tokenCosts[toolId];
+
+        // Check if user has enough tokens
+        if (userData.eduTokens >= tokenCost) {
+            const useTokens = await new Promise((resolve) => {
+                Alert.alert(
+                    'Use EduTokens',
+                    `This tool requires ${tokenCost} EduTokens. You have ${userData.eduTokens} tokens.\n\nWould you like to continue?`,
+                    [
+                        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+                        { text: 'Use Tokens', onPress: () => resolve(true) }
+                    ]
+                );
+            });
+
+            if (useTokens) {
+                // Create batch write
+                const batch = writeBatch(db);
+                
+                // Update user tokens
+                batch.update(userRef, {
+                    eduTokens: userData.eduTokens - tokenCost
+                });
+
+                // Update usage tracking
+                const usageRef = doc(db, 'toolUsage', auth.currentUser.uid);
+                batch.set(usageRef, {
+                    [`${toolId}Usage`]: increment(1),
+                    lastUsed: new Date().toISOString(),
+                    userId: auth.currentUser.uid
+                }, { merge: true });
+
+                // Commit the batch
+                await batch.commit();
+                return true;
+            }
+            return false;
+        } else {
+            Alert.alert(
+                'Insufficient EduTokens',
+                `This tool requires ${tokenCost} EduTokens. You have ${userData.eduTokens} tokens.\n\nUpgrade to Premium for unlimited access!`,
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Get Premium', onPress: () => router.push('/profile') }
+                ]
+            );
+            return false;
+        }
+    } catch (error) {
+        console.error('Error checking access:', error);
+        Alert.alert('Error', 'Failed to verify access');
+        return false;
+    }
+};
+
+// Add this function to check remaining free uses
+const getRemainingFreeUses = async () => {
+    try {
+        const usageRef = doc(db, 'toolUsage', auth.currentUser.uid);
+        const usageDoc = await getDoc(usageRef);
+        
+        if (!usageDoc.exists()) {
+            return 3; // All free uses available
+        }
+        
+        const usageData = usageDoc.data();
+        const currentUsage = usageData.textExtractor || 0;
+        return Math.max(0, 3 - currentUsage);
+    } catch (error) {
+        console.error('Error getting remaining uses:', error);
+        return 0;
+    }
+};
+
+// Update your text extractor button to show remaining uses
+const TextExtractorButton = () => {
+    const [remainingUses, setRemainingUses] = useState(null);
+
+    useEffect(() => {
+        const loadRemainingUses = async () => {
+            const uses = await getRemainingFreeUses();
+            setRemainingUses(uses);
+        };
+        loadRemainingUses();
+    }, []);
+
+    return (
+        <TouchableOpacity 
+            style={styles.toolButton} 
+            onPress={() => handleToolPress('text-extractor')}
+        >
+            <View style={styles.toolContent}>
+                <Ionicons name="document-text" size={24} color="#4CAF50" />
+                <Text style={styles.toolName}>Text Extractor</Text>
+                {!userInfo?.isPremium && remainingUses !== null && (
+                    <View style={styles.usageInfo}>
+                        {remainingUses > 0 ? (
+                            <Text style={styles.freeUsesText}>
+                                {remainingUses} free uses left
+                            </Text>
+                        ) : (
+                            <View style={styles.tokenCost}>
+                                <Ionicons name="diamond" size={16} color="#9C27B0" />
+                                <Text style={styles.tokenText}>5</Text>
+                            </View>
+                        )}
+                    </View>
+                )}
+            </View>
+        </TouchableOpacity>
+    );
+};
+
+// Add these styles
+const additionalStyles = StyleSheet.create({
+    usageInfo: {
+        marginLeft: 'auto',
+    },
+    freeUsesText: {
+        color: '#4CAF50',
+        fontWeight: 'bold',
+        fontSize: 12,
+    }
+});
+
   if (isLoading) {
-  return (
-    <SafeAreaView style={styles.container}>
+    return (
+      <SafeAreaView style={styles.container}>
         <Text style={styles.loadingText}>Loading...</Text>
       </SafeAreaView>
     );
@@ -101,26 +376,22 @@ export default function Home() {
       <View style={[styles.blurCircle, styles.blurCircle2]} />
       <View style={[styles.blurCircle, styles.blurCircle3]} />
 
-
-
       <View style={styles.navbar}>
-        {/* <TouchableOpacity style={styles.menuButton}>
-          <Ionicons name="menu-outline" size={28} color="#333" />
-        </TouchableOpacity> */}
         <Text style={styles.className}>Std 10</Text>
         <View style={styles.navRight}>
-        <TouchableOpacity style={styles.notificationButton}>
-          <View style={styles.notificationBadge} />
-          <Ionicons name="notifications-outline" size={24} color="#333" />
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.notificationButton}>
+            <View style={styles.notificationBadge} />
+            <Ionicons name="notifications-outline" size={24} color="#333" />
+          </TouchableOpacity>
           <TouchableOpacity 
             style={styles.logoutButton}
             onPress={handleLogout}
           >
             <Ionicons name="log-out-outline" size={24} color="#FF4444" />
           </TouchableOpacity>
+        </View>
       </View>
-      </View>
+      
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
@@ -129,8 +400,24 @@ export default function Home() {
         <View style={[styles.welcomeSection, { borderRadius: 0 }]}>
           <Text style={styles.welcomeText}>Welcome,</Text>
           <Text style={styles.username}>{userInfo ? userInfo.username : 'Loading...'}</Text>
+          {!userInfo?.isPremium && (
+            <View style={styles.accountBadge}>
+              <Text style={styles.accountBadgeText}>Free Account</Text>
+              <TouchableOpacity 
+                style={styles.upgradeButton}
+                onPress={() => router.push('/upgrade')}
+              >
+                <Text style={styles.upgradeButtonText}>Upgrade</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {userInfo?.isPremium && (
+            <View style={styles.premiumBadge}>
+              <Ionicons name="star" size={14} color="#FFD700" />
+              <Text style={styles.premiumBadgeText}>Premium Account</Text>
+            </View>
+          )}
         </View>
-
 
         {/* Course Categories */}
         <View style={styles.sectionContainer}>
@@ -142,57 +429,63 @@ export default function Home() {
           </View>
           <View style={styles.filterGrid}>
               <TouchableOpacity 
-               
-                style={styles.filterCard}
-                onPress={() => {
-                  router.push({
-                    pathname: '/labs'
-                  });
-                }}
+                style={[styles.filterCard, !userInfo?.isPremium && styles.premiumTool]}
+                onPress={() => handleToolPress('labs')}
               >
                 <View style={styles.filterIconContainer}>
                  
                 </View>
-                <Text style={styles.filterName}>Labs</Text>
+                <View style={styles.toolInfo}>
+                  <Text style={styles.filterName}>Labs</Text>
+                  {!userInfo?.isPremium && (
+                    <View style={styles.usageIndicator}>
+                      <Text style={styles.usageText}>Uses left: {getRemainingUses('labs')}</Text>
+                    </View>
+                  )}
+                </View>
+                {!userInfo?.isPremium && (
+                  <Ionicons name="star" size={16} color="#FFD700" style={styles.premiumIcon} />
+                )}
               </TouchableOpacity>
              
               <TouchableOpacity 
-               
                 style={styles.filterCard}
-                onPress={() => {
-                  router.push({
-                    pathname: '/pomodoro'
-                  });
-                }}
+                onPress={() => handleToolPress('pomodoro')}
               >
                 <View style={styles.filterIconContainer}>
                  
-        </View>
-                <Text style={styles.filterName}>Pomodoro</Text>
+                </View>
+                <View style={styles.toolInfo}>
+                  <Text style={styles.filterName}>Pomodoro</Text>
+                  <Text style={styles.freeToolText}>Free Tool</Text>
+                </View>
               </TouchableOpacity>
-
 
               <TouchableOpacity 
-               
-                style={styles.filterCard}
-                onPress={() => {
-                  router.push({
-                    pathname: '/career'
-                  });
-                }}
+                style={[styles.filterCard, !userInfo?.isPremium && styles.premiumTool]}
+                onPress={() => handleToolPress('career')}
               >
                 <View style={styles.filterIconContainer}>
                  
-        </View>
-                <Text style={styles.filterName}>Career</Text>
+                </View>
+                <View style={styles.toolInfo}>
+                  <Text style={styles.filterName}>Career</Text>
+                  {!userInfo?.isPremium && (
+                    <View style={styles.usageIndicator}>
+                      <Text style={styles.usageText}>Uses left: {getRemainingUses('career')}</Text>
+                    </View>
+                  )}
+                </View>
+                {!userInfo?.isPremium && (
+                  <Ionicons name="star" size={16} color="#FFD700" style={styles.premiumIcon} />
+                )}
               </TouchableOpacity>
-           
           </View>
         </View>
+        
         <View style={styles.textExtractorContainer}>
           <TextExtractor />
         </View>
-
 
         <View style={styles.footer}>
           <Text style={styles.footerTitle}>Connect With Us</Text>
@@ -213,9 +506,37 @@ export default function Home() {
         </View>
       </ScrollView>
 
-      {/* Place ChatBot before bottom nav but with adjusted style */}
+      {/* ChatBot with usage restriction */}
       <View style={styles.chatBotWrapper}>
-        <ChatBot />
+        <TouchableOpacity
+          onPress={() => {
+            if (userInfo?.isPremium) {
+              // Premium users get unlimited access
+              return;
+            }
+            
+            const currentUsage = usageData.chatbot || 0;
+            if (currentUsage >= PREMIUM_TOOLS.chatbot.limit) {
+              Alert.alert(
+                'Chat Limit Reached',
+                `You've reached the free limit for AI Chatbot. Upgrade to Premium for unlimited access.`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Upgrade', onPress: () => router.push('/upgrade') }
+                ]
+              );
+            } else {
+              // Increment usage on first interaction (handle in ChatBot component)
+              // The tracking should be inside the ChatBot component
+            }
+          }}
+        >
+          <ChatBot 
+            isPremium={userInfo?.isPremium} 
+            usageLimit={PREMIUM_TOOLS.chatbot.limit}
+            currentUsage={usageData.chatbot || 0}
+          />
+        </TouchableOpacity>
       </View>
 
       {/* Bottom Navigation */}
@@ -312,7 +633,6 @@ const styles = StyleSheet.create({
       borderBottomLeftRadius: 20,
       borderBottomRightRadius: 20,
       backgroundColor: 'rgba(33, 150, 243, 0.65)',
-      
     },
     welcomeText: {
       fontSize: 24,
@@ -322,7 +642,50 @@ const styles = StyleSheet.create({
       fontSize: Platform.OS === 'web' ? 32 : 28,
       fontWeight: 'bold',
       color: 'white',
-      marginBottom: 20,
+      marginBottom: 10,
+    },
+    accountBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      borderRadius: 16,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      alignSelf: 'flex-start',
+      marginBottom: 10,
+    },
+    accountBadgeText: {
+      color: 'white',
+      fontSize: 14,
+      fontWeight: '500',
+    },
+    upgradeButton: {
+      backgroundColor: '#FFD700',
+      borderRadius: 12,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      marginLeft: 8,
+    },
+    upgradeButtonText: {
+      color: '#1A237E',
+      fontWeight: 'bold',
+      fontSize: 12,
+    },
+    premiumBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255, 215, 0, 0.3)',
+      borderRadius: 16,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      alignSelf: 'flex-start',
+      marginBottom: 10,
+    },
+    premiumBadgeText: {
+      color: 'white',
+      fontSize: 14,
+      fontWeight: '500',
+      marginLeft: 4,
     },
     sectionContainer: {
       marginVertical: 20,
@@ -363,7 +726,15 @@ const styles = StyleSheet.create({
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.08,
       shadowRadius: 8,
-      // elevation: 3,
+      position: 'relative',
+    },
+    premiumTool: {
+      borderColor: 'rgba(255, 215, 0, 0.4)',
+    },
+    premiumIcon: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
     },
     filterIconContainer: {
       width: 50,
@@ -374,29 +745,44 @@ const styles = StyleSheet.create({
       justifyContent: 'center',
       marginRight: 15,
     },
+    toolInfo: {
+      flex: 1,
+    },
     filterName: {
       fontSize: 16,
       color: '#333',
       fontWeight: '500',
     },
-   footer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-    backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
-    borderRadius: 16,
-    padding: Platform.OS === 'web' ? 20 : 15,
-    marginHorizontal: 20,
-    marginBottom: Platform.OS === 'web' ? 20 : 80,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    marginBottom: 5,
-    padding: 10,
-    borderRadius: 16,
-    // elevation: 3,
-  },
+    usageIndicator: {
+      marginTop: 2,
+    },
+    usageText: {
+      fontSize: 12,
+      color: '#666',
+    },
+    freeToolText: {
+      fontSize: 12,
+      color: '#2196F3',
+      fontWeight: '500',
+      marginTop: 2,
+    },
+    footer: {
+      backgroundColor: 'rgba(255, 255, 255, 0.4)',
+      backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
+      borderRadius: 16,
+      padding: Platform.OS === 'web' ? 20 : 15,
+      marginHorizontal: 20,
+      marginBottom: Platform.OS === 'web' ? 20 : 80,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.8)',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      marginBottom: 5,
+      padding: 10,
+      borderRadius: 16,
+    },
     footerTitle: {
       fontSize: 18,
       fontWeight: '600',
@@ -448,7 +834,6 @@ const styles = StyleSheet.create({
       shadowOffset: { width: 0, height: -3 },
       shadowOpacity: 0.1,
       shadowRadius: 10,
-      // elevation: 10,
       position: 'absolute',
       bottom: 0,
       left: 0,
@@ -542,7 +927,6 @@ const styles = StyleSheet.create({
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.08,
       shadowRadius: 8,
-      // elevation: 3,
     },
     navRight: {
       flexDirection: 'row',
@@ -563,6 +947,4 @@ const styles = StyleSheet.create({
       textAlign: 'center',
       marginTop: 50,
     },
-  });
-
-
+});

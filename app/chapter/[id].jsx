@@ -1093,25 +1093,33 @@ export default function ChapterDetail() {
         {activeTab === "tests" && (
           <View>
             <Text style={styles.sectionTitle}>Chapter Tests</Text>
-            {chapterData.tests.map((test) => (
-              <TouchableOpacity
-                key={test.id}
-                style={styles.testCard}
-                onPress={() => handleStartTest(test.id)}
-              >
-                <View style={styles.testInfo}>
-                  <Text style={styles.testTitle}>{test.title}</Text>
-                  <Text style={styles.testDescription}>{test.description}</Text>
-                  <View style={styles.testStats}>
-                    <Text style={styles.testStat}>
-                      {test.questions?.length} Questions
-                    </Text>
-                    <Text style={styles.testStat}>{test.duration} mins</Text>
+            {chapterData && chapterData.tests ? (
+              chapterData.tests.map((test) => (
+                <TouchableOpacity
+                  key={test.id}
+                  style={styles.testCard}
+                  onPress={() => handleStartTest(test.id)}
+                >
+                  <View style={styles.testInfo}>
+                    <Text style={styles.testTitle}>{test.title}</Text>
+                    <Text style={styles.testDescription}>{test.description}</Text>
+                    <View style={styles.testStats}>
+                      <Text style={styles.testStat}>
+                        {test.questions?.length || 0} Questions
+                      </Text>
+                      <Text style={styles.testStat}>{test.duration || 0} mins</Text>
+                    </View>
                   </View>
-                </View>
-                <Ionicons name="arrow-forward" size={24} color="#2196F3" />
-              </TouchableOpacity>
-            ))}
+                  <Ionicons name="arrow-forward" size={24} color="#2196F3" />
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={styles.noMaterialContainer}>
+                <Text style={styles.noMaterialText}>
+                  {!chapterData ? 'Loading tests...' : 'No tests available for this chapter'}
+                </Text>
+              </View>
+            )}
           </View>
         )}
       </ScrollView>

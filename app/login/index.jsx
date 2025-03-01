@@ -48,11 +48,11 @@ export default function Login() {
       if (userData.userType === 'teacher') {
         // Check if teacher is approved
         if (!userData.isApproved) {
-          Alert.alert(
-            'Account Pending Approval',
-            'Your account is pending approval from an administrator. Please try again later.',
-            [{ text: 'OK' }]
-          );
+          // Alert.alert(
+          //   'Account Pending Approval',
+          //   'Your account is pending approval from an administrator. Please try again later.',
+          //   [{ text: 'OK' }]
+          // );
           return;
         }
         router.push('/teacher/dashboard');
@@ -75,10 +75,10 @@ export default function Login() {
     }
   };
 
-  const handleGoogleLogin = () => {
-    // Implement Google login logic here
-    console.log('Google login attempted');
-  };
+  // const handleGoogleLogin = () => {
+  //   // Implement Google login logic here
+  //   console.log('Google login attempted');
+  // };
 
   const handleForgotPassword = () => {
     sendPasswordResetEmail(auth, email)

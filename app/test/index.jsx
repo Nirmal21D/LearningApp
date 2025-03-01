@@ -16,7 +16,6 @@ export default function TestPage() {
     const router = useRouter();
     const params = useLocalSearchParams();
     const { testId } = params;
-
     const [user, setUser] = useState(null);
     const [testData, setTestData] = useState(null);
     const [userAnswers, setUserAnswers] = useState({});
@@ -143,18 +142,53 @@ export default function TestPage() {
     };
 
     const calculateGameScore = (correctAnswers, timeUsed, testData) => {
+        // Basic calculations
         const timeBonus = Math.max(0, testData.duration * 60 - timeUsed);
-        const baseXP = testData.xpReward;
-        const streakBonus = maxStreak * testData.streakBonus;
-        const pointsPerQuestion = testData.pointsPerQuestion * correctAnswers;
-        const timeMultiplier = 1 + (timeBonus / (testData.duration * 60)) * 0.5; // Up to 50% bonus for speed
+        const baseXP = testData.xpReward || DEFAULT_XP_REWARD;
+        const streakBonus = maxStreak * (testData.streakBonus || DEFAULT_STREAK_BONUS);
+        const pointsPerQuestion = (testData.pointsPerQuestion || DEFAULT_POINTS_PER_QUESTION) * correctAnswers;
+        const timeMultiplier = 1 + (timeBonus / (testData.duration * 60)) * MAX_TIME_BONUS_PERCENTAGE;
+        
+        // Calculate percentage
+        const percentage = Math.round((correctAnswers / testData.questions.length) * 100);
+        
+        // Initialize eduTokens
+        let eduTokens = 0;
+        
+        // Performance-based tokens (0-5)
+        if (percentage >= 90) eduTokens = 5;
+        else if (percentage >= 80) eduTokens = 4;
+        else if (percentage >= 70) eduTokens = 3;
+        else if (percentage >= 60) eduTokens = 2;
+        else if (percentage >= 50) eduTokens = 1;
+        
+        // Add streak bonus (0-3)
+        if (maxStreak >= 8) eduTokens += 3;
+        else if (maxStreak >= 5) eduTokens += 2;
+        else if (maxStreak >= 3) eduTokens += 1;
+        
+        // Add time bonus (0-2)
+        const timeUsedPercentage = timeBonus / (testData.duration * 60);
+        if (timeUsedPercentage >= 0.5) eduTokens += 2;  // Completed in half the time or less
+        else if (timeUsedPercentage > 0) eduTokens += 1;  // Completed with some time remaining
+
+        console.log('Score Calculation:', {
+            correctAnswers,
+            percentage,
+            maxStreak,
+            timeBonus,
+            eduTokens,
+            timeUsedPercentage
+        });
 
         return {
             xpEarned: Math.round(baseXP * timeMultiplier) + streakBonus,
             points: pointsPerQuestion,
             streakBonus,
             timeBonus: Math.round(baseXP * (timeMultiplier - 1)),
-            maxStreak
+            maxStreak,
+            eduTokens,
+            percentage
         };
     };
 
@@ -173,170 +207,274 @@ export default function TestPage() {
     const saveTestResult = async (userId, testId, answers, scoreData, testData) => {
         try {
             const userProgressRef = doc(db, 'userProgress', `${userId}_${testId}`);
+            const userStatsRef = doc(db, 'userStats', userId);
             
-            const resultData = {
+            // Get current user stats
+            const userStatsDoc = await getDoc(userStatsRef);
+            const currentStats = userStatsDoc.exists() ? userStatsDoc.data() : {
+                totalXP: 0,
+                eduTokens: 0,
+                premiumFeatures: {
+                    olabsUsed: 0,
+                    textExtractorUsed: 0,
+                    oneToOneSessionsUsed: 0,
+                    lastResetDate: new Date().toISOString()
+                },
+                isPremium: false,
+                premiumExpiryDate: null
+            };
+            
+            // Calculate new totals
+            const newTotalXP = (currentStats.totalXP || 0) + scoreData.xpEarned;
+            const newEduTokens = (currentStats.eduTokens || 0) + scoreData.eduTokens;
+            
+            console.log('Saving test results:', {
+                currentEduTokens: currentStats.eduTokens || 0,
+                earnedEduTokens: scoreData.eduTokens,
+                newTotalEduTokens: newEduTokens
+            });
+
+            // Update user stats with new XP and EduTokens
+            await setDoc(userStatsRef, {
+                ...currentStats,
+                totalXP: newTotalXP,
+                eduTokens: newEduTokens,
+                lastTestDate: new Date().toISOString(),
+                testsCompleted: (currentStats.testsCompleted || 0) + 1
+            });
+
+            // Save test progress
+            await setDoc(userProgressRef, {
                 userId,
                 testId,
                 answers,
-                score: {
-                    ...scoreData,
-                    points: Math.floor(scoreData.points),
-                    streakBonus: Math.floor(scoreData.streakBonus),
-                    timeBonus: Math.floor(scoreData.timeBonus),
-                    timeUsed: Math.floor(scoreData.timeUsed),
-                    xpEarned: Math.floor(scoreData.xpEarned),
-                    correct: Math.floor(scoreData.correct),
-                    total: Math.floor(scoreData.total),
-                    percentage: Math.round(scoreData.percentage),
-                    maxStreak: Math.floor(scoreData.maxStreak),
-                    isFirstAttempt: scoreData.isFirstAttempt
-                },
-                title: testData.title,
-                chapter: testData.chapter,
-                subjectId: testData.subjectId,
-                subjectName: testData.subjectName,
+                score: scoreData,
                 timestamp: new Date().toISOString(),
-                startTime: scoreData.startTime,
-                endTime: scoreData.endTime,
-                isFirstAttempt: scoreData.isFirstAttempt
-            };
+                timeSpent: testData.duration * 60 - timeRemaining
+            });
 
-            console.log('Saving test result with streak:', resultData);
-            await setDoc(userProgressRef, resultData);
-            console.log('Test result saved successfully!');
+            return true;
         } catch (error) {
             console.error('Error saving test result:', error);
-            Alert.alert('Error', 'Failed to save your test results. Please try again.');
+            return false;
         }
     };
 
     const handleSubmitTest = async () => {
+        if (!testData || !user) {
+            Alert.alert('Error', 'Test data or user not found');
+            return;
+        }
+    
         try {
             setIsTimerRunning(false);
-            const endTimestamp = new Date().toISOString();
-            
-            // Check if this is user's first attempt
-            const hasAttempted = await checkPreviousAttempt(user.uid, testId);
-            if (hasAttempted) {
-                console.log('User has already attempted this test');
-                Alert.alert('Notice', 'This is not your first attempt at this test.');
-            }
-
-            // Calculate time used in seconds
-            const startTime = new Date(startTimestamp).getTime();
-            const endTime = new Date(endTimestamp).getTime();
-            const timeUsedSeconds = Math.floor((endTime - startTime) / 1000);
-            
-            // Get total allowed time in seconds
-            const totalTimeAllowed = testData.duration * 60;
-            
-            // Initialize counters and streak
+            const timeSpent = testData.duration * 60 - timeRemaining;
             let correctAnswers = 0;
-            let currentStreak = 0;
-            let maxStreakCount = 0;
-            const totalQuestions = testData.questions.length;
-
-            // Count correct answers and calculate streak
+            
+            // Calculate correct answers
             testData.questions.forEach((question, index) => {
-                const userAnswer = userAnswers[question.id];
-                const isCorrect = question.type === 'multiple_choice' 
-                    ? (parseInt(userAnswer) === question.correctOption || userAnswer === question.answer)
-                    : (userAnswer?.toLowerCase().trim() === question.answer.toLowerCase().trim());
-                
-                if (isCorrect) {
+                const userAnswer = userAnswers[`q_${index}`];
+                if (userAnswer && userAnswer.toLowerCase() === question.answer.toLowerCase()) {
                     correctAnswers++;
-                    currentStreak++;
-                    maxStreakCount = Math.max(maxStreakCount, currentStreak);
-                    console.log(`Question ${index + 1}: Correct! Current streak: ${currentStreak}`);
-                } else {
-                    currentStreak = 0;
-                    console.log(`Question ${index + 1}: Incorrect. Streak reset.`);
                 }
             });
-
-            console.log('Final streak calculations:', {
-                maxStreakAchieved: maxStreakCount,
-                totalCorrect: correctAnswers
-            });
-
-            // Get base values from testData or use defaults
-            const pointsPerQuestion = testData.pointsPerQuestion || 10;
-            const baseXP = testData.xpReward || 40;
-            const streakBonusPoints = testData.streakBonus || 5;
-
-            // Calculate scores
-            const points = correctAnswers * pointsPerQuestion;
-            const percentage = (correctAnswers / totalQuestions) * 100;
-            const streakBonus = Math.floor(maxStreakCount * streakBonusPoints);
-
-            // Calculate time bonus
-            let timeBonus = 0;
-            if (timeUsedSeconds < totalTimeAllowed) {
-                const timeRatio = (totalTimeAllowed - timeUsedSeconds) / totalTimeAllowed;
-                timeBonus = Math.floor(baseXP * timeRatio * 0.5);
-            }
-
-            // Calculate total XP
-            const xpEarned = Math.floor(baseXP + streakBonus + timeBonus);
-
-            console.log('Detailed Score Calculations:', {
-                startTimestamp,
-                endTimestamp,
-                timeUsedSeconds,
-                totalTimeAllowed,
+    
+            // Calculate percentage
+            const percentage = Math.round((correctAnswers / testData.questions.length) * 100);
+            
+            // Calculate EduTokens based on performance
+            let eduTokens = 0;
+            if (percentage >= 90) eduTokens = 5;
+            else if (percentage >= 80) eduTokens = 4;
+            else if (percentage >= 70) eduTokens = 3;
+            else if (percentage >= 60) eduTokens = 2;
+            else if (percentage >= 50) eduTokens = 1;
+    
+            // Calculate XP with time bonus
+            const timeBonus = Math.max(0, testData.duration * 60 - timeSpent);
+            const timeMultiplier = 1 + (timeBonus / (testData.duration * 60)) * 0.5;
+            const xpEarned = Math.round((testData.xpReward || 100) * timeMultiplier);
+    
+            // Calculate points
+            const points = correctAnswers * (testData.pointsPerQuestion || 10);
+    
+            // Prepare score data
+            const scoreData = {
                 correctAnswers,
+                totalQuestions: testData.questions.length,
+                percentage,
                 points,
-                streakBonus,
-                timeBonus,
                 xpEarned,
-                maxStreak: maxStreakCount,
-                isFirstAttempt: !hasAttempted
-            });
-
-            const finalScoreData = {
-                correct: correctAnswers,
-                total: totalQuestions,
-                percentage: Math.round(percentage),
-                points: points,
-                streakBonus: streakBonus,
-                timeBonus: timeBonus,
-                timeUsed: timeUsedSeconds,
-                xpEarned: xpEarned,
-                maxStreak: maxStreakCount,
-                startTime: startTimestamp,
-                endTime: endTimestamp,
-                completedAt: endTimestamp,
-                isFirstAttempt: !hasAttempted
+                eduTokens,
+                maxStreak,
+                timeBonus,
+                completedAt: new Date().toISOString()
             };
-
-            // Save to Firestore
-            await saveTestResult(
-                user.uid,
+    
+            // Save to userProgress collection
+            const userProgressRef = doc(db, 'userProgress', `${user.uid}_${testId}`);
+            await setDoc(userProgressRef, {
+                userId: user.uid,
                 testId,
-                userAnswers,
-                finalScoreData,
-                testData
-            );
-
-            setScore(finalScoreData);
-            setPreviousAttempt({ 
                 answers: userAnswers,
-                isFirstAttempt: !hasAttempted
+                score: scoreData,
+                subjectId: testData.subjectId,
+                subjectName: testData.subjectName,
+                chapter: testData.chapter,
+                timeSpent,
+                completedAt: new Date().toISOString()
             });
-
-            // Show completion message with streak information
+    
+            // Update user stats
+            const userRef = doc(db, 'users', user.uid);
+            const userDoc = await getDoc(userRef);
+            const userData = userDoc.data() || {};
+    
+            await setDoc(userRef, {
+                ...userData,
+                totalXP: (userData.totalXP || 0) + xpEarned,
+                eduTokens: (userData.eduTokens || 0) + eduTokens,  // This properly updates eduTokens in users collection
+                testsCompleted: (userData.testsCompleted || 0) + 1,
+                lastTestDate: new Date().toISOString()
+            }, { merge: true });
+    
+            // Also update userStats document for consistency
+            const userStatsRef = doc(db, 'userStats', user.uid);
+            const userStatsDoc = await getDoc(userStatsRef);
+            const currentStats = userStatsDoc.exists() ? userStatsDoc.data() : {
+                totalXP: 0,
+                eduTokens: 0,
+                premiumFeatures: {
+                    olabsUsed: 0,
+                    textExtractorUsed: 0,
+                    oneToOneSessionsUsed: 0,
+                    lastResetDate: new Date().toISOString()
+                },
+                isPremium: false,
+                premiumExpiryDate: null
+            };
+            
+            // Update userStats with new eduTokens
+            await setDoc(userStatsRef, {
+                ...currentStats,
+                totalXP: (currentStats.totalXP || 0) + xpEarned,
+                eduTokens: (currentStats.eduTokens || 0) + eduTokens,
+                lastTestDate: new Date().toISOString(),
+                testsCompleted: (currentStats.testsCompleted || 0) + 1
+            });
+    
+            // Log the updates for verification
+            console.log('Test Submission Results:', {
+                testId,
+                scoreData,
+                eduTokens,
+                xpEarned,
+                timeMultiplier,
+                percentage
+            });
+    
+            // Update UI state
+            setScore(scoreData);
+    
+            // Show completion alert
             Alert.alert(
-                'Test Completed!',
-                `You got ${correctAnswers} correct answers with a maximum streak of ${maxStreakCount}!\n` +
-                `Total XP earned: ${xpEarned}`,
-                [{ text: 'OK' }]
+                'Test Completed! 🎉',
+                `Results:\n\n` +
+                `Score: ${percentage}%\n` +
+                `Correct Answers: ${correctAnswers}/${testData.questions.length}\n` +
+                `XP Earned: +${xpEarned}\n` +
+                `EduTokens: +${eduTokens}\n` +
+                `Points: ${points}`,
+                [
+                    {
+                        text: 'back to tests',
+                        onPress: () => router.back()
+                    }
+                ]
             );
-
+    
         } catch (error) {
             console.error('Error submitting test:', error);
-            Alert.alert('Error', 'An error occurred while submitting the test.');
+            Alert.alert('Error', 'Failed to submit test. Please try again.');
         }
     };
+    // Add this helper function to validate test data
+    const validateTestData = (testData) => {
+        return {
+            ...testData,
+            pointsPerQuestion: testData.pointsPerQuestion || 10,
+            xpReward: testData.xpReward || 100,
+            streakBonus: testData.streakBonus || 5,
+            duration: testData.duration || 30
+        };
+    };
+
+    // Update the useEffect hook to validate test data
+    useEffect(() => {
+        const fetchTestData = async () => {
+            try {
+                const testRef = doc(db, 'tests', testId);
+                const testDoc = await getDoc(testRef);
+                
+                if (testDoc.exists()) {
+                    const rawTestData = testDoc.data();
+                    const validatedTestData = validateTestData(rawTestData);
+                    setTestData(validatedTestData);
+                    setTimeRemaining(validatedTestData.duration * 60);
+                } else {
+                    Alert.alert('Error', 'Test not found');
+                    router.back();
+                }
+            } catch (error) {
+                console.error('Error fetching test:', error);
+                Alert.alert('Error', 'Failed to load test');
+            }
+        };
+
+        fetchTestData();
+    }, [testId]);
+
+    // Add this function to handle answer selection
+    const handleAnswerSelect = (questionId, answer) => {
+        setUserAnswers(prev => ({
+            ...prev,
+            [questionId]: answer
+        }));
+
+        // Update streak
+        const question = testData.questions.find(q => `q_${testData.questions.indexOf(q)}` === questionId);
+        if (question && answer.toLowerCase() === question.answer.toLowerCase()) {
+            const newStreak = currentStreak + 1;
+            setCurrentStreak(newStreak);
+            setMaxStreak(Math.max(maxStreak, newStreak));
+            
+            // Update XP with streak multiplier
+            const newMultiplier = Math.min(2, 1 + (newStreak * 0.1)); // Cap at 2x
+            setStreakMultiplier(newMultiplier);
+            
+            const baseXP = 10;
+            setCurrentXP(prev => prev + Math.round(baseXP * newMultiplier));
+        } else {
+            setCurrentStreak(0);
+            setStreakMultiplier(1);
+        }
+    };
+
+    // Add a submit button component
+    const SubmitButton = () => (
+        <TouchableOpacity
+            style={[
+                styles.submitButton,
+                Object.keys(userAnswers).length !== testData?.questions?.length && styles.submitButtonDisabled
+            ]}
+            onPress={handleSubmitTest}
+            disabled={Object.keys(userAnswers).length !== testData?.questions?.length}
+        >
+            <Text style={styles.submitButtonText}>
+                Submit Test
+            </Text>
+        </TouchableOpacity>
+    );
 
     // Add this function to check if user has attempted the test before
     const checkPreviousAttempt = async (userId, testId) => {
@@ -380,6 +518,12 @@ export default function TestPage() {
                 </View>
     
                 <View style={styles.rewardItem}>
+                    <Ionicons name="diamond" size={24} color="#9C27B0" />
+                    <Text style={styles.rewardValue}>+{score.eduTokens || 0}</Text>
+                    <Text style={styles.rewardLabel}>EduTokens</Text>
+                </View>
+    
+                <View style={styles.rewardItem}>
                     <Ionicons name="flame" size={24} color="#FF5722" />
                     <Text style={styles.rewardValue}>{score.maxStreak || 0}x</Text>
                     <Text style={styles.rewardLabel}>Max Streak</Text>
@@ -389,6 +533,26 @@ export default function TestPage() {
                     <Ionicons name="timer-outline" size={24} color="#4CAF50" />
                     <Text style={styles.rewardValue}>+{score.timeBonus || 0}</Text>
                     <Text style={styles.rewardLabel}>Time Bonus</Text>
+                </View>
+            </View>
+    
+            <View style={styles.tokenBreakdownCard}>
+                <Text style={styles.breakdownTitle}>EduTokens Earned</Text>
+                <View style={styles.breakdownItem}>
+                    <Text>Performance Bonus: {score.percentage >= 90 ? 5 : 
+                        score.percentage >= 80 ? 4 :
+                        score.percentage >= 70 ? 3 :
+                        score.percentage >= 60 ? 2 :
+                        score.percentage >= 50 ? 1 : 0} tokens</Text>
+                </View>
+                <View style={styles.breakdownItem}>
+                    <Text>Streak Bonus: {score.maxStreak >= 8 ? 3 :
+                        score.maxStreak >= 5 ? 2 :
+                        score.maxStreak >= 3 ? 1 : 0} tokens</Text>
+                </View>
+                <View style={styles.breakdownItem}>
+                    <Text>Time Bonus: {score.timeBonus > 0 ? 
+                        score.timeBonus > (testData.duration * 30) ? 2 : 1 : 0} tokens</Text>
                 </View>
             </View>
     
@@ -560,6 +724,14 @@ export default function TestPage() {
                     <Text style={styles.xpCount}>+{currentXP}</Text>
                 </View>
                 <Text style={styles.xpLabel}>XP Earned</Text>
+            </View>
+
+            <View style={styles.tokenContainer}>
+                <View style={styles.tokenIconContainer}>
+                    <Ionicons name="diamond" size={24} color="#9C27B0" />
+                    <Text style={styles.tokenCount}>+{earnedXP > 0 ? Math.floor(earnedXP / 100) : 0}</Text>
+                </View>
+                <Text style={styles.tokenLabel}>EduTokens</Text>
             </View>
 
             {currentStreak >= 3 && (
@@ -838,7 +1010,7 @@ export default function TestPage() {
                                             styles.optionButton,
                                             userAnswers[question.id] === option ? styles.selectedOption : null,
                                         ]}
-                                        onPress={() => setUserAnswers(prev => ({ ...prev, [question.id]: option }))}
+                                        onPress={() => handleAnswerSelect(question.id, option)}
                                     >
                                         <Text style={styles.optionText}>{option}</Text>
                                     </TouchableOpacity>
@@ -847,17 +1019,12 @@ export default function TestPage() {
                                 <TextInput
                                     style={styles.textInput}
                                     value={userAnswers[question.id]}
-                                    onChangeText={text => setUserAnswers(prev => ({ ...prev, [question.id]: text }))}
+                                    onChangeText={text => handleAnswerSelect(question.id, text)}
                                 />
                             )}
                         </View>
                     ))}
-                    <TouchableOpacity 
-                        style={styles.submitButton}
-                        onPress={handleSubmitTest}
-                    >
-                        <Text style={styles.submitButtonText}>Submit Test</Text>
-                    </TouchableOpacity>
+                    <SubmitButton />
                 </View>
             </ScrollView>
         </SafeAreaView>
@@ -915,21 +1082,20 @@ const styles = StyleSheet.create({
       fontSize: 15,
     },
     submitButton: {
-      backgroundColor: '#2196F3',
+      backgroundColor: '#4CAF50',
       padding: 15,
-      borderRadius: 12,
+      borderRadius: 8,
       alignItems: 'center',
-      marginTop: 10,
-      shadowColor: '#2196F3',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.3,
-      shadowRadius: 4,
-      elevation: 5,
+      margin: 16,
+      elevation: 2,
+    },
+    submitButtonDisabled: {
+      backgroundColor: '#CCCCCC',
     },
     submitButtonText: {
       color: 'white',
-      fontSize: 18,
-      fontWeight: '600',
+      fontSize: 16,
+      fontWeight: 'bold',
     },
     loadingContainer: {
       flex: 1,
@@ -1330,4 +1496,49 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         padding: 10,
     },
-  });
+    tokenContainer: {
+        alignItems: 'center',
+    },
+    tokenIconContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F3E5F5',
+        padding: 8,
+        borderRadius: 20,
+    },
+    tokenCount: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginLeft: 5,
+        color: '#9C27B0',
+    },
+    tokenLabel: {
+        fontSize: 12,
+        color: '#666',
+        marginTop: 4,
+    },
+    tokenBreakdownCard: {
+        backgroundColor: 'white',
+        borderRadius: 12,
+        padding: 16,
+        margin: 16,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    breakdownTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 12,
+        color: '#333',
+    },
+    breakdownItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+});

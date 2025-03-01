@@ -18,10 +18,15 @@
         "CAMERA",
         "RECORD_AUDIO",
         "MODIFY_AUDIO_SETTINGS",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
         "WAKE_LOCK",
-        "POST_NOTIFICATIONS"
+        "ACCESS_WIFI_STATE",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "FOREGROUND_SERVICE_MEDIA_PROJECTION"
       ],
       "useNextNotificationsApi": true,
       "config": {
@@ -50,8 +55,8 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera.",
-          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone."
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera for video calls.",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for video calls."
         }
       ],
       [
@@ -71,15 +76,18 @@
     },
     "ios": {
       "infoPlist": {
-        "NSCameraUsageDescription": "This app needs access to camera.",
-        "NSMicrophoneUsageDescription": "This app needs access to microphone.",
-        "NSPhotoLibraryUsageDescription": "This app needs access to photos.",
+        "NSCameraUsageDescription": "This app needs camera access for video calls",
+        "NSMicrophoneUsageDescription": "This app needs microphone access for video calls",
+        "NSLocalNetworkUsageDescription": "This app needs network access for video calls",
         "UIBackgroundModes": [
           "audio",
-          "remote-notification"
+          "voip",
+          "fetch"
         ],
+        "UIViewControllerBasedStatusBarAppearance": false,
         "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true
+          "NSAllowsArbitraryLoads": true,
+          "NSAllowsLocalNetworking": true
         }
       }
     }
