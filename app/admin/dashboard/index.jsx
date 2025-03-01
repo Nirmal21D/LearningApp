@@ -165,7 +165,7 @@ export default function AdminDashboard() {
                     </Animated.View>
                 </ScrollView>
             </SafeAreaView>
-        </View>
+        </ScrollView>
     );
 }
 
