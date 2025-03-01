@@ -1,6 +1,6 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Platform, KeyboardAvoidingView, ScrollView, Alert } from 'react-native';
 import { Link, router } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,12 +8,31 @@ import { BlurView } from 'expo-blur';
 import { auth } from '../../lib/firebase';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const checkStoredCredentials = async () => {
+      try {
+        const storedEmail = await AsyncStorage.getItem('email');
+        const storedPassword = await AsyncStorage.getItem('password');
+        if (storedEmail && storedPassword) {
+          setEmail(storedEmail);
+          setPassword(storedPassword);
+          handleLogin(storedEmail, storedPassword);
+        }
+      } catch (e) {
+        console.error('Failed to load stored credentials:', e);
+      }
+    };
+
+    checkStoredCredentials();
+  }, []);
 
   const colors = {
     primary: '#2196F3',
@@ -29,16 +48,25 @@ export default function Login() {
     }
   };
 
-  const handleLogin = async () => {
+  const handleLogin = async (emailParam, passwordParam) => {
+    const loginEmail = emailParam || email;
+    const loginPassword = passwordParam || password;
+
     try {
       // Admin login
-      if (email === 'admin' && password === 'admin123') {
+      if (loginEmail === 'admin' && loginPassword === 'admin123') {
+        await AsyncStorage.setItem('email', loginEmail);
+        await AsyncStorage.setItem('password', loginPassword);
         router.push('/admin/dashboard');
         return;
       }
 
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
       console.log('Login successful');
+
+      // Save credentials
+      await AsyncStorage.setItem('email', loginEmail);
+      await AsyncStorage.setItem('password', loginPassword);
 
       // Get user type from Firestore
       const db = getFirestore();
@@ -48,11 +76,19 @@ export default function Login() {
       if (userData.userType === 'teacher') {
         // Check if teacher is approved
         if (!userData.isApproved) {
+<<<<<<< HEAD
           // Alert.alert(
           //   'Account Pending Approval',
           //   'Your account is pending approval from an administrator. Please try again later.',
           //   [{ text: 'OK' }]
           // );
+=======
+          /* Alert.alert(
+            'Account Pending Approval',
+            'Your account is pending approval from an administrator. Please try again later.',
+            [{ text: 'OK' }]
+          ); */
+>>>>>>> 7c32d31bd4bf6ec492b3079122112532e70232f6
           return;
         }
         router.push('/teacher/dashboard');
@@ -175,7 +211,7 @@ export default function Login() {
                   </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+                <TouchableOpacity style={styles.loginButton} onPress={() => handleLogin()}>
                   <Text style={styles.loginButtonText}>Sign In</Text>
                 </TouchableOpacity>
 
