@@ -102,22 +102,31 @@ export default function Signup() {
         const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
         const user = userCredential.user;
 
-        await setDoc(doc(db, 'users', user.uid), {
+        // Create user document with additional fields for teachers
+        const userData = {
           username: formData.username,
           email: formData.email,
           mobile: formData.mobile,
           userType: formData.userType,
-          selectedSubject: formData.userType === 'teacher' ? formData.selectedSubject : null,
-        });
+          createdAt: new Date(),
+        };
+
+        // Add teacher-specific fields if user is a teacher
+        if (formData.userType === 'teacher') {
+          userData.selectedSubject = formData.selectedSubject;
+          userData.approved = false;
+          userData.status = 'pending';
+          userData.submittedAt = new Date();
+        }
+
+        await setDoc(doc(db, 'users', user.uid), userData);
 
         // Redirect based on user type
         if (formData.userType === 'teacher') {
-          router.push('/teacher/dashboard');
-        }
-       else if (formData.userType === 'careerGuider') {
-        router.push('/career-guider/dashboard');
-      }
-         else {
+          router.push('/teacher/waiting-approval');
+        } else if (formData.userType === 'careerGuider') {
+          router.push('/career-guider/dashboard');
+        } else {
           router.push('/home');
         }
       } catch (error) {
