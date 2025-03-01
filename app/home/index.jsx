@@ -1033,7 +1033,7 @@ const styles = StyleSheet.create({
     transform: [{ translateY: -5 }],
   },
   homeIconContainer: {
-    backgroundColor: '#E3F2FD',
+    // backgroundColor: '#E3F2FD',
     padding: 1,
     borderRadius: 999,
     marginBottom: 2,

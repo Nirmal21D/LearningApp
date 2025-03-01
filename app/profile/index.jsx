@@ -351,13 +351,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: 'white',
+    color: 'black',
   },
   statLabel: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
+    color: 'black',
   },
   sectionContainer: {
     marginVertical: 20,

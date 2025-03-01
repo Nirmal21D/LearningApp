@@ -120,6 +120,9 @@ const styles = StyleSheet.create({
   header: {
     padding: 20,
     backgroundColor: '#2196F3',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    backgroundColor: 'rgba(33, 150, 243, 0.65)',
   },
   subjectTitle: {
     fontSize: 28,

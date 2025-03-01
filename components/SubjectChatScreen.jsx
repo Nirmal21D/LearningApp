@@ -17,6 +17,9 @@ import { ref, push, onValue, off, set, serverTimestamp } from 'firebase/database
 import { auth, database } from '@/lib/firebase';
 import { getDocs, doc, getDoc, collection, query, where, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 export default function SubjectChatScreen() {
   const { chatId, subjectName } = useLocalSearchParams();
@@ -175,9 +178,10 @@ export default function SubjectChatScreen() {
             {item.senderName} {item.userType === 'teacher' ? '(Teacher)' : ''}
           </Text>
         )}
-        <View style={[
+        <BlurView intensity={0} tint="light" style={[
           styles.messageBubble,
-          isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble
+          isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble,
+          styles.glassEffect
         ]}>
           <Text style={styles.messageText}>{item.text}</Text>
           <Text style={styles.messageTimestamp}>
@@ -186,7 +190,7 @@ export default function SubjectChatScreen() {
               minute: '2-digit'
             })}
           </Text>
-        </View>
+        </BlurView>
       </View>
     );
   };
@@ -194,134 +198,192 @@ export default function SubjectChatScreen() {
   const renderParticipantCount = () => {
     const count = Object.keys(participants).length;
     return (
-      <TouchableOpacity 
-        style={styles.participantsButton}
-        onPress={() => alert(`${count} participants in this group`)}
-      >
-        <Ionicons name="people" size={16} color="#FFF" />
+      <BlurView intensity={0} tint="light" style={[styles.participantsButton, styles.glassEffect]}>
+        <Ionicons name="people" size={16} color="#1A237E" />
         <Text style={styles.participantsCount}>{count}</Text>
-      </TouchableOpacity>
+      </BlurView>
     );
   };
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>Loading messages...</Text>
+      <View style={styles.container}>
+        <LinearGradient
+          colors={['#E3F2FD', '#BBDEFB', '#E3F2FD']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <View style={[styles.blurCircle, styles.blurCircle1]} />
+        <View style={[styles.blurCircle, styles.blurCircle2]} />
+        <View style={[styles.blurCircle, styles.blurCircle3]} />
+        
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2196F3" />
+          <Text style={styles.loadingText}>Loading messages...</Text>
+        </View>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#FFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{subjectName}</Text>
-        {renderParticipantCount()}
-      </View>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#E3F2FD', '#BBDEFB', '#E3F2FD']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
       
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardAvoidView}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.messagesList}
-          inverted={false}
-          onContentSizeChange={() => 
-            flatListRef.current?.scrollToEnd({ animated: false })
-          }
-          onLayout={() => 
-            flatListRef.current?.scrollToEnd({ animated: false })
-          }
-        />
-        
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={newMessage}
-            onChangeText={setNewMessage}
-            placeholder="Type your message..."
-            multiline
-          />
-          <TouchableOpacity 
-            style={styles.sendButton} 
-            onPress={sendMessage}
-            disabled={!newMessage.trim()}
-          >
-            <Ionicons 
-              name="send" 
-              size={24} 
-              color={newMessage.trim() ? "#2196F3" : "#999"} 
-            />
-          </TouchableOpacity>
+      <View style={[styles.blurCircle, styles.blurCircle1]} />
+      <View style={[styles.blurCircle, styles.blurCircle2]} />
+      <View style={[styles.blurCircle, styles.blurCircle3]} />
+      
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <BlurView intensity={0} tint="light" style={[styles.backButtonContainer, styles.glassEffect]}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+              <Ionicons name="arrow-back" size={24} color="#1A237E" />
+            </TouchableOpacity>
+          </BlurView>
+          <Text style={styles.headerTitle}>{subjectName}</Text>
+          {renderParticipantCount()}
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoidView}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        >
+          <Animated.View 
+            entering={FadeInDown.duration(800).springify()} 
+            style={styles.messageListContainer}
+          >
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              renderItem={renderMessage}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.messagesList}
+              inverted={false}
+              onContentSizeChange={() => 
+                flatListRef.current?.scrollToEnd({ animated: false })
+              }
+              onLayout={() => 
+                flatListRef.current?.scrollToEnd({ animated: false })
+              }
+            />
+          </Animated.View>
+          
+          <BlurView intensity={0} tint="light" style={[styles.inputContainer, styles.glassEffect]}>
+            <TextInput
+              style={styles.input}
+              value={newMessage}
+              onChangeText={setNewMessage}
+              placeholder="Type your message..."
+              placeholderTextColor="#666"
+              multiline
+            />
+            <TouchableOpacity 
+              style={styles.sendButton} 
+              onPress={sendMessage}
+              disabled={!newMessage.trim()}
+            >
+              <Ionicons 
+                name="send" 
+                size={24} 
+                color={newMessage.trim() ? "#2196F3" : "#BBB"} 
+              />
+            </TouchableOpacity>
+          </BlurView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    position: 'relative',
+    backgroundColor: 'transparent',
+    overflow: 'hidden',
+  },
+  safeArea: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 2,
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
+    color: '#1A237E',
+    fontWeight: '500',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2196F3',
-    padding: 10,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
     paddingTop: Platform.OS === 'android' ? 40 : 10,
+    paddingBottom: 10,
+    zIndex: 10,
+  },
+  backButtonContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backButton: {
     padding: 5,
   },
   headerTitle: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#FFF',
+    color: '#1A237E',
     marginLeft: 10,
+    textShadowColor: 'rgba(255, 255, 255, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   participantsButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
   participantsCount: {
-    color: '#FFF',
-    marginLeft: 4,
-    fontSize: 12,
+    color: '#1A237E',
+    marginLeft: 6,
+    fontSize: 14,
+    fontWeight: '600',
   },
   keyboardAvoidView: {
     flex: 1,
   },
+  messageListContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 24,
+    margin: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+  },
   messagesList: {
-    padding: 10,
+    padding: 16,
     paddingBottom: 20,
   },
   messageContainer: {
-    marginVertical: 5,
+    marginVertical: 6,
     maxWidth: '80%',
   },
   currentUserMessage: {
@@ -337,63 +399,124 @@ const styles = StyleSheet.create({
   },
   systemMessageText: {
     fontSize: 12,
-    color: '#888',
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    color: '#1A237E',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     padding: 8,
     borderRadius: 10,
     textAlign: 'center',
     maxWidth: '70%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
   },
   senderName: {
     fontSize: 12,
     marginBottom: 2,
-    color: '#666',
+    color: '#1A237E',
     marginLeft: 12,
+    fontWeight: '500',
   },
   messageBubble: {
-    padding: 10,
+    padding: 12,
     borderRadius: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
-    elevation: 1,
+    minWidth: 80,
   },
   currentUserBubble: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: 'rgba(33, 150, 243, 0.15)',
     borderBottomRightRadius: 5,
   },
   otherUserBubble: {
-    backgroundColor: '#FFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     borderBottomLeftRadius: 5,
   },
   messageText: {
     fontSize: 16,
+    color: '#333',
   },
   messageTimestamp: {
     fontSize: 10,
-    color: '#888',
+    color: '#666',
     marginTop: 4,
     alignSelf: 'flex-end',
   },
   inputContainer: {
     flexDirection: 'row',
     padding: 10,
-    backgroundColor: '#FFF',
-    borderTopWidth: 1,
-    borderTopColor: '#EEE',
+    margin: 10,
+    marginTop: 0,
+    borderRadius: 24,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
   },
   input: {
     flex: 1,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 16,
     paddingHorizontal: 15,
     paddingVertical: 8,
     maxHeight: 100,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   sendButton: {
     marginLeft: 10,
-    padding: 5,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  glassEffect: {
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(3px)' : undefined,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    // elevation: 2,
+  },
+  // Decorative circles from Login page
+  blurCircle: {
+    position: 'absolute',
+    borderRadius: 999,
+    zIndex: 0,
+  },
+  blurCircle1: {
+    width: Platform.OS === 'web' ? 250 : 200,
+    height: Platform.OS === 'web' ? 250 : 200,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    top: Platform.OS === 'web' ? 20 : 10,
+    left: Platform.OS === 'web' ? -80 : -60,
+    transform: [
+      { scale: 1.2 },
+      { rotate: '-15deg' }
+    ],
+  },
+  blurCircle2: {
+    width: Platform.OS === 'web' ? 220 : 180,
+    height: Platform.OS === 'web' ? 220 : 180,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    top: Platform.OS === 'web' ? 390 : 320,
+    right: Platform.OS === 'web' ? -40 : -30,
+    transform: [
+      { scale: 1.1 },
+      { rotate: '30deg' }
+    ],
+  },
+  blurCircle3: {
+    width: Platform.OS === 'web' ? 200 : 160,
+    height: Platform.OS === 'web' ? 200 : 160,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    bottom: Platform.OS === 'web' ? 30 : 60,
+    left: Platform.OS === 'web' ? -60 : -40,
+    transform: [
+      { scale: 1 },
+      { rotate: '15deg' }
+    ],
   },
 });

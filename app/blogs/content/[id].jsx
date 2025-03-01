@@ -191,6 +191,15 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 24,
     paddingTop: 48,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    marginBottom: 20,
   },
   categoryTag: {
     alignSelf: 'flex-start',
