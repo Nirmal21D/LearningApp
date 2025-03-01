@@ -59,9 +59,12 @@
         {
           "icon": "./assets/images/notification-icon.png",
           "color": "#ffffff",
-          "sounds": ["./assets/sounds/notification.wav"]
+          "sounds": [
+            "./assets/sounds/notification.wav"
+          ]
         }
-      ]
+      ],
+      "expo-router"
     ],
     "experiments": {
       "typedRoutes": true
@@ -71,7 +74,10 @@
         "NSCameraUsageDescription": "This app needs access to camera.",
         "NSMicrophoneUsageDescription": "This app needs access to microphone.",
         "NSPhotoLibraryUsageDescription": "This app needs access to photos.",
-        "UIBackgroundModes": ["audio", "remote-notification"],
+        "UIBackgroundModes": [
+          "audio",
+          "remote-notification"
+        ],
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         }
