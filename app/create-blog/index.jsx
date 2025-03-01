@@ -13,14 +13,15 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, getDoc } from "firebase/firestore";
 import { getAuth } from 'firebase/auth';
 
-import {db} from "../../lib/firebase";
+import { db } from "../../lib/firebase";
 
 const CreateBlog = () => {
   const router = useRouter();
   const auth = getAuth();
+  const user = auth.currentUser;
   const [isLoading, setIsLoading] = useState(false);
   const [form, setForm] = useState({
     title: '',
@@ -33,6 +34,22 @@ const CreateBlog = () => {
     content: '',
     readTime: ''
   });
+  const [userData, setUserData] = useState(null);
+
+  // Fetch user data from Firestore
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (user) {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          setUserData(userDoc.data());
+        }
+      }
+    };
+
+    fetchUserData();
+  }, [user]);
 
   // Validate form fields
   const validateForm = () => {
@@ -81,12 +98,11 @@ const CreateBlog = () => {
 
     setIsLoading(true);
     try {
-      const user = auth.currentUser;
       await addDoc(collection(db, 'blogs'), {
         ...form,
-        author: user?.username || 'Anonymous',
+        author: userData?.username || user?.displayName || 'Anonymous',
         authorId: user?.uid || null,
-        authorPhotoURL: user?.photoURL || null,
+        authorPhotoURL: userData?.photoURL || user?.photoURL || null,
         upvotes: 0,
         downvotes: 0,
         commentsCount: 0,

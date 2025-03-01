@@ -40,9 +40,10 @@ const VideoCallComponent = forwardRef(({
   const [lastActiveTime, setLastActiveTime] = useState(Date.now());
   const [focusAttempts, setFocusAttempts] = useState(0);
   const [studentViolations, setStudentViolations] = useState(0);
-  const MAX_FOCUS_ATTEMPTS = 5;
+  const MAX_RETRIES = 3;
+  const MAX_FOCUS_ATTEMPTS = 2; // Reduced from 5 to 2 - leave meeting sooner
   const BACKGROUND_CHECK_INTERVAL = 500; // 500ms for faster detection
-  const MAX_BACKGROUND_TIME = 3000; // 3 seconds maximum in background
+  const MAX_BACKGROUND_TIME = 2000; // 2 seconds maximum in background (reduced from 3s)
 
   // Function to handle screen orientation lock
   const lockOrientation = async () => {
@@ -80,6 +81,29 @@ const VideoCallComponent = forwardRef(({
     }
   }, []);
 
+  // Function to leave meeting automatically
+  const leaveJitsiMeeting = useCallback(() => {
+    if (webViewRef.current) {
+      webViewRef.current.injectJavaScript(`
+        try {
+          if (window._jitsiApi) {
+            window._jitsiApi.executeCommand('hangup');
+            console.log('Meeting left automatically');
+          }
+          true;
+        } catch (err) {
+          console.error('Failed to leave meeting:', err);
+          false;
+        }
+      `);
+
+      // Call onClose after a short delay to ensure proper cleanup
+      setTimeout(() => {
+        onClose && onClose();
+      }, 1000);
+    }
+  }, [onClose]);
+
   const INJECTED_JAVASCRIPT = `
 (function() {
   let retryCount = 0;
@@ -104,8 +128,69 @@ const VideoCallComponent = forwardRef(({
     }
   }
 
+  // Remove Jitsi watermarks and unwanted UI elements
+  function removeJitsiWatermarks() {
+    const style = document.createElement('style');
+    style.textContent = \`
+      .watermark, .leftwatermark, .rightwatermark { 
+        display: none !important; 
+        opacity: 0 !important;
+        visibility: hidden !important;
+      }
+      #largeVideoBackgroundContainer {
+        background-color: #000 !important;
+      }
+      .videocontainer__background {
+        background-color: #000 !important;
+      }
+      .premeeting-screen {
+        background-color: #000 !important;
+      }
+      #videoconference_page {
+        background-color: #000 !important;
+      }
+      .subject-info-container { display: none !important; }
+      .new-toolbox { opacity: 0.8 !important; }
+      .filmstrip { background-color: rgba(0,0,0,0.5) !important; }
+      .connection-indicator { display: none !important; }
+      
+      /* Hide end-meeting elements */
+      .feedback-dialog { display: none !important; }
+      .feedback-button { display: none !important; }
+      .btn-primary.feedback-button { display: none !important; }
+      #feedbackButton { display: none !important; }
+      .popover { display: none !important; }
+      
+      /* End meeting container */
+      .premeeting-screen {
+        background-image: none !important;
+        background-color: #000 !important;
+      }
+    \`;
+    document.head.appendChild(style);
+    
+    // Interval to keep removing elements
+    setInterval(() => {
+      const watermarks = document.querySelectorAll('.watermark, .leftwatermark, .rightwatermark');
+      watermarks.forEach(el => {
+        el.style.display = 'none';
+        el.remove();
+      });
+      
+      // Remove feedback dialog
+      const feedbackElements = document.querySelectorAll('.feedback-dialog, .feedback-button, #feedbackButton');
+      feedbackElements.forEach(el => {
+        el.style.display = 'none';
+        el.remove();
+      });
+    }, 1000);
+  }
+
   async function initJitsiAndDevices() {
     try {
+      // Apply watermark removal immediately and periodically
+      removeJitsiWatermarks();
+      
       // Wait for JitsiMeetExternalAPI to be available
       if (typeof JitsiMeetExternalAPI === 'undefined') {
         if (retryCount < MAX_RETRIES) {
@@ -214,6 +299,14 @@ const VideoCallComponent = forwardRef(({
           resolution: 720,
           maxFullResolutionParticipants: 2,
           displayName: displayName,
+          hiddenDomain: 'recorder.meet.jit.si', // Hide recording participants
+          hideConferenceSubject: true, // Hide subject/room name
+          hideConferenceTimer: true,
+          disableFeedbackPrompt: true, // Disable feedback prompt at the end
+          disableThirdPartyRequests: true,
+          analytics: {
+            disabled: true
+          },
           constraints: {
             video: videoDeviceId ? {
               deviceId: { ideal: videoDeviceId },
@@ -230,7 +323,7 @@ const VideoCallComponent = forwardRef(({
           }
         },
         interfaceConfigOverwrite: {
-          DISABLE_JOIN_LEAVE_NOTIFICATIONS: false,
+          DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
           MOBILE_APP_PROMO: false,
           SHOW_CHROME_EXTENSION_BANNER: false,
           TOOLBAR_BUTTONS: [
@@ -246,7 +339,16 @@ const VideoCallComponent = forwardRef(({
           SHOW_JITSI_WATERMARK: false,
           SHOW_WATERMARK_FOR_GUESTS: false,
           SHOW_BRAND_WATERMARK: false,
-          MOBILE_APP_PROMO: false
+          DISABLE_FOCUS_INDICATOR: true,
+          DISABLE_VIDEO_BACKGROUND: false,
+          MOBILE_APP_PROMO: false,
+          HIDE_INVITE_MORE_HEADER: true,
+          DISABLE_DOMINANT_SPEAKER_INDICATOR: true,
+          DISABLE_TRANSCRIPTION_SUBTITLES: true,
+          DISABLE_RINGING: true,
+          DISABLE_PRESENCE_STATUS: true,
+          DISABLE_FEEDBACK: true,
+          DEFAULT_BACKGROUND: '#000000'
         }
       };
 
@@ -272,6 +374,9 @@ const VideoCallComponent = forwardRef(({
             lastMediaStatus = currentStatus;
             window.ReactNativeWebView.postMessage('MEDIA_STATUS: ' + currentStatus);
           }
+          
+          // Continue removing watermarks
+          removeJitsiWatermarks();
         }
       }, 5000);
       
@@ -282,6 +387,8 @@ const VideoCallComponent = forwardRef(({
         window.ReactNativeWebView.postMessage('CONFERENCE_JOINED');
         // Force set display name on join
         api.executeCommand('displayName', displayName);
+        // Ensure watermarks are removed after joining
+        removeJitsiWatermarks();
       });
 
       // Add chat message handler
@@ -335,11 +442,27 @@ const VideoCallComponent = forwardRef(({
         window.ReactNativeWebView.postMessage('DEVICES: ' + JSON.stringify(devices));
       });
 
+      // Handle meeting end events
       api.addEventListener('readyToClose', () => {
         if (audioContext) {
           audioContext.close();
         }
+        // Hide feedback dialog
+        removeJitsiWatermarks();
         window.ReactNativeWebView.postMessage('READY_TO_CLOSE');
+      });
+      
+      // Handle feedback dialog - disable it
+      api.addEventListener('feedbackPromptDisplayed', () => {
+        // Hide feedback dialog programmatically
+        const feedbackElements = document.querySelectorAll('.feedback-dialog, .feedback-button, #feedbackButton');
+        feedbackElements.forEach(el => {
+          el.style.display = 'none';
+          el.remove();
+        });
+        
+        // Notify app that meeting is ending
+        window.ReactNativeWebView.postMessage('MEETING_ENDING');
       });
 
       window._jitsiApi = api;
@@ -355,94 +478,103 @@ const VideoCallComponent = forwardRef(({
     }
   });
 
+  // Apply watermark removal on load
+  removeJitsiWatermarks();
+  
+  // Initialize Jitsi
   initJitsiAndDevices();
   return true;
 })();
 `;
 
-  // Enhanced app state monitoring
-  // Update the existing useEffect for app state monitoring
+  // Enhanced app state monitoring with auto-leave functionality
   useEffect(() => {
-    if (!isTeacher) {
-      // Keep the screen awake
-      activateKeepAwake();
+    // Keep the screen awake
+    activateKeepAwake();
 
-      // Lock orientation
-      lockOrientation();
+    // Lock orientation
+    lockOrientation();
 
-      // Hide navigation bar
-      hideNavigationBar();
+    // Hide navigation bar
+    hideNavigationBar();
 
-      // Set up app state monitoring
-      const subscription = AppState.addEventListener(
-        "change",
-        handleAppStateChange
-      );
+    // Set up app state monitoring
+    const subscription = AppState.addEventListener(
+      "change",
+      handleAppStateChange
+    );
 
-      // Set up background check interval - more frequent checks
-      const backgroundCheckInterval = setInterval(() => {
-        const currentTime = Date.now();
-        if (currentTime - lastActiveTime > BACKGROUND_CHECK_INTERVAL) {
-          handleBackgroundCheck();
+    // Set up background check interval - more frequent checks
+    const backgroundCheckInterval = setInterval(() => {
+      const currentTime = Date.now();
+      if (currentTime - lastActiveTime > BACKGROUND_CHECK_INTERVAL) {
+        handleBackgroundCheck();
+      }
+      setLastActiveTime(currentTime);
+    }, BACKGROUND_CHECK_INTERVAL);
+
+    // Set up back button handler
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        if (!isTeacher) {
+          // For students, show warning and prevent back action
+          Alert.alert(
+            "Warning",
+            "You cannot leave the video call without permission.",
+            [{ text: "Stay in Call", style: "cancel" }],
+            { cancelable: false }
+          );
+          return true;
+        } else {
+          // For teachers, allow closing with confirmation
+          Alert.alert(
+            "End Meeting",
+            "Are you sure you want to end this meeting?",
+            [
+              { text: "Cancel", style: "cancel" },
+              {
+                text: "End Meeting",
+                style: "destructive",
+                onPress: () => {
+                  leaveJitsiMeeting();
+                }
+              }
+            ]
+          );
+          return true;
         }
-        setLastActiveTime(currentTime);
-      }, BACKGROUND_CHECK_INTERVAL);
+      }
+    );
 
-      // Set up back button handler - this should already exist in your code
-      const backHandler = BackHandler.addEventListener(
-        "hardwareBackPress",
-        () => {
-          if (!isTeacher) {
-            Alert.alert(
-              "Warning",
-              "You cannot leave the video call without permission.",
-              [{ text: "Stay in Call", style: "cancel" }],
-              { cancelable: false }
-            );
-            return true;
-          }
-          return false;
-        }
-      );
-
-      return () => {
-        subscription.remove();
-        clearInterval(backgroundCheckInterval);
-        backHandler.remove();
-        deactivateKeepAwake();
-        // Reset orientation and navigation bar
-        ScreenOrientation.unlockAsync();
-        if (Platform.OS === "android") {
-          NavigationBar.setVisibilityAsync("visible");
-        }
-      };
-    }
-  }, [isTeacher, focusAttempts]);
+    return () => {
+      subscription.remove();
+      clearInterval(backgroundCheckInterval);
+      backHandler.remove();
+      deactivateKeepAwake();
+      // Reset orientation and navigation bar
+      ScreenOrientation.unlockAsync();
+      if (Platform.OS === "android") {
+        NavigationBar.setVisibilityAsync("visible");
+      }
+    };
+  }, [isTeacher, focusAttempts, leaveJitsiMeeting]);
 
   const handleBackgroundCheck = () => {
-    if (!isTeacher && AppState.currentState !== "active") {
+    if (AppState.currentState !== "active") {
       const currentTime = Date.now();
-      
+
       // If been in background for more than MAX_BACKGROUND_TIME
       if (currentTime - lastActiveTime > MAX_BACKGROUND_TIME) {
+        // Auto-leave the meeting for any user type (teacher or student)
         InteractionManager.runAfterInteractions(() => {
-          forceReturnToApp();
-          // Send warning message about time limit
-          if (webViewRef.current) {
-            const timeoutMessage = `⚠️ Warning: ${studentName || "Student"} was away for more than ${MAX_BACKGROUND_TIME/1000} seconds`;
-            webViewRef.current.injectJavaScript(`
-              if (window._jitsiApi) {
-                window._jitsiApi.executeCommand('sendChatMessage', ${JSON.stringify(timeoutMessage)});
-              }
-              true;
-            `);
+          if (focusAttempts >= MAX_FOCUS_ATTEMPTS) {
+            console.log("User has left the app multiple times, leaving meeting automatically");
+            leaveJitsiMeeting();
+          } else {
+            forceReturnToApp();
           }
         });
-      }
-
-      // Log if user attempts to leave repeatedly
-      if (focusAttempts > MAX_FOCUS_ATTEMPTS) {
-        console.warn("User has attempted to leave the app multiple times");
       }
     }
   };
@@ -456,33 +588,29 @@ const VideoCallComponent = forwardRef(({
 
     // Handle background state changes first, before any JSON parsing
     if (message === "APP_BACKGROUND") {
-        console.log("🔴 Student went to background");
-        if (!isTeacher) {
-            try {
-                console.log("📤 Attempting to send background notification");
-                // Send local notification first
-                await sendLocalNotification(
-                    "Student Alert",
-                    `${studentName || "Student"} has switched away from the video call at ${new Date().toLocaleTimeString()}`,
-                    { type: 'background_switch' }
-                );
-                console.log("✅ Local notification sent");
+      console.log("🔴 User went to background");
 
-                // Then send teacher notification
-                await sendTeacherNotification(
-                    "⚠️ Student Left Call",
-                    `${studentName || "Student"} has switched away from the video call at ${new Date().toLocaleTimeString()}`
-                );
-                console.log("✅ Teacher notification sent");
-                
-                // Force return to app
-                await forceReturnToApp();
-                console.log("✅ Force return initiated");
-            } catch (error) {
-                console.error("❌ Failed to send background notification:", error);
-            }
+      try {
+        // Send teacher notification first if this is a student
+        if (!isTeacher) {
+          await sendTeacherNotification(
+            "⚠️ Student Left Call",
+            `${studentName || "Student"} has switched away from the video call at ${new Date().toLocaleTimeString()}`
+          );
         }
-        return;
+
+        // Always force return for first attempts
+        if (focusAttempts < MAX_FOCUS_ATTEMPTS) {
+          await forceReturnToApp();
+        } else {
+          // Auto-leave after multiple attempts
+          console.log("Max focus attempts reached, leaving meeting");
+          leaveJitsiMeeting();
+        }
+      } catch (error) {
+        console.error("❌ Failed to handle background state:", error);
+      }
+      return;
     }
 
     if (message === "APP_FOREGROUND") {
@@ -491,75 +619,72 @@ const VideoCallComponent = forwardRef(({
       return;
     }
 
-    if (message === "READY_TO_CLOSE") {
-      console.log("👋 Meeting ready to close");
+    if (message === "READY_TO_CLOSE" || message === "MEETING_ENDING") {
+      console.log("👋 Meeting ready to close or ending");
       onClose && onClose();
       return;
     }
 
     // Try to parse JSON messages
     try {
-        const data = JSON.parse(message);
-        console.log('🔄 Parsed WebView message:', data);
-        
-        // Handle chat messages
-        if (data.type === 'CHAT_MESSAGE') {
-            console.log('💬 Processing chat message');
-            try {
-                // Send notification for chat message
-                await sendLocalNotification(
-                    `New Message from ${data.data.from}`,
-                    data.data.message,
-                    {
-                        type: 'chat_message',
-                        from: data.data.from,
-                        timestamp: data.data.timestamp
-                    }
-                );
-                console.log('✅ Chat notification sent');
+      const data = JSON.parse(message);
+      console.log('🔄 Parsed WebView message:', data);
 
-                // Play sound for chat message (if needed)
-                // You can add sound playing logic here
-            } catch (error) {
-                console.error('❌ Error showing chat notification:', error);
+      // Handle chat messages
+      if (data.type === 'CHAT_MESSAGE') {
+        console.log('💬 Processing chat message');
+        try {
+          // Send notification for chat message
+          await sendLocalNotification(
+            `New Message from ${data.data.from}`,
+            data.data.message,
+            {
+              type: 'chat_message',
+              from: data.data.from,
+              timestamp: data.data.timestamp
             }
+          );
+          console.log('✅ Chat notification sent');
+        } catch (error) {
+          console.error('❌ Error showing chat notification:', error);
         }
-        
-        // Handle student violations
-        if (data.type === 'VIOLATION_DETECTED') {
-            console.log("🚨 Processing violation detection");
-            if (isTeacher) {
-              console.log("👨‍🏫 Teacher receiving violation notification");
-              try {
-                // Send notification to teacher's device
-                console.log('📱 Sending local notification to teacher...');
-                await sendLocalNotification(
-                  `Student Alert: ${data.data.studentName}`,
-                  data.data.message
-                );
-                console.log('✅ Teacher notification sent successfully');
+      }
 
-                // Show alert dialog
-                Alert.alert(
-                  `Student Alert - ${data.data.severity === 'high' ? '⚠️ High Priority' : 'Warning'}`,
-                  `${data.data.studentName} has attempted to leave the video call.\n\nDetails: ${data.data.message}`,
-                  [{ 
-                    text: "Acknowledge", 
-                    style: "default",
-                    onPress: () => console.log('👍 Teacher acknowledged notification at:', new Date().toISOString())
-                  }],
-                  { cancelable: false }
-                );
-              } catch (error) {
-                console.error('❌ Error showing teacher notification:', error);
-              }
-            }
+      // Handle student violations
+      if (data.type === 'VIOLATION_DETECTED') {
+        console.log("🚨 Processing violation detection");
+        if (isTeacher) {
+          console.log("👨‍🏫 Teacher receiving violation notification");
+          try {
+            // Send notification to teacher's device
+            console.log('📱 Sending local notification to teacher...');
+            await sendLocalNotification(
+              `Student Alert: ${data.data.studentName}`,
+              data.data.message
+            );
+            console.log('✅ Teacher notification sent successfully');
+
+            // Show alert dialog
+            Alert.alert(
+              `Student Alert - ${data.data.severity === 'high' ? '⚠️ High Priority' : 'Warning'}`,
+              `${data.data.studentName} has attempted to leave the video call.\n\nDetails: ${data.data.message}`,
+              [{
+                text: "Acknowledge",
+                style: "default",
+                onPress: () => console.log('👍 Teacher acknowledged notification at:', new Date().toISOString())
+              }],
+              { cancelable: false }
+            );
+          } catch (error) {
+            console.error('❌ Error showing teacher notification:', error);
+          }
         }
+      }
     } catch (e) {
       // Handle initialization errors
       if (message.includes("INIT_ERROR") ||
-          message.includes("DEVICE_ERROR") ||
-          message.includes("MEETING_INIT_ERROR")
+        message.includes("DEVICE_ERROR") ||
+        message.includes("MEETING_INIT_ERROR")
       ) {
         console.error("🔧 Jitsi initialization error:", message);
         handleJitsiError(message);
@@ -588,35 +713,35 @@ const VideoCallComponent = forwardRef(({
   // Update sendTeacherNotification function
   const sendTeacherNotification = async (title, message) => {
     try {
-        console.log('🔔 Starting notification process...', { title, message, isTeacher });
-        
-        // Send local notification regardless of user type (for testing)
-        console.log('📱 Sending local notification...');
-        await sendLocalNotification(
-            title,
-            message,
-            { 
-                type: 'teacher_alert',
-                studentName: studentName || 'Student',
-                timestamp: new Date().toISOString()
-            }
-        );
-        console.log('✅ Local notification sent');
+      console.log('🔔 Starting notification process...', { title, message, isTeacher });
 
-        // If this is a student device, send Jitsi message to teacher
-        if (!isTeacher && webViewRef.current) {
-            const jitsiMessage = {
-                type: 'STUDENT_VIOLATION',
-                studentName: studentName || 'Student',
-                message: message,
-                timestamp: Date.now(),
-                severity: focusAttempts > 2 ? 'high' : 'medium',
-                eventType: 'background_switch'
-            };
+      // Send local notification regardless of user type (for testing)
+      console.log('📱 Sending local notification...');
+      await sendLocalNotification(
+        title,
+        message,
+        {
+          type: 'teacher_alert',
+          studentName: studentName || 'Student',
+          timestamp: new Date().toISOString()
+        }
+      );
+      console.log('✅ Local notification sent');
 
-            console.log('💬 Sending Jitsi message:', jitsiMessage);
-            
-            const jsCode = `
+      // If this is a student device, send Jitsi message to teacher
+      if (!isTeacher && webViewRef.current) {
+        const jitsiMessage = {
+          type: 'STUDENT_VIOLATION',
+          studentName: studentName || 'Student',
+          message: message,
+          timestamp: Date.now(),
+          severity: focusAttempts > 1 ? 'high' : 'medium', // Increased severity threshold
+          eventType: 'background_switch'
+        };
+
+        console.log('💬 Sending Jitsi message:', jitsiMessage);
+
+        const jsCode = `
                 try {
                     if (window._jitsiApi) {
                         window._jitsiApi.executeCommand('sendEndpointTextMessage', '', ${JSON.stringify(JSON.stringify(jitsiMessage))});
@@ -631,27 +756,27 @@ const VideoCallComponent = forwardRef(({
                 }
             `;
 
-            await new Promise((resolve) => {
-                webViewRef.current.injectJavaScript(jsCode);
-                setTimeout(resolve, 500); // Give some time for the message to be sent
-            });
-            
-            console.log('✅ Jitsi message sent');
-        }
-
-        console.log('✅ Notification process completed successfully');
-    } catch (error) {
-        console.error('❌ Notification error:', {
-            error: error.message,
-            stack: error.stack,
-            context: {
-                isTeacher,
-                studentName,
-                focusAttempts,
-                hasWebView: !!webViewRef.current
-            }
+        await new Promise((resolve) => {
+          webViewRef.current.injectJavaScript(jsCode);
+          setTimeout(resolve, 500); // Give some time for the message to be sent
         });
-        throw error;
+
+        console.log('✅ Jitsi message sent');
+      }
+
+      console.log('✅ Notification process completed successfully');
+    } catch (error) {
+      console.error('❌ Notification error:', {
+        error: error.message,
+        stack: error.stack,
+        context: {
+          isTeacher,
+          studentName,
+          focusAttempts,
+          hasWebView: !!webViewRef.current
+        }
+      });
+      throw error;
     }
   };
 
@@ -661,31 +786,31 @@ const VideoCallComponent = forwardRef(({
     setFocusAttempts((prev) => prev + 1);
     const newCount = studentViolations + 1;
     setStudentViolations(newCount);
-    
+
     // Send notification about the attempt
     await sendTeacherNotification(
       "Student Alert",
       `${studentName || "Student"} has left the video call (Attempt ${newCount})`
     );
 
-    // Show alert to student
-    const severity = focusAttempts > 2
-      ? "Continuing to leave the app may result in session termination."
-      : "Please return to the video call immediately.";
+    const remainingAttempts = MAX_FOCUS_ATTEMPTS - focusAttempts;
+
+    // Show alert to user
+    const warningText = remainingAttempts <= 0
+      ? "This is your final warning. The meeting will end if you leave again."
+      : `Warning: You have ${remainingAttempts} more attempt(s) before being removed from the meeting.`;
 
     Alert.alert(
       "Warning",
-      `Switching apps is not allowed during class. ${severity}`,
+      `Switching apps is not allowed during video calls. ${warningText}`,
       [{
         text: "Return to Call",
         onPress: () => {
           setIsInBackground(false);
           if (Platform.OS === "android") {
-            if (webViewRef.current) {
-              webViewRef.current.reload();
-            }
             hideNavigationBar();
           }
+          // Reset camera if needed
           InteractionManager.runAfterInteractions(() => {
             lockOrientation();
             if (webViewRef.current) {
@@ -709,13 +834,13 @@ const VideoCallComponent = forwardRef(({
     const currentState = appStateRef.current;
     appStateRef.current = nextAppState;
 
-    if (
-      !isTeacher &&
-      (nextAppState === "background" ||
-        nextAppState === "inactive" ||
-        (currentState === "active" && nextAppState !== "active"))
-    ) {
-      forceReturnToApp();
+    if (nextAppState === "background" || nextAppState === "inactive") {
+      // For any user type, trigger return to app or leave meeting
+      if (focusAttempts >= MAX_FOCUS_ATTEMPTS) {
+        leaveJitsiMeeting();
+      } else {
+        forceReturnToApp();
+      }
     }
   };
 
@@ -725,7 +850,7 @@ const VideoCallComponent = forwardRef(({
         // Request notification permissions first
         const notificationPermission = await requestNotificationPermissions();
         console.log('🔔 Notification permission result:', notificationPermission);
-        
+
         // Then request other permissions
         await requestPermissions();
       } catch (error) {
@@ -735,17 +860,8 @@ const VideoCallComponent = forwardRef(({
 
     initializeComponent();
 
-    // Handle hardware back button
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        onClose && onClose();
-        return true;
-      }
-    );
-
+    // Cleanup function
     return () => {
-      backHandler.remove();
       // Clean up WebView reference
       if (webViewRef.current) {
         webViewRef.current = null;
@@ -765,122 +881,92 @@ const VideoCallComponent = forwardRef(({
       console.log("Microphone permission:", microphonePermission);
 
       if (
-        cameraPermission.status === "granted" &&
-        microphonePermission.status === "granted"
+        cameraPermission.status === "granted" && microphonePermission.status === "granted"
       ) {
         setHasPermissions(true);
+        setPermissionErrorCount(0);
       } else {
-        Alert.alert(
-          "Permissions Required",
-          "Camera and microphone access are needed for video calls",
-          [
-            {
-              text: "Settings",
-              onPress: () => {
-                if (Platform.OS === "ios") {
-                  Linking.openURL("app-settings:");
-                } else {
-                  Linking.openSettings();
-                }
+        setHasPermissions(false);
+        setPermissionErrorCount((prev) => prev + 1);
+
+        if (permissionErrorCount >= 1) {
+          // Show more detailed instructions after second attempt
+          Alert.alert(
+            "Permission Required",
+            "Camera and microphone access are necessary for video calls. Please enable these permissions in your device settings to continue.",
+            [
+              {
+                text: "Open Settings",
+                onPress: () => Linking.openSettings(),
               },
-            },
-            {
-              text: "Cancel",
-              style: "cancel",
-            },
-          ]
-        );
+              {
+                text: "Cancel",
+                onPress: () => onClose && onClose(),
+                style: "cancel",
+              },
+            ]
+          );
+        } else {
+          // First attempt - simple message
+          Alert.alert(
+            "Permission Denied",
+            "Camera and microphone access are required for video calls.",
+            [
+              {
+                text: "Try Again",
+                onPress: () => requestPermissions(),
+              },
+              {
+                text: "Cancel",
+                onPress: () => onClose && onClose(),
+                style: "cancel",
+              },
+            ]
+          );
+        }
       }
     } catch (error) {
       console.error("Error requesting permissions:", error);
       Alert.alert(
         "Error",
-        "Failed to request camera and microphone permissions"
+        "Failed to request camera/microphone permissions. Please try again.",
+        [{ text: "OK", onPress: () => onClose && onClose() }]
       );
     } finally {
       setIsLoading(false);
     }
   };
 
-  const getJitsiUrl = () => {
-    if (jitsiUrl) {
-      return jitsiUrl;
-    }
-
-    const roomName = roomId || `meeting_${Date.now()}`;
-    const baseUrl = "https://meet.jit.si/";
-
-    // Simplified config with explicit device handling
-    const config = {
-      startWithAudioMuted: false,
-      startWithVideoMuted: false,
-      prejoinPageEnabled: false,
-      disableDeepLinking: true,
-      enableNoAudioDetection: false,
-      enableNoisyMicDetection: false,
-      disableAudioLevels: false,
-      enableLipSync: true,
-      disableAP: true,
-      useNewAudioDevices: true,
-    };
-
-    const interfaceConfig = {
-      DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
-      MOBILE_APP_PROMO: false,
-      SHOW_CHROME_EXTENSION_BANNER: false,
-      TOOLBAR_BUTTONS: ["microphone", "camera", "hangup", "chat"],
-    };
-
-    const params = new URLSearchParams({
-      config: JSON.stringify(config),
-      interfaceConfig: JSON.stringify(interfaceConfig),
-      userInfo: JSON.stringify({
-        displayName: studentName || "Student",
-      }),
-    });
-
-    return `${baseUrl}${roomName}#${params.toString()}`;
-  };
-
-  // Expose methods to parent component through ref
+  // Expose functions to parent component
   useImperativeHandle(ref, () => ({
-    sendMessageToChat: (message) => {
-      if (webViewRef.current) {
-        webViewRef.current.injectJavaScript(`
-          try {
-            if (window._jitsiApi) {
-              window._jitsiApi.executeCommand('sendMessage', ${JSON.stringify(message)}, '');
-              console.log('Chat message sent:', ${JSON.stringify(message)});
-            }
-            true;
-          } catch (err) {
-            console.error('Failed to send chat message:', err);
-            false;
-          }
-        `);
-      }
-    },
-    reload: () => {
-      if (webViewRef.current) {
-        webViewRef.current.reload();
-      }
-    }
+    leaveJitsiMeeting,
+    reloadWebView,
+    sendTeacherNotification,
+    forceReturnToApp
   }));
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text style={styles.loadingText}>Preparing video call...</Text>
-      </View>
-    );
-  }
+  // Generate the correct source URL
+  const getSourceUrl = () => {
+    if (isJitsi && jitsiUrl) {
+      return { uri: jitsiUrl };
+    }
 
-  if (!hasPermissions) {
+    // Use default Jitsi meet URL with our room ID
+    return {
+      uri: `https://meet.jit.si/${roomId || `meeting_${Date.now()}`}`
+    };
+  };
+
+  // Return loading view if still loading or permissions not granted
+  if (isLoading || !hasPermissions) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.container}>
+        <StatusBar hidden />
+        <ActivityIndicator size="large" color="#0066CC" />
         <Text style={styles.loadingText}>
-          Camera and microphone permissions are required.
+          {isLoading
+            ? "Preparing video call..."
+            : "Waiting for camera/microphone permissions..."}
         </Text>
       </View>
     );
@@ -891,61 +977,27 @@ const VideoCallComponent = forwardRef(({
       <StatusBar hidden />
       <WebView
         ref={webViewRef}
-        source={{
-          html: `
-            <!DOCTYPE html>
-            <html>
-              <head>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-                <meta http-equiv="Permissions-Policy" content="interest-cohort=(), microphone *, camera *">
-                <script src="https://meet.jit.si/external_api.js"></script>
-                <style>
-                  * { margin: 0; padding: 0; box-sizing: border-box; }
-                  html, body { height: 100vh; width: 100vw; overflow: hidden; background: #000; }
-                  #meet { height: 100vh; width: 100vw; position: fixed; top: 0; left: 0; }
-                  .watermark { display: none !important; }
-                </style>
-              </head>
-              <body>
-                <div id="meet"></div>
-              </body>
-            </html>
-          `,
-          baseUrl: "https://meet.jit.si",
-        }}
+        source={getSourceUrl()}
         style={styles.webview}
         javaScriptEnabled={true}
         domStorageEnabled={true}
         allowsInlineMediaPlayback={true}
         mediaPlaybackRequiresUserAction={false}
-        mediaCapturePermissionGrantType="grant"
         allowsFullscreenVideo={true}
-        cacheEnabled={false}
-        incognito={true}
-        allowsBackgroundMediaPlayback={isTeacher}
-        androidLayerType="hardware"
-        // Update the onMessage handler in WebView
+        userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1"
         onMessage={handleWebViewMessage}
-        originWhitelist={["*"]}
-        mixedContentMode="always"
-        useWebKit={true}
-        scrollEnabled={false}
-        bounces={false}
-        startInLoadingState={true}
         injectedJavaScript={INJECTED_JAVASCRIPT}
-        onShouldStartLoadWithRequest={() => true}
-        userAgent={Platform.select({
-          android:
-            "Mozilla/5.0 (Linux; Android 11) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.87 Mobile Safari/537.36",
-          ios: "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1",
-        })}
+        onLoadEnd={() => setIsLoading(false)}
         onError={(syntheticEvent) => {
           const { nativeEvent } = syntheticEvent;
-          console.warn("WebView error:", nativeEvent);
-          if (retryCount < MAX_RETRIES) {
-            setRetryCount((prev) => prev + 1);
-            reloadWebView();
+          console.error("WebView error:", nativeEvent);
+          handleJitsiError(`WebView error: ${nativeEvent.description}`);
+        }}
+        onHttpError={(syntheticEvent) => {
+          const { nativeEvent } = syntheticEvent;
+          console.error("WebView HTTP error:", nativeEvent);
+          if (nativeEvent.statusCode >= 400) {
+            handleJitsiError(`HTTP error: ${nativeEvent.statusCode}`);
           }
         }}
       />
@@ -953,27 +1005,21 @@ const VideoCallComponent = forwardRef(({
   );
 });
 
-VideoCallComponent.displayName = 'VideoCallComponent';
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "black",
+    width: "100%",
+    height: "100%",
   },
   webview: {
     flex: 1,
-    backgroundColor: "#000",
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#000",
+    backgroundColor: "black",
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: "#fff",
+    color: "white",
+    marginTop: 20,
+    textAlign: "center",
   },
 });
 

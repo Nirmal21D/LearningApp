@@ -132,7 +132,7 @@ const Blogs = () => {
         filteredBlogs.map(blog => (
           <TouchableOpacity 
             key={blog.id} 
-            style={styles.blogCard}
+            style={[styles.blogCard, blog.userVotes?.[user?.uid] === 1 && styles.blogCardHover]}
             onPress={() => router.push(`/blogs/content/${blog.id}`)}
           >
             {/* Post Header */}
@@ -150,7 +150,7 @@ const Blogs = () => {
                   source={{ uri: blog.authorPhotoURL || 'https://via.placeholder.com/40' }} 
                   style={styles.authorAvatar}
                 />
-                <Text style={styles.authorName}>{blog.authorName || 'Anonymous'}</Text>
+                <Text style={styles.authorName}>{blog.author || 'Anonymous'}</Text>
                 <Text style={styles.dotSeparator}>•</Text>
                 <Text style={styles.dateText}>{formatDate(blog.createdAt)}</Text>
               </View>
@@ -231,13 +231,13 @@ const styles = StyleSheet.create({
     color: '#4b5563',
   },
   header: {
-    backgroundColor: 'white',
+    backgroundColor: '#ffffff',
     paddingHorizontal: 16,
     paddingTop: 24,
     paddingBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 1,
     elevation: 1,
   },
@@ -326,6 +326,9 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
     overflow: 'hidden',
+  },
+  blogCardHover: {
+    transform: [{ scale: 1.02 }],
   },
   blogHeader: {
     padding: 16,

@@ -294,21 +294,7 @@ export default function VideoCallScreen() {
   };
 
   const handleClose = () => {
-    Alert.alert(
-      "Leave Call",
-      "Are you sure you want to leave the video call?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Leave",
-          style: "destructive",
-          onPress: () => router.back(),
-        },
-      ]
-    );
+    console.log("Closing video call");
   };
 
   if (isLoading) {

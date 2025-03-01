@@ -10,6 +10,7 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,6 +27,9 @@ import {
   arrayUnion,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 export default function GroupChats() {
   const [subjectGroups, setSubjectGroups] = useState([]);
@@ -33,6 +37,8 @@ export default function GroupChats() {
   const [userRole, setUserRole] = useState(null);
   const [userData, setUserData] = useState(null);
   const router = useRouter();
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -429,46 +435,113 @@ export default function GroupChats() {
     </TouchableOpacity>
   );
 
+  const sendMessage = () => {
+    if (newMessage.trim()) {
+      setMessages([...messages, { id: Date.now().toString(), text: newMessage, sender: "You" }]);
+      setNewMessage("");
+    }
+  };
+
+  const renderMessage = ({ item }) => (
+    <View style={[styles.messageBubble, item.sender === "You" ? styles.ownMessage : styles.otherMessage]}>
+      <Text style={styles.messageText}>{item.text}</Text>
+    </View>
+  );
+
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>Loading subject groups...</Text>
+      <View style={styles.container}>
+        <LinearGradient
+          colors={['#E3F2FD', '#BBDEFB', '#E3F2FD']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <View style={[styles.blurCircle, styles.blurCircle1]} />
+        <View style={[styles.blurCircle, styles.blurCircle2]} />
+        <View style={[styles.blurCircle, styles.blurCircle3]} />
+        
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2196F3" />
+          <Text style={styles.loadingText}>Loading subject groups...</Text>
+        </View>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Subject Groups</Text>
-      </View>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#E3F2FD', '#BBDEFB', '#E3F2FD']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+      
+      <View style={[styles.blurCircle, styles.blurCircle1]} />
+      <View style={[styles.blurCircle, styles.blurCircle2]} />
+      <View style={[styles.blurCircle, styles.blurCircle3]} />
 
-      {subjectGroups.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="people-outline" size={48} color="#666" />
-          <Text style={styles.emptyText}>
-            {userRole === "teacher"
-              ? "You don't have any subjects to create groups for"
-              : "No subject groups available"}
-          </Text>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <BlurView intensity={0} tint="light" style={styles.headerBlur}>
+            <TouchableOpacity 
+              style={styles.backButton} 
+              onPress={() => router.back()}
+            >
+              <Ionicons name="arrow-back" size={24} color="#333" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Subject Groups</Text>
+            <View style={styles.placeholderView} />
+          </BlurView>
         </View>
-      ) : (
-        <FlatList
-          data={subjectGroups}
-          renderItem={renderGroupItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContainer}
-        />
-      )}
-    </SafeAreaView>
+
+        <Animated.View entering={FadeInDown.duration(1000).springify()}>
+          {subjectGroups.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <BlurView intensity={40} tint="light" style={styles.emptyBlurContainer}>
+                <Ionicons name="people-outline" size={48} color="#666" />
+                <Text style={styles.emptyText}>
+                  {userRole === "teacher"
+                    ? "You don't have any subjects to create groups for"
+                    : "No subject groups available"}
+                </Text>
+              </BlurView>
+            </View>
+          ) : (
+            <FlatList
+              data={subjectGroups}
+              renderItem={renderGroupItem}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listContainer}
+            />
+          )}
+        </Animated.View>
+
+        <View style={styles.messagesContainer}>
+          {loading ? (
+            <ActivityIndicator size="large" color="#2196F3" style={styles.loader} />
+          ) : (
+            <FlatList
+              data={messages}
+              renderItem={renderMessage}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.messagesContainer}
+              inverted
+            />
+          )}
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8F8F8",
+    position: 'relative',
+    backgroundColor: 'transparent',
+    overflow: 'hidden',
   },
   loadingContainer: {
     flex: 1,
@@ -481,24 +554,65 @@ const styles = StyleSheet.create({
     color: "#666",
   },
   header: {
-    backgroundColor: "#2196F3",
-    paddingVertical: 15,
-    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "android" ? 40 : 15,
+    zIndex: 10,
+  },
+  headerBlur: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    paddingTop: Platform.OS === "android" ? 40 : 15,
+    justifyContent: "space-between",
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#FFF",
+    color: "#1A237E",
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  placeholderView: {
+    width: 40,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
+  },
+  emptyBlurContainer: {
+    padding: 30,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 24,
   },
   emptyText: {
     marginTop: 10,
@@ -507,32 +621,39 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   listContainer: {
-    padding: 10,
+    padding: 16,
   },
   groupItem: {
     flexDirection: "row",
-    backgroundColor: "#FFF",
-    borderRadius: 10,
+    borderRadius: 20,
     padding: 15,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    marginBottom: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(3px)' : undefined,
+    borderWidth: 1.5,
+    ////borderColor: 'rgba(255, 255, 255, 0.4)',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 24,
+    borderTopColor: 'rgba(255, 255, 255, 0.9)',
+    borderLeftColor: 'rgba(255, 255, 255, 0.9)',
+    borderRightColor: 'rgba(255, 255, 255, 0.7)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.7)',
   },
   inactiveGroup: {
-    opacity: 0.7,
-    backgroundColor: "#F5F5F5",
+    opacity: 0.8,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   groupIconContainer: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: "#E3F2FD",
+    backgroundColor: 'rgba(227, 242, 253, 0.6)',
     justifyContent: "center",
     alignItems: "center",
     marginRight: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
   },
   groupInfo: {
     flex: 1,
@@ -541,6 +662,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     marginBottom: 5,
+    color: "#1A237E",
   },
   needsInitText: {
     fontSize: 12,
@@ -590,5 +712,68 @@ const styles = StyleSheet.create({
   joinIconContainer: {
     justifyContent: "center",
     marginLeft: 10,
+  },
+  // Blur circles from login screen
+  blurCircle: {
+    position: 'absolute',
+    borderRadius: 999,
+    zIndex: 0,
+  },
+  blurCircle1: {
+    width: Platform.OS === 'web' ? 250 : 200,
+    height: Platform.OS === 'web' ? 250 : 200,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    top: Platform.OS === 'web' ? 20 : 10,
+    left: Platform.OS === 'web' ? -80 : -60,
+    transform: [
+      { scale: 1.2 },
+      { rotate: '-15deg' }
+    ],
+  },
+  blurCircle2: {
+    width: Platform.OS === 'web' ? 220 : 180,
+    height: Platform.OS === 'web' ? 220 : 180,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    top: Platform.OS === 'web' ? 390 : 320,
+    right: Platform.OS === 'web' ? -40 : -30,
+    transform: [
+      { scale: 1.1 },
+      { rotate: '30deg' }
+    ],
+  },
+  blurCircle3: {
+    width: Platform.OS === 'web' ? 200 : 160,
+    height: Platform.OS === 'web' ? 200 : 160,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    bottom: Platform.OS === 'web' ? 30 : 60,
+    left: Platform.OS === 'web' ? -60 : -40,
+    transform: [
+      { scale: 1 },
+      { rotate: '15deg' }
+    ],
+  },
+  messagesContainer: {
+    padding: 10,
+  },
+  messageBubble: {
+    padding: 10,
+    borderRadius: 15,
+    marginVertical: 5,
+    maxWidth: "80%",
+  },
+  ownMessage: {
+    backgroundColor: "#2196F3",
+    alignSelf: "flex-end",
+  },
+  otherMessage: {
+    backgroundColor: "#FFF",
+    alignSelf: "flex-start",
+  },
+  messageText: {
+    color: "#FFF",
+  },
+  loader: {
+    flex: 1,
+    justifyContent: "center",
   },
 });

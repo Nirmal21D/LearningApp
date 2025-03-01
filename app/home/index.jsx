@@ -1,25 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dimensions, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dimensions, Platform, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Link } from 'expo-router';
 import { getFirestore, doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import TextExtractor from '@/components/TextExtractor';
 import ChatBot from '@/components/Chatbot';
 import { LinearGradient } from 'expo-linear-gradient';
 import { signOut } from 'firebase/auth';
 import { Alert } from 'react-native';
 import LearningStyleAssessment from '@/components/LearningStyleAssessment';
 import RecommendedVideos from '@/components/RecommendedVideos';
-
-
 import { auth } from '@/lib/firebase';
-import TeamsFeature from '@/components/TeamsFeature';
-import SessionNotification from '@/components/SessionNotification';
 import { getUserProgress } from '@/app/api/progress';
 import TodoListComponent from '../../components/Todo';
 import AudioQA from '../../components/AudioQA';
 import SpeechToText from '../../components/SpeechToText';
+import StudyNotes from '../../components/StudyNotes';
 const { width } = Dimensions.get('window');
 const colors = {
   primary: '#2196F3',
@@ -78,7 +74,7 @@ export default function Home() {
   const [userfortodo, setUserfortodo] = useState();
   const calculateOverallProgress = (data) => {
     if (!data) return 0;
-    
+
     // Use the same averageScore from the summary as used in the progress page
     return data.summary.averageScore || 0;
   };
@@ -103,7 +99,7 @@ export default function Home() {
           ...doc.data()
         }));
         setSubjects(subjectsList);
-        
+
       } catch (error) {
         console.error("Error fetching subjects:", error);
       }
@@ -134,9 +130,9 @@ export default function Home() {
           router.replace('/teacher/dashboard');
           return;
         }
-       else if (data.userType === 'careerGuider') {
-        router.push('/career-guider/dashboard');
-      }
+        else if (data.userType === 'careerGuider') {
+          router.push('/career-guider/dashboard');
+        }
       } else {
         setUserInfo(null);
         setProgressData(null);
@@ -173,7 +169,7 @@ export default function Home() {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFillObject}
       />
-      
+
       <View style={styles.circleBackground}>
         <View style={styles.circle} />
       </View>
@@ -183,7 +179,7 @@ export default function Home() {
       <View style={[styles.blurCircle, styles.blurCircle3]} />
 
       {/* Navigation Bar */}
-     { userInfo && (
+      {userInfo && (
         <LearningStyleAssessment
           userId={getAuth().currentUser.uid}
           onClose={() => setShowTagForm(false)}
@@ -199,7 +195,7 @@ export default function Home() {
             <View style={styles.notificationBadge} />
             <Ionicons name="notifications-outline" size={24} color="#333" />
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.logoutButton}
             onPress={handleLogout}
           >
@@ -207,7 +203,7 @@ export default function Home() {
           </TouchableOpacity>
         </View>
       </View>
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
       >
@@ -242,13 +238,13 @@ export default function Home() {
           </View>
           <View style={styles.subjectsGrid}>
             {subjects.map((subject) => (
-              <TouchableOpacity 
+              <TouchableOpacity
                 key={subject.id}
                 style={styles.subjectCard}
                 onPress={() => {
                   router.push({
                     pathname: '/subject/' + subject.id,
-                    params: { 
+                    params: {
                       subjectName: subject.name,
                       subjectId: subject.id
                     }
@@ -267,13 +263,20 @@ export default function Home() {
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recommended Videos</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => router.push('/videos')}
             >
               <Text style={styles.seeAllButton}>See All</Text>
             </TouchableOpacity>
           </View>
           <RecommendedVideos />
+        </View>
+
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Study Notes</Text>
+          </View>
+          <StudyNotes />
         </View>
 
         {/* Course Categories */}
@@ -339,11 +342,12 @@ export default function Home() {
           <TeamsFeature />
         </View> */}
 
-            <TodoListComponent 
-              storageKey="tenthGradeTasks"
-              title="My Tasks" 
-              user={userfortodo}
-            />
+        <TodoListComponent
+          storageKey="tenthGradeTasks"
+          title="My Tasks"
+          user={userfortodo}
+        />
+
 
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
@@ -352,41 +356,42 @@ export default function Home() {
               <Text style={styles.seeAllButton}>All Reviews</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView 
-            horizontal 
+          <FlatList
+            horizontal
             showsHorizontalScrollIndicator={false}
-            style={styles.reviewsContainer}
-          >
-            {reviews.map((review) => (
-              <View key={review.id} style={styles.reviewCard}>
+            data={reviews}
+            keyExtractor={(item) => item.id.toString()} 
+            renderItem={({ item }) => (
+              <View style={styles.reviewCard}>
                 <View style={styles.reviewHeader}>
                   <View style={styles.reviewerInfo}>
                     <View style={styles.reviewerAvatar}>
                       <Text style={styles.reviewerInitial}>
-                        {review.name.charAt(0)}
+                        {item.name.charAt(0)}
                       </Text>
                     </View>
                     <View style={styles.reviewerDetails}>
-                      <Text style={styles.reviewerName}>{review.name}</Text>
-                      <Text style={styles.reviewSubject}>{review.subject}</Text>
+                      <Text style={styles.reviewerName}>{item.name}</Text>
+                      <Text style={styles.reviewSubject}>{item.subject}</Text>
                     </View>
                   </View>
                 </View>
                 <View style={styles.ratingContainer}>
                   {[...Array(5)].map((_, i) => (
-                    <Ionicons 
+                    <Ionicons
                       key={i}
-                      name={i < review.rating ? "star" : "star-outline"}
+                      name={i < item.rating ? "star" : "star-outline"}
                       size={16}
-                      color={i < review.rating ? "#FFD700" : "#666"}
+                      color={i < item.rating ? "#FFD700" : "#666"}
                     />
                   ))}
                 </View>
-                <Text style={styles.reviewContent}>{review.content}</Text>
+                <Text style={styles.reviewContent}>{item.content}</Text>
               </View>
-            ))}
-          </ScrollView>
+            )}
+          />
         </View>
+
         <ScrollView>
           {/* Learning Recommendations Section */}
           {progressData && (
@@ -394,7 +399,7 @@ export default function Home() {
               <View style={styles.recommendationsHeader}>
                 <Ionicons name="bulb" size={24} color="#FFD700" />
                 <Text style={styles.recommendationsTitle}>Learning Recommendations</Text>
-        </View>
+              </View>
 
               {/* Progress-based recommendations */}
               {calculateOverallProgress(progressData) < 70 && (
@@ -423,14 +428,14 @@ export default function Home() {
                       {progressData.summary.totalVideos - progressData.summary.videosWatched} videos remaining to watch
                     </Text>
                     <View style={styles.progressBar}>
-                      <View 
+                      <View
                         style={[
                           styles.progressFill,
-                          { 
+                          {
                             width: progressData.summary.videosWatched / progressData.summary.totalVideos * 100 + '%',
                             backgroundColor: '#2196F3'
                           }
-                        ]} 
+                        ]}
                       />
                     </View>
                   </View>
@@ -445,11 +450,11 @@ export default function Home() {
                 <View style={styles.recommendationContent}>
                   <Text style={styles.recommendationTitle}>Learning Pace</Text>
                   <Text style={styles.recommendationText}>
-                    {progressData.summary.learningSpeed === 'Fast' ? 
+                    {progressData.summary.learningSpeed === 'Fast' ?
                       'Great pace! Keep up the momentum' :
-                      progressData.summary.learningSpeed === 'Slow' ? 
-                      'Take your time to understand concepts thoroughly' :
-                      'You\'re maintaining a steady learning rhythm'}
+                      progressData.summary.learningSpeed === 'Slow' ?
+                        'Take your time to understand concepts thoroughly' :
+                        'You\'re maintaining a steady learning rhythm'}
                   </Text>
                 </View>
               </View>
@@ -475,7 +480,7 @@ export default function Home() {
               <Ionicons name="book" size={24} color="#2196F3" />
               <Text style={styles.learningGuideTitle}>How to Learn Effectively</Text>
             </View>
-            
+
             {/* Step 1 */}
             <View style={[styles.guideStep, styles.assessmentStep]}>
               <View style={styles.stepHeader}>
@@ -626,7 +631,7 @@ export default function Home() {
           <Text style={styles.footerTitle}>Connect With Us</Text>
           <View style={styles.socialLinks}>
             {['logo-facebook', 'logo-twitter', 'logo-instagram', 'logo-youtube'].map((icon) => (
-              <TouchableOpacity 
+              <TouchableOpacity
                 key={icon}
                 style={styles.socialButton}
               >
@@ -639,26 +644,26 @@ export default function Home() {
             <Ionicons name="arrow-forward" size={20} color="white" />
           </TouchableOpacity>
         </View>
-        <SpeechToText/>
+      
       </ScrollView>
 
       {/* Place ChatBot before bottom nav but with adjusted style */}
       <View style={styles.chatBotWrapper}>
-      <ChatBot />
-      <AudioQA/>
+        <ChatBot />
+        <AudioQA />
       </View>
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity 
-          style={styles.navItem} 
+        <TouchableOpacity
+          style={styles.navItem}
           onPress={() => router.push('/chats')}
         >
           <Ionicons name="chatbubbles-outline" size={24} color="#666" />
           <Text style={styles.navText}>Chats</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push('/tools')}
         >
@@ -666,7 +671,7 @@ export default function Home() {
           <Text style={styles.navText}>Tools</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.navItem, styles.activeNavItem]}
         >
           <View style={styles.homeIconContainer}>
@@ -675,7 +680,7 @@ export default function Home() {
           <Text style={[styles.navText, styles.activeNavText]}>Home</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push('/blogs')}
         >
@@ -683,7 +688,7 @@ export default function Home() {
           <Text style={styles.navText}>Blogs</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push('/profile')}
         >
@@ -701,7 +706,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: 'transparent',
     overflow: 'hidden',
-    
+
   },
   navbar: {
     flexDirection: 'row',
@@ -711,7 +716,7 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 50 : 20,
     backgroundColor: 'transparent',
     zIndex: 1,
-    
+
   },
   menuButton: {
     width: 40,
@@ -751,7 +756,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
     backgroundColor: 'rgba(33, 150, 243, 0.65)',
-    
+
   },
   welcomeText: {
     fontSize: 24,
@@ -963,7 +968,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1A237E',
     marginBottom: 20,
-    
+
   },
   socialLinks: {
     flexDirection: 'row',
@@ -1028,7 +1033,7 @@ const styles = StyleSheet.create({
     transform: [{ translateY: -5 }],
   },
   homeIconContainer: {
-    backgroundColor: '#E3F2FD',
+    // backgroundColor: '#E3F2FD',
     padding: 1,
     borderRadius: 999,
     marginBottom: 2,

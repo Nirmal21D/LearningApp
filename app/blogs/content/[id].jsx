@@ -4,10 +4,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, onSnapshot, updateDoc, increment } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-
-import Comments from '../../../components/Comment';
-import { db } from '../../../lib/firebase';
-
+import Comments from '@/components/Comment';
+import { db } from '@/lib/firebase';
 const colors = {
   primary: '#2196F3',
   background: '#f8f9fa',
@@ -21,6 +19,7 @@ const colors = {
     'Study Skills': '#ff9f43',
   }
 };
+
 const BlogDetail = () => {
   const { id } = useLocalSearchParams();
   const router = useRouter();
@@ -28,7 +27,6 @@ const BlogDetail = () => {
   const user = auth.currentUser;
   const [blog, setBlog] = useState(null);
   const [loading, setLoading] = useState(true);
-  
 
   useEffect(() => {
     const blogRef = doc(db, 'blogs', id);
@@ -193,6 +191,15 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 24,
     paddingTop: 48,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    marginBottom: 20,
   },
   categoryTag: {
     alignSelf: 'flex-start',

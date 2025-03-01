@@ -1,0 +1,15 @@
+diff --git a/node_modules/react-native-tesseract-ocr/android/build.gradle b/node_modules/react-native-tesseract-ocr/android/build.gradle
+index 885c6e5..c48b82b 100644
+--- a/node_modules/react-native-tesseract-ocr/android/build.gradle
++++ b/node_modules/react-native-tesseract-ocr/android/build.gradle
+@@ -42,8 +42,8 @@ apply plugin: 'com.android.library'
+ apply plugin: 'maven'
+ 
+ android {
+-    compileSdkVersion safeExtGet('compileSdkVersion', DEFAULT_COMPILE_SDK_VERSION)
+-    buildToolsVersion safeExtGet('buildToolsVersion', DEFAULT_BUILD_TOOLS_VERSION)
++    compileSdkVersion 35  // Set explicitly
++    buildToolsVersion "35.0.0"
+     defaultConfig {
+         minSdkVersion safeExtGet('minSdkVersion', DEFAULT_MIN_SDK_VERSION)
+         targetSdkVersion safeExtGet('targetSdkVersion', DEFAULT_TARGET_SDK_VERSION)

@@ -71,10 +71,31 @@ export default function Layout() {
         name="profile/index"
         options={{ headerShown: false }}
       /> 
-      {/* <Stack.Screen
-        name="subject/[id]"
+      <Stack.Screen
+        name="labs/index"
         options={{ headerShown: false }}
-      />  */}
+      /> 
+      <Stack.Screen
+        name="pomodoro/index"
+        options={{ headerShown: false }}
+      /> 
+      <Stack.Screen
+        name="career/index"
+        options={{ headerShown: false }}
+      /> 
+      <Stack.Screen
+        name="chat/group"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="chat/private"
+        options={{ headerShown: false }}
+      /> 
+      <Stack.Screen
+        name="chat/subject-chat"
+        options={{ headerShown: false }}
+      /> 
+      
     </Stack>
   );
 } 

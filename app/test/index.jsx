@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, TextInput, Alert, Modal } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -33,6 +33,7 @@ export default function TestPage() {
     const [earnedXP, setEarnedXP] = useState(0);
     const [showTimeWarning, setShowTimeWarning] = useState(false);
     const [startTimestamp, setStartTimestamp] = useState(null);
+    const [recommendedVideos, setRecommendedVideos] = useState([]);
 
     useEffect(() => {
         const auth = getAuth();
@@ -483,6 +484,8 @@ export default function TestPage() {
                 })}
             </View>
             
+            {renderVideoRecommendations()}
+            
             <TouchableOpacity 
                 style={styles.returnButton}
                 onPress={() => router.back()}
@@ -566,6 +569,236 @@ export default function TestPage() {
                     </Text>
                 </View>
             )}
+        </View>
+    );
+
+    const fetchRecommendedVideos = async () => {
+        try {
+            if (!score || !testData) {
+                console.log("Score or test data not available yet");
+                return;
+            }
+    
+            setRecommendedVideos([]); // Reset videos while loading
+            const scorePercentage = (score.correct / score.total) * 100;
+            
+            // Get reference to the specific subject document
+            const subjectDocRef = doc(db, "subjects", testData.subjectId || "");
+            let foundVideos = [];
+            
+            try {
+                const subjectDoc = await getDoc(subjectDocRef);
+                
+                if (subjectDoc.exists()) {
+                    const subjectData = subjectDoc.data();
+                    
+                    // Determine which chapter to look for
+                    let targetChapterIndex = testData.chapterIndex || 0;
+                    let targetChapterId = `CH${targetChapterIndex + 1}_${subjectData.name.replace(/\s+/g, '')}`;
+                    
+                    if (scorePercentage >= 70) {
+                        // Try to find next chapter
+                        const nextChapterIndex = targetChapterIndex + 1;
+                        // Check if next chapter exists by examining totalChapters
+                        if (nextChapterIndex < (subjectData.chapters.length || 0)) {
+                            targetChapterId = `CH${nextChapterIndex + 1}_${subjectData.name.replace(/\s+/g, '')}`;
+                            console.log(`Looking for videos in next chapter: ${targetChapterId}`);
+                        }
+                    } else {
+                        console.log(`Looking for videos in current chapter: ${targetChapterId}`);
+                    }
+                    
+                    // Match the chapter key
+                    const matchingChapterKey = subjectData.chapters.find(chapter => 
+                        chapter.toLowerCase() === targetChapterId.toLowerCase()
+                    ) 
+                    ? `CH${subjectData.chapters.indexOf(targetChapterId) + 1}_${subjectData.name.replace(/\s+/g, '')}`
+                    : targetChapterId;
+    
+                    // Check if the videos property and the target chapter exist
+                    if (subjectData.videos && subjectData.videos[matchingChapterKey]) {
+                        // Get videos from the target chapter
+                        const chapterVideos = Object.values(subjectData.videos[matchingChapterKey]);
+                        
+                        // Take up to 3 videos
+                        foundVideos = chapterVideos.slice(0, 3).map(video => ({
+                            id: video.id,
+                            title: video.name,
+                            duration: video.duration || "Unknown",
+                            thumbnail: video.thumbnail || null,
+                            url: video.url || null
+                        }));
+                        console.log("found video:",foundVideos);
+                        console.log(`Found ${foundVideos.length} videos in ${matchingChapterKey}`);
+                    } 
+                    
+                    // If no videos found in target chapter and we were looking for next chapter,
+                    // fall back to any videos from this subject
+                    if (foundVideos.length === 0) {
+                        console.log("No videos in target chapter, falling back to any videos in this subject");
+                        
+                        // Collect videos from any chapter in this subject
+                        if (subjectData.videos) {
+                            let allChapterVideos = [];
+                            
+                            // Loop through all chapters
+                            for (const chapterId in subjectData.videos) {
+                                const chapterVideosObj = subjectData.videos[chapterId];
+                                
+                                // Get only numeric properties which contain the actual videos
+                                const videosInChapter = Object.entries(chapterVideosObj)
+                                    .filter(([key]) => !isNaN(parseInt(key)))
+                                    .map(([_, video]) => (video));
+                                    
+                                allChapterVideos = allChapterVideos.concat(videosInChapter);
+                            }
+                            
+                            // Take up to 3 videos
+                            foundVideos = allChapterVideos.slice(0, 3).map(video => ({
+                                id: video.id,
+                                title: video.title,
+                                duration: video.duration || "Unknown",
+                                thumbnail: video.thumbnail || null,
+                                url: video.url || null
+                            }));
+                        }
+                    }
+                } else {
+                    console.log("Subject document not found");
+                    
+                    // If subject not found, query all subjects as fallback
+                    const subjectsRef = collection(db, "subjects");
+                    const subjectSnapshot = await getDocs(subjectsRef);
+                    const allSubjects = [];
+                    
+                    subjectSnapshot.forEach((doc) => {
+                        allSubjects.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    // Find videos from any subject
+                    let allVideos = [];
+                    
+                    for (const subject of allSubjects) {
+                        if (subject.videos) {
+                            for (const chapterId in subject.videos) {
+                                const chapterVideosObj = subject.videos[chapterId];
+                                
+                                // Get only numeric properties which contain the actual videos
+                                const videosInChapter = Object.entries(chapterVideosObj)
+                                    .filter(([key]) => !isNaN(parseInt(key)))
+                                    .map(([_, video]) => (video));
+                                    
+                                allVideos = allVideos.concat(videosInChapter);
+                            }
+                        }
+                    }
+                    
+                    // Take up to 3 random videos
+                    foundVideos = allVideos.sort(() => 0.5 - Math.random()).slice(0, 3).map(video => ({
+                        id: video.id,
+                        title: video.title,
+                        duration: video.duration || "Unknown",
+                        thumbnail: video.thumbnail || null,
+                        url: video.url || null
+                    }));
+                }
+                
+                setRecommendedVideos(foundVideos);
+                
+            } catch (docError) {
+                console.error('Error getting subject document:', docError);
+                
+                // Fallback to querying all subjects
+                const subjectsRef = collection(db, "subjects");
+                const subjectSnapshot = await getDocs(subjectsRef);
+                let allVideos = [];
+                
+                subjectSnapshot.forEach((doc) => {
+                    const subjectData = doc.data();
+                    
+                    if (subjectData.videos) {
+                        for (const chapterId in subjectData.videos) {
+                            const chapterVideosObj = subjectData.videos[chapterId];
+                            
+                            // Get only numeric properties which contain the actual videos
+                            const videosInChapter = Object.entries(chapterVideosObj)
+                                .filter(([key]) => !isNaN(parseInt(key)))
+                                .map(([_, video]) => (video));
+                                
+                            allVideos = allVideos.concat(videosInChapter);
+                        }
+                    }
+                });
+                
+                // Take up to 3 random videos
+                foundVideos = allVideos.sort(() => 0.5 - Math.random()).slice(0, 3).map(video => ({
+                    id: video.id,
+                    title: video.title,
+                    duration: video.duration || "Unknown",
+                    thumbnail: video.thumbnail || null,
+                    url: video.url || null
+                }));
+                setRecommendedVideos(foundVideos);
+                console.log(recommendedVideos);
+            }
+            
+        } catch (error) {
+            console.error('Error fetching recommended videos:', error);
+        }
+    };
+    
+    // Call this function when score is calculated
+    useEffect(() => {
+        if (score !== null) {
+            fetchRecommendedVideos();
+        }
+    }, [score]);
+    
+    // Add this component to render video recommendations
+    const renderVideoRecommendations = () => (
+        <View style={styles.recommendationsCard}>
+            <Text style={styles.breakdownTitle}>
+                {score / testData.questions.length < 0.7 
+                    ? "Videos to help you improve" 
+                    : "Suggested videos to continue learning"}
+            </Text>
+            
+            {recommendedVideos.length > 0 ? ( 
+                recommendedVideos.map((video, index) => (
+                    <TouchableOpacity 
+                        key={index} 
+                        style={styles.videoItem}
+                        onPress={() => {
+                            router.push({
+                                pathname: `/video/${video.id}`,
+                                params: {
+                                  videoId: video.id,
+                                  videoName: video.name || "Video",
+                                  videoUrl: video.url
+                                }
+                              });
+                        }}
+                    >
+                        <View style={styles.videoThumbnail}>
+                            <Ionicons name="play-circle" size={24} color="#2196F3" />
+                        </View>
+                        <View style={styles.videoDetails}>
+                            <Text style={styles.videoTitle}>{video.title}</Text>
+                            <Text style={styles.videoDuration}>{video.duration} min</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#999" />
+                    </TouchableOpacity>
+                ))
+            ) : (
+                <Text style={styles.noVideosText}>No recommendations available</Text>
+            )}
+            
+            <TouchableOpacity 
+                style={styles.seeMoreButton}
+                onPress={() => router.push('/videos')}
+            >
+                <Text style={styles.seeMoreButtonText}>See More Videos</Text>
+            </TouchableOpacity>
         </View>
     );
 
@@ -1044,5 +1277,57 @@ const styles = StyleSheet.create({
         color: 'white',
         fontWeight: 'bold',
         fontSize: 12,
+    },
+    recommendationsCard: {
+        backgroundColor: 'white',
+        margin: 15,
+        padding: 15,
+        borderRadius: 12,
+        elevation: 3,
+    },
+    videoItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    videoThumbnail: {
+        width: 50,
+        height: 50,
+        backgroundColor: '#E3F2FD',
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    videoDetails: {
+        flex: 1,
+        marginLeft: 10,
+    },
+    videoTitle: {
+        fontSize: 15,
+        fontWeight: '500',
+        color: '#333',
+    },
+    videoDuration: {
+        fontSize: 12,
+        color: '#666',
+        marginTop: 4,
+    },
+    seeMoreButton: {
+        backgroundColor: '#E3F2FD',
+        padding: 10,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    seeMoreButtonText: {
+        color: '#2196F3',
+        fontWeight: '600',
+    },
+    noVideosText: {
+        color: '#666',
+        textAlign: 'center',
+        padding: 10,
     },
   });

@@ -1,32 +1,28 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dimensions, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dimensions, Platform, ActivityIndicator, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Link } from 'expo-router';
-import { getFirestore, doc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import ChatBot from '@/components/Chatbot';
 import { LinearGradient } from 'expo-linear-gradient';
 import { signOut } from 'firebase/auth';
 import { Alert } from 'react-native';
-
-
-
-
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import TeamsFeature from '@/components/TeamsFeature';
 import SessionNotification from '@/components/SessionNotification';
 import { getUserProgress } from '@/app/api/progress';
+
 const { width } = Dimensions.get('window');
-
-
-
 
 export default function Chats() {
   const router = useRouter();
- 
+  const user = auth.currentUser;
   const [userInfo, setUserInfo] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [careerGuiders, setCareerGuiders] = useState([]);
+  const [loading, setLoading] = useState(true);
   const colors = {
     primary: '#2196F3',
     background: '#f8f9fa',
@@ -56,8 +52,6 @@ export default function Chats() {
         const data = userDocSnap.data();
         setUserInfo(data);
 
-        
-
         if (data.userType === 'teacher') {
           router.replace('/teacher/dashboard');
           return;
@@ -72,6 +66,49 @@ export default function Chats() {
     return () => unsubscribe();
   }, [router]);
 
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      if (!user) return;
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          setUserInfo(userDoc.data());
+        }
+      } catch (error) {
+        console.error('Error fetching user info:', error);
+      }
+    };
+    fetchUserInfo();
+  }, [user]);
+
+  useEffect(() => {
+    const fetchCareerGuiders = async () => {
+      try {
+        const guidersQuery = query(
+          collection(db, 'users'),
+          where('userType', '==', 'careerGuider')
+        );
+        
+        const guidersSnapshot = await getDocs(guidersQuery);
+        const guidersData = guidersSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        
+        console.log('Found career guiders:', guidersData.length);
+        setCareerGuiders(guidersData);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching career guiders:', error);
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchCareerGuiders();
+    }
+  }, [user]);
+
   const handleLogout = async () => {
     const auth = getAuth();
     try {
@@ -82,11 +119,27 @@ export default function Chats() {
     }
   };
 
-  if (isLoading) {
-  return (
-    <SafeAreaView style={styles.container}>
-        <Text style={styles.loadingText}>Loading...</Text>
-      </SafeAreaView>
+  const handleCareerChatPress = (guider) => {
+    if (!user || !userInfo) return;
+
+    router.push({
+      pathname: '/chat/career-chat',
+      params: {
+        guiderId: guider.id,
+        guiderName: guider.username || 'Career Guider',
+        studentId: user.uid,
+        studentName: userInfo.username || 'Student',
+        isGuider: false
+      }
+    });
+  };
+
+  if (isLoading || loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2196F3" />
+        <Text style={styles.loadingText}>Loading chats...</Text>
+      </View>
     );
   }
 
@@ -107,12 +160,7 @@ export default function Chats() {
       <View style={[styles.blurCircle, styles.blurCircle2]} />
       <View style={[styles.blurCircle, styles.blurCircle3]} />
 
-
-  
       <View style={styles.navbar}>
-        {/* <TouchableOpacity style={styles.menuButton}>
-          <Ionicons name="menu-outline" size={28} color="#333" />
-        </TouchableOpacity> */}
         <Text style={styles.className}>Std 10</Text>
         <View style={styles.navRight}>
         <TouchableOpacity style={styles.notificationButton}>
@@ -131,19 +179,64 @@ export default function Chats() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
       >
-        {/* Welcome Section */}
         <View style={[styles.welcomeSection, { borderRadius: 0 }]}>
           <Text style={styles.welcomeText}>Welcome,</Text>
           <Text style={styles.username}>{userInfo ? userInfo.username : 'Loading...'}</Text>
         </View>
-
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Teams & Communication</Text>
           <TeamsFeature />
         </View>
 
-        
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Career Guidance</Text>
+            <Text style={styles.sectionSubtitle}>
+              Chat with career experts for professional guidance
+            </Text>
+          </View>
+
+          {careerGuiders.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="people-outline" size={48} color="#B0BEC5" />
+              <Text style={styles.emptyStateText}>
+                No career guiders available at the moment
+              </Text>
+            </View>
+          ) : (
+            careerGuiders.map((guider) => (
+              <TouchableOpacity
+                key={guider.id}
+                style={styles.careerGuiderCard}
+                onPress={() => handleCareerChatPress(guider)}
+              >
+                <View style={styles.guiderAvatar}>
+                  <View style={styles.avatarPlaceholder}>
+                    <Ionicons name="person" size={24} color="#fff" />
+                  </View>
+                </View>
+                
+                <View style={styles.guiderInfo}>
+                  <Text style={styles.guiderName}>
+                    {guider.username || 'Career Guider'}
+                  </Text>
+                  <Text style={styles.guiderRole}>Career Guider</Text>
+                  <Text style={styles.guiderEmail}>
+                    {guider.email}
+                  </Text>
+                </View>
+
+                <Ionicons 
+                  name="chevron-forward" 
+                  size={24} 
+                  color="#B0BEC5" 
+                  style={styles.arrow}
+                />
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
 
         <View style={styles.footer}>
           <Text style={styles.footerTitle}>Connect With Us</Text>
@@ -164,12 +257,10 @@ export default function Chats() {
         </View>
       </ScrollView>
 
-      {/* Place ChatBot before bottom nav but with adjusted style */}
       <View style={styles.chatBotWrapper}>
         <ChatBot />
       </View>
 
-      {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
         <TouchableOpacity 
           style={styles.navItem} 
@@ -261,11 +352,8 @@ const styles = StyleSheet.create({
     padding: Platform.OS === 'web' ? 20 : 15,
     backgroundColor: '#2196F3',
     borderBottomLeftRadius: 20,
-    // borderTopLeftRadius: 20,
     borderBottomRightRadius: 20,
-    // borderTopRightRadius: 20,
     backgroundColor: 'rgba(33, 150, 243, 0.65)',
-    
   },
   welcomeText: {
     fontSize: 24,
@@ -299,7 +387,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   footer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
     backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
     borderRadius: 16,
     padding: Platform.OS === 'web' ? 20 : 15,
@@ -314,7 +402,6 @@ const styles = StyleSheet.create({
     marginBottom: 5,
     padding: 10,
     borderRadius: 16,
-    // elevation: 3,
   },
   footerTitle: {
     fontSize: 18,
@@ -331,7 +418,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(245, 245, 245, 0.10)',
+    backgroundColor: 'rgba(245, 245, 245, 0.8)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -367,7 +454,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
-    // elevation: 10,
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -385,16 +471,16 @@ const styles = StyleSheet.create({
     transform: [{ translateY: -5 }],
   },
   homeIconContainer: {
-    backgroundColor: '#E3F2FD',
+    // backgroundColor: '#E3F2FD',
     padding: 1,
     borderRadius: 999,
-    marginBottom: 2,
+    marginTop: 6,
     transform: [{ scale: 1.45 }],
   },
   navText: {
     fontSize: 12,
     color: '#666',
-    marginTop: 4,
+    marginTop: 1,
   },
   activeNavText: {
     color: '#2196F3',
@@ -430,7 +516,7 @@ const styles = StyleSheet.create({
     width: Platform.OS === 'web' ? 220 : 180,
     height: Platform.OS === 'web' ? 220 : 180,
     backgroundColor: 'rgba(173, 216, 255, 0.45)',
-    top: Platform.OS === 'web' ? 340 : 30,
+    top: Platform.OS === 'web' ? 390 : 320,
     right: Platform.OS === 'web' ? -40 : -30,
     transform: [
       { scale: 1.1 },
@@ -441,7 +527,7 @@ const styles = StyleSheet.create({
     width: Platform.OS === 'web' ? 200 : 160,
     height: Platform.OS === 'web' ? 200 : 160,
     backgroundColor: 'rgba(173, 216, 255, 0.45)',
-    bottom: Platform.OS === 'web' ? 30 : 80,
+    bottom: Platform.OS === 'web' ? 30 : 60,
     left: Platform.OS === 'web' ? -60 : -40,
     transform: [
       { scale: 1 },
@@ -462,8 +548,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   section: {
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-    backdropFilter: Platform.OS === 'web' ? 'blur(12px)' : undefined,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(3px)' : undefined,
     borderRadius: 16,
     padding: Platform.OS === 'web' ? 20 : 15,
     marginHorizontal: 20,
@@ -474,29 +560,89 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
-    // elevation: 3
+  },
+  sectionHeader: {
+    marginBottom: 16,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: '#666',
+  },
+  careerGuiderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  guiderAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 16,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#2196F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  guiderInfo: {
+    flex: 1,
+  },
+  guiderName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  guiderRole: {
+    fontSize: 14,
+    color: '#2196F3',
+    marginBottom: 2,
+  },
+  guiderEmail: {
+    fontSize: 12,
+    color: '#666',
+  },
+  arrow: {
+    marginLeft: 8,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  emptyStateText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   loadingText: {
-    fontSize: 18,
-    textAlign: 'center',
-    marginTop: 50,
-  },
-  circleBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: -1,
-  },
-  circle: {
-    position: 'absolute',
-    width: 500,
-    height: 500,
-    borderRadius: 250,
-    backgroundColor: 'rgba(33, 150, 243, 0.1)',
-    top: -200,
-    left: -100,
+    marginTop: 12,
+    color: '#666',
+    fontSize: 16,
   },
 });
 

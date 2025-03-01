@@ -90,13 +90,13 @@ export default function SessionNotification() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1000,
-  },
+  // container: {
+  //   position: 'absolute',
+  //   top: 0,
+  //   left: 0,
+  //   right: 0,
+  //   zIndex: 1000,
+  // },
   notificationCard: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -169,7 +169,7 @@ export default function StudentChat() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
   },
   centerContainer: {
     flex: 1,
@@ -195,6 +195,8 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: 16,
+    height: 190,
+    
   },
   teacherItem: {
     flexDirection: 'row',
@@ -202,6 +204,16 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    borderRadius: 20,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 24,
+    borderTopColor: 'rgba(255, 255, 255, 0.9)',
+    borderLeftColor: 'rgba(255, 255, 255, 0.9)',
+    borderRightColor: 'rgba(255, 255, 255, 0.7)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.7)',
   },
   teacherAvatar: {
     width: 50,

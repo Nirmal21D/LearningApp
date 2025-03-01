@@ -77,15 +77,22 @@ export default function AdminDashboard() {
         }
     ];
 
-    return (
-        <View style={styles.container}>
-            <LinearGradient
-                colors={['#E3F2FD', '#BBDEFB', '#E3F2FD']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFillObject}
-            />
+    const navigateToAnalytics = () => {
+        router.push('/admin/app-analytics');  // New route
+    };
 
+    return (
+        <ScrollView style={styles.container}>
+            <View style={styles.header}>
+                <Text style={styles.title}>Admin Dashboard</Text>
+                <TouchableOpacity 
+                    style={styles.analyticsButton}
+                    onPress={navigateToAnalytics}
+                >
+                    <Ionicons name="stats-chart" size={24} color="#fff" />
+                    <Text style={styles.analyticsButtonText}>View Analytics</Text>
+                </TouchableOpacity>
+            </View>
             {/* Decorative blur circles */}
             <View style={[styles.blurCircle, styles.blurCircle1]} />
             <View style={[styles.blurCircle, styles.blurCircle2]} />
@@ -322,49 +329,17 @@ const styles = StyleSheet.create({
         color: '#666',
         marginTop: 4,
     },
-    emptyText: {
-        fontSize: 14,
-        color: '#666',
-        textAlign: 'center',
-        fontStyle: 'italic',
+    analyticsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#9C27B0',
+        padding: 12,
+        borderRadius: 8,
+        marginTop: 10,
     },
-    // Decorative blur circles
-    blurCircle: {
-        position: 'absolute',
-        borderRadius: 999,
-        zIndex: 0,
-    },
-    blurCircle1: {
-        width: Platform.OS === 'web' ? 250 : 200,
-        height: Platform.OS === 'web' ? 250 : 200,
-        backgroundColor: 'rgba(173, 216, 255, 0.45)',
-        top: Platform.OS === 'web' ? 20 : 10,
-        left: Platform.OS === 'web' ? -80 : -60,
-        transform: [
-            { scale: 1.2 },
-            { rotate: '-15deg' }
-        ],
-    },
-    blurCircle2: {
-        width: Platform.OS === 'web' ? 220 : 180,
-        height: Platform.OS === 'web' ? 220 : 180,
-        backgroundColor: 'rgba(173, 216, 255, 0.45)',
-        top: Platform.OS === 'web' ? 390 : 320,
-        right: Platform.OS === 'web' ? -40 : -30,
-        transform: [
-            { scale: 1.1 },
-            { rotate: '30deg' }
-        ],
-    },
-    blurCircle3: {
-        width: Platform.OS === 'web' ? 200 : 160,
-        height: Platform.OS === 'web' ? 200 : 160,
-        backgroundColor: 'rgba(173, 216, 255, 0.45)',
-        bottom: Platform.OS === 'web' ? 30 : 60,
-        left: Platform.OS === 'web' ? -60 : -40,
-        transform: [
-            { scale: 1 },
-            { rotate: '15deg' }
-        ],
+    analyticsButtonText: {
+        color: '#fff',
+        marginLeft: 8,
+        fontWeight: '600',
     },
 });
