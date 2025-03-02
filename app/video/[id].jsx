@@ -9,6 +9,7 @@ import { getAuth } from 'firebase/auth';
 import RecommendedVideos from '@/components/RecommendedVideos';
 import SimilarTaggedVideos from "../../components/VideoRelaatedRecommendation";
 import { collection, getDocs } from 'firebase/firestore';
+import CommentSection from '../../components/CommentSection';
 
 const { width } = Dimensions.get('window');
 
@@ -273,6 +274,7 @@ export default function VideoPlayer() {
           <Text style={styles.recommendedTitle}>More Videos</Text>
           <RecommendedVideos subjectId={videoData?.subjectId} />
         </View>
+        <CommentSection videoId={videoId} />
       </ScrollView>
     </SafeAreaView>
   );

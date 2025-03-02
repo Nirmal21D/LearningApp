@@ -106,6 +106,7 @@ export default function ProgressPage() {
   };
 
   const getPerformanceLabel = (score) => {
+    if (!score || isNaN(score)) return { label: 'No Data', color: '#666' };
     if (score >= 85) return { label: 'Excellent', color: '#4CAF50' };
     if (score >= 70) return { label: 'Good', color: '#2196F3' };
     if (score >= 50) return { label: 'Fair', color: '#FF9800' };
@@ -185,6 +186,7 @@ export default function ProgressPage() {
     const subjectProgress = selectedSubjectData.progressPercentage || 0;
     const completedVideos = selectedSubjectData.videosWatched || 0;
     const totalVideos = selectedSubjectData.totalVideos || 0;
+    const averageScore = selectedSubjectData.averageScore || 0;
 
     return (
       <View style={styles.subjectDetailsCard}>
@@ -194,10 +196,13 @@ export default function ProgressPage() {
         )}
         <View style={styles.subjectStats}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              {selectedSubjectData.averageScore}%
+            <Text style={[styles.statValue, { color: getPerformanceLabel(averageScore).color }]}>
+              {averageScore}%
             </Text>
             <Text style={styles.statLabel}>Average Score</Text>
+            {averageScore === 0 && (
+              <Text style={styles.noDataText}>No tests taken</Text>
+            )}
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
@@ -233,6 +238,11 @@ export default function ProgressPage() {
               {subjectProgress}%
             </Text>
           </View>
+          {subjectProgress === 0 && (
+            <Text style={styles.noProgressSubText}>
+              Start watching videos and taking tests to track your progress
+            </Text>
+          )}
         </View>
       </View>
     );
@@ -246,28 +256,36 @@ export default function ProgressPage() {
       0
     );
 
+    const averageScore = progressData.summary.averageScore || 0;
+    const performanceData = getPerformanceLabel(averageScore);
+
     return (
       <View style={styles.summaryContainer}>
         <View style={styles.summaryCard}>
           <Text style={styles.summaryLabel}>Overall Progress</Text>
           <View style={styles.progressGrid}>
             <View style={styles.progressItem}>
-              <Text style={[styles.summaryScore, { 
-                color: getPerformanceLabel(progressData.summary.averageScore).color 
-              }]}>
-                {progressData.summary.averageScore}%
+              <Text style={[styles.summaryScore, { color: performanceData.color }]}>
+                {averageScore}%
               </Text>
               <Text style={styles.progressLabel}>Average Score</Text>
             </View>
           </View>
-          <Text style={[styles.performanceLabel, { 
-            color: getPerformanceLabel(progressData.summary.averageScore).color 
-          }]}>
-            {getPerformanceLabel(progressData.summary.averageScore).label}
-          </Text>
-          <Text style={styles.learningSpeedLabel}>
-            Learning Speed: {progressData.summary.learningSpeed}
-          </Text>
+          {averageScore === 0 ? (
+            <View style={styles.noProgressContainer}>
+              <Text style={styles.noProgressText}>No tests taken yet</Text>
+              <Text style={styles.noProgressSubText}>Take tests to see your progress</Text>
+            </View>
+          ) : (
+            <>
+              <Text style={[styles.performanceLabel, { color: performanceData.color }]}>
+                {performanceData.label}
+              </Text>
+              <Text style={styles.learningSpeedLabel}>
+                Learning Speed: {progressData.summary.learningSpeed}
+              </Text>
+            </>
+          )}
         </View>
       </View>
     );
@@ -1199,5 +1217,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     minWidth: 45,
     textAlign: 'right',
+  },
+  noProgressContainer: {
+    alignItems: 'center',
+    marginTop: 10,
+    padding: 15,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+  },
+  noProgressText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  noProgressSubText: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  noDataText: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
   },
 }); 

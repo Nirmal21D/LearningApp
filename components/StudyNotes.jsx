@@ -279,14 +279,14 @@ const StudyNotes = ({ subjectFilter }) => {
       setNotes(regular);
 
       if (notesList.length === 0) {
-        Alert.alert(
-          "No Notes",
-        "Would you like to create your first note?",
-          [
-          { text: "Not Now", style: "cancel" },
-            { text: "Create Note", onPress: () => setShowNoteModal(true) }
-          ]
-        );
+        // Alert.alert(
+        //   "No Notes",
+        // "Would you like to create your first note?",
+        //   [
+        //   { text: "Not Now", style: "cancel" },
+        //     { text: "Create Note", onPress: () => setShowNoteModal(true) }
+        //   ]
+        // );
       }
   };
 

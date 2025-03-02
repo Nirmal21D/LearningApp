@@ -830,44 +830,9 @@ export default function ChapterDetail() {
     };
   }, [localVideoProgress, videoProgress, chapterData.videos]);
 
-  const handleVideoSelect = async (video) => {
-    try {
-      const videoUrl = getVideoUrl(video);
-      if (!videoUrl) {
-        Alert.alert("Error", "Video URL not available");
-        return;
-      }
+ 
 
-      setSelectedVideo({
-        ...video,
-        url: videoUrl
-      });
-    } catch (error) {
-      console.error('Error selecting video:', error);
-      Alert.alert("Error", "Unable to play video");
-    }
-  };
-
-  const getVideoUrl = (video) => {
-    if (!video?.url) return null;
-    
-    // Handle different video URL formats
-    const url = video.url.trim();
-    
-    // If it's already a direct video URL or streaming URL
-    if (url.match(/\.(mp4|webm|ogg)$/i) || 
-        url.includes('streaming') || 
-        url.includes('manifest')) {
-      return url;
-    }
-    
-    // If it's a Firebase storage URL, ensure it has proper access
-    if (url.includes('firebase') || url.includes('googleapis')) {
-      return `${url}?alt=media`;
-    }
-    
-    return url;
-  };
+  
 
   const renderVideos = () => {
     if (!chapterData || !chapterData.videos || chapterData.videos.length === 0) {
@@ -974,7 +939,16 @@ export default function ChapterDetail() {
 
               <View style={styles.materialActions}>
                 <TouchableOpacity
-                  onPress={() => handleVideoSelect(video)}
+                  onPress={() => {
+                    router.push({
+                      pathname: `video/${video.id}`,
+                      params: {
+                        videoId: video.id,
+                        videoName: video.name || video.title || "Untitled Video",
+                        videoUrl: video.url,
+                      },
+                    })
+                  }}
                   style={styles.actionButton}
                 >
                   <Ionicons 
@@ -1093,25 +1067,33 @@ export default function ChapterDetail() {
         {activeTab === "tests" && (
           <View>
             <Text style={styles.sectionTitle}>Chapter Tests</Text>
-            {chapterData.tests.map((test) => (
-              <TouchableOpacity
-                key={test.id}
-                style={styles.testCard}
-                onPress={() => handleStartTest(test.id)}
-              >
-                <View style={styles.testInfo}>
-                  <Text style={styles.testTitle}>{test.title}</Text>
-                  <Text style={styles.testDescription}>{test.description}</Text>
-                  <View style={styles.testStats}>
-                    <Text style={styles.testStat}>
-                      {test.questions?.length} Questions
-                    </Text>
-                    <Text style={styles.testStat}>{test.duration} mins</Text>
+            {chapterData && chapterData.tests ? (
+              chapterData.tests.map((test) => (
+                <TouchableOpacity
+                  key={test.id}
+                  style={styles.testCard}
+                  onPress={() => handleStartTest(test.id)}
+                >
+                  <View style={styles.testInfo}>
+                    <Text style={styles.testTitle}>{test.title}</Text>
+                    <Text style={styles.testDescription}>{test.description}</Text>
+                    <View style={styles.testStats}>
+                      <Text style={styles.testStat}>
+                        {test.questions?.length || 0} Questions
+                      </Text>
+                      <Text style={styles.testStat}>{test.duration || 0} mins</Text>
+                    </View>
                   </View>
-                </View>
-                <Ionicons name="arrow-forward" size={24} color="#2196F3" />
-              </TouchableOpacity>
-            ))}
+                  <Ionicons name="arrow-forward" size={24} color="#2196F3" />
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={styles.noMaterialContainer}>
+                <Text style={styles.noMaterialText}>
+                  {!chapterData ? 'Loading tests...' : 'No tests available for this chapter'}
+                </Text>
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
