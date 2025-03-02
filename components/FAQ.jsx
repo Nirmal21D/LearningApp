@@ -9,14 +9,11 @@ const FAQComponent = () => {
   };
 
   const data = [
-    { question: "What is React Native?", answer: "React Native is a framework for building mobile apps using React and JavaScript." },
-    { question: "How does state work in React?", answer: "State is an object that determines how a component renders and behaves." },
-    { question: "What are props in React?", answer: "Props are inputs to a React component that allow data to be passed between components." },
-    { question: "What is the purpose of useEffect?", answer: "useEffect is used to handle side effects in functional components." },
-    { question: "How do you handle user input in React Native?", answer: "You handle user input using the TextInput component and state management." },
-    { question: "What is the difference between React and React Native?", answer: "React is for web development, while React Native is used to build mobile applications." },
-    { question: "How do you navigate between screens in React Native?", answer: "You can use libraries like React Navigation to navigate between screens." },
-    { question: "What is the role of StyleSheet in React Native?", answer: "StyleSheet is used to define styles for components in React Native applications." },
+    { question: "How can I improve my grammar and writing skills using this app?", answer: "The app provides interactive grammar exercises, writing prompts, and expert tips to help you improve your English writing and grammar skills." },
+    { question: "Are there chapter-wise summaries for quick revision?", answer: "Yes, each chapter has a summary with key points, important dates, and concept maps for easy revision." },
+    { question: "Does the app include practical experiment videos?", answer: "Yes, we offer interactive videos and simulations to help you understand practical concepts visually." },
+    { question: "Can I practice problems step by step with solutions?", answer: "Yes, the app provides step-by-step solutions for complex problems, along with video explanations" },
+
   ];
 
   return (
