@@ -817,7 +817,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     position: 'relative',
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(244, 247, 250, 0.98)',
     overflow: 'hidden',
 
   },
