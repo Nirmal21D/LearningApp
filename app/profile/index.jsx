@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Dim
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Link } from 'expo-router';
 import { getFirestore, doc, getDoc, collection, getDocs, updateDoc } from 'firebase/firestore';
-import {onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import ChatBot from '@/components/Chatbot';
 import { LinearGradient } from 'expo-linear-gradient';
 import { signOut } from 'firebase/auth';
@@ -83,11 +83,11 @@ export default function Profile() {
 
   const fetchUserData = async () => {
     if (!auth.currentUser) return;
-    
+
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
       const userDoc = await getDoc(userRef);
-      
+
       if (userDoc.exists()) {
         const userData = userDoc.data();
         console.log('Fetched user data:', userData); // Debug log
@@ -153,7 +153,7 @@ export default function Profile() {
       Alert.alert('Error', 'User information not found');
       return;
     }
-    
+
     // Check if user has enough EduTokens
     const currentTokens = userInfo.eduTokens || 0;
     if (currentTokens < plan.cost) {
@@ -166,16 +166,16 @@ export default function Profile() {
 
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
-      
+
       // Calculate new token balance
       const newTokenBalance = currentTokens - plan.cost;
-      
+
       // Calculate premium expiry date
       const now = new Date();
       const expiryDate = new Date(now);
-      
+
       // Set expiry based on plan
-      switch(plan.id) {
+      switch (plan.id) {
         case 'yearly':
           expiryDate.setFullYear(now.getFullYear() + 1);
           break;
@@ -228,7 +228,7 @@ export default function Profile() {
           <Text style={styles.modalSubtitle}>
             Your EduTokens: {userInfo?.eduTokens || 0}
           </Text>
-          
+
           {premiumPlans.map((plan) => (
             <TouchableOpacity
               key={plan.id}
@@ -247,7 +247,7 @@ export default function Profile() {
               <Text style={styles.planDuration}>{plan.duration}</Text>
             </TouchableOpacity>
           ))}
-          
+
           <TouchableOpacity
             style={styles.closeButton}
             onPress={() => setShowPremiumModal(false)}
@@ -267,6 +267,168 @@ export default function Profile() {
     );
   }
 
+  // Content to be rendered inside the main scroll view
+  const renderMainContent = () => (
+    <>
+      <View style={[styles.welcomeSection, { borderRadius: 0 }]}>
+        <Text style={styles.welcomeText}>Welcome,</Text>
+        <Text style={styles.username}>{userInfo ? userInfo.username : 'Loading...'}</Text>
+      </View>
+
+      <View style={styles.userInfoContainer}>
+        <View style={styles.avatarContainer}>
+          <Image
+            source={{
+              uri: userInfo?.photoURL ||
+                'https://ui-avatars.com/api/?name=' + userInfo?.username
+            }}
+            style={styles.avatar}
+          />
+        </View>
+        <Text style={styles.email}>{userInfo?.email}</Text>
+        <Text style={styles.mobile}>{userInfo?.mobile}</Text>
+        <Text style={styles.premiumStatus}>
+          {userInfo?.isPremium ? 'Premium Member' : 'Free Member'}
+        </Text>
+        <Text style={styles.joinedGroups}>
+          Joined Groups: {userInfo?.joinedGroups?.length || 0}
+        </Text>
+        <Text style={styles.lastAssessmentDate}>
+          Last Assessment Date: {userInfo?.lastAssessmentDate || 'N/A'}
+        </Text>
+
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Ionicons name="trophy" size={24} color="#FFD700" />
+            <Text style={styles.statValue}>{userInfo?.totalXP || 0}</Text>
+            <Text style={styles.statLabel}>Total XP</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Ionicons name="flame" size={24} color="#FF5722" />
+            <Text style={styles.statValue}>{userInfo?.highestStreak || 0}</Text>
+            <Text style={styles.statLabel}>Best Streak</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Ionicons name="school" size={24} color="#4CAF50" />
+            <Text style={styles.statValue}>{userInfo?.testsCompleted || 0}</Text>
+            <Text style={styles.statLabel}>Tests</Text>
+          </View>
+        </View>
+      </View>
+
+      <TouchableOpacity
+        style={styles.leaderboardToggle}
+        onPress={() => setShowLeaderboard(!showLeaderboard)}
+      >
+        <Ionicons
+          name={showLeaderboard ? "chevron-up" : "chevron-down"}
+          size={24}
+          color="#333"
+        />
+        <Text style={styles.leaderboardToggleText}>
+          {showLeaderboard ? 'Hide Leaderboard' : 'Show Leaderboard'}
+        </Text>
+      </TouchableOpacity>
+
+      {showLeaderboard && (
+        <Modal
+          visible={showLeaderboard}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowLeaderboard(false)}
+        >
+          <SafeAreaView style={styles.leaderboardModal}>
+            <View style={styles.leaderboardHeader}>
+              <Text style={styles.leaderboardTitle}>Leaderboard</Text>
+              <TouchableOpacity
+                onPress={() => setShowLeaderboard(false)}
+                style={styles.closeLeaderboardButton}
+              >
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.leaderboardContent}>
+              <LeaderboardComponent />
+            </View>
+          </SafeAreaView>
+        </Modal>
+      )}
+      <View style={styles.sectionContainer}>
+        <View style={styles.filterGrid}>
+          <TouchableOpacity
+            style={styles.filterCard}
+            onPress={() => {
+              router.push({
+                pathname: '/progress'
+              });
+            }}
+          >
+            <View style={styles.filterIconContainer}>
+            </View>
+            <Text style={styles.filterName}>Progress</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.statsCard}>
+        <View style={styles.tokenInfo}>
+          <Ionicons name="diamond" size={24} color="#9C27B0" />
+          <Text style={styles.tokenCount}>
+            {userInfo?.eduTokens || 0} EduTokens
+          </Text>
+        </View>
+
+        <View style={styles.premiumStatus}>
+          <Ionicons
+            name={userInfo?.isPremium ? "star" : "star-outline"}
+            size={24}
+            color={userInfo?.isPremium ? "#FFD700" : "#666"}
+          />
+          <Text style={styles.statusText}>
+            {userInfo?.isPremium ? 'Premium Member' : 'Free Member'}
+          </Text>
+        </View>
+      </View>
+
+      {!userInfo?.isPremium && (
+        <TouchableOpacity
+          style={styles.upgradePremiumButton}
+          onPress={() => setShowPremiumModal(true)}
+        >
+          <Ionicons name="flash" size={24} color="white" />
+          <Text style={styles.upgradeButtonText}>
+            Upgrade to Premium
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      <View style={styles.featuresCard}>
+        <Text style={styles.featuresTitle}>Premium Features</Text>
+        <View style={styles.featureItem}>
+          <Ionicons name="infinite" size={20} color="#4CAF50" />
+          <Text style={styles.featureText}>Unlimited Access to All Features</Text>
+        </View>
+        <View style={styles.featureItem}>
+          <Ionicons name="videocam" size={20} color="#2196F3" />
+          <Text style={styles.featureText}>Unlimited Video Lessons</Text>
+        </View>
+        <View style={styles.featureItem}>
+          <Ionicons name="document-text" size={20} color="#FF9800" />
+          <Text style={styles.featureText}>Unlimited Text Extraction</Text>
+        </View>
+        <View style={styles.featureItem}>
+          <Ionicons name="people" size={20} color="#9C27B0" />
+          <Text style={styles.featureText}>1-on-1 Sessions with Teachers</Text>
+        </View>
+      </View>
+
+      {/* Render the FAQ component directly here (outside of any nested ScrollView) */}
+      <View style={styles.faqContainer}>
+        <FAQComponent />
+      </View>
+    </>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
@@ -275,7 +437,7 @@ export default function Profile() {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFillObject}
       />
-      
+
       <View style={styles.circleBackground}>
         <View style={styles.circle} />
       </View>
@@ -287,164 +449,28 @@ export default function Profile() {
       <View style={styles.navbar}>
         <Text style={styles.className}>Std 10</Text>
         <View style={styles.navRight}>
-        <TouchableOpacity style={styles.notificationButton}>
-          <View style={styles.notificationBadge} />
-          <Ionicons name="notifications-outline" size={24} color="#333" />
-        </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity style={styles.notificationButton}>
+            <View style={styles.notificationBadge} />
+            <Ionicons name="notifications-outline" size={24} color="#333" />
+          </TouchableOpacity>
+          <TouchableOpacity
             style={styles.logoutButton}
             onPress={handleLogout}
           >
             <Ionicons name="log-out-outline" size={24} color="#FF4444" />
           </TouchableOpacity>
+        </View>
       </View>
-      </View>
-      <ScrollView 
+
+      {/* Main ScrollView - now contains all content directly without nesting other scroll-capable components */}
+      <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollViewContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <View style={[styles.welcomeSection, { borderRadius: 0 }]}>
-          <Text style={styles.welcomeText}>Welcome,</Text>
-          <Text style={styles.username}>{userInfo ? userInfo.username : 'Loading...'}</Text>
-        </View>
-
-        <View style={styles.userInfoContainer}>
-          <View style={styles.avatarContainer}>
-            <Image 
-              source={{ 
-                uri: userInfo?.photoURL || 
-                'https://ui-avatars.com/api/?name=' + userInfo?.username 
-              }} 
-              style={styles.avatar}
-            />
-          </View>
-          <Text style={styles.email}>{userInfo?.email}</Text>
-          <Text style={styles.mobile}>{userInfo?.mobile}</Text>
-          <Text style={styles.premiumStatus}>
-            {userInfo?.isPremium ? 'Premium Member' : 'Free Member'}
-          </Text>
-          <Text style={styles.joinedGroups}>
-            Joined Groups: {userInfo?.joinedGroups?.length || 0}
-          </Text>
-          <Text style={styles.lastAssessmentDate}>
-            Last Assessment Date: {userInfo?.lastAssessmentDate || 'N/A'}
-          </Text>
-          
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Ionicons name="trophy" size={24} color="#FFD700" />
-              <Text style={styles.statValue}>{userInfo?.totalXP || 0}</Text>
-              <Text style={styles.statLabel}>Total XP</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Ionicons name="flame" size={24} color="#FF5722" />
-              <Text style={styles.statValue}>{userInfo?.highestStreak || 0}</Text>
-              <Text style={styles.statLabel}>Best Streak</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Ionicons name="school" size={24} color="#4CAF50" />
-              <Text style={styles.statValue}>{userInfo?.testsCompleted || 0}</Text>
-              <Text style={styles.statLabel}>Tests</Text>
-            </View>
-          </View>
-        </View>
-
-        <TouchableOpacity 
-          style={styles.leaderboardToggle}
-          onPress={() => setShowLeaderboard(!showLeaderboard)}
-        >
-          <Ionicons 
-            name={showLeaderboard ? "chevron-up" : "chevron-down"} 
-            size={24} 
-            color="#333" 
-          />
-          <Text style={styles.leaderboardToggleText}>
-            {showLeaderboard ? 'Hide Leaderboard' : 'Show Leaderboard'}
-          </Text>
-        </TouchableOpacity>
-
-        {showLeaderboard && (
-          <View style={styles.leaderboardContainer}>
-            <LeaderboardComponent />
-          </View>
-        )}
-
-        <View style={styles.sectionContainer}>
-          <View style={styles.filterGrid}>
-              
-              <TouchableOpacity 
-               
-                style={styles.filterCard}
-                onPress={() => {
-                  router.push({
-                    pathname: '/progress'
-                  });
-                }}
-              >
-                <View style={styles.filterIconContainer}>
-                 
-          </View>
-                <Text style={styles.filterName}>Progress</Text>
-              </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.statsCard}>
-          <View style={styles.tokenInfo}>
-            <Ionicons name="diamond" size={24} color="#9C27B0" />
-            <Text style={styles.tokenCount}>
-              {userInfo?.eduTokens || 0} EduTokens
-            </Text>
-          </View>
-          
-          <View style={styles.premiumStatus}>
-            <Ionicons 
-              name={userInfo?.isPremium ? "star" : "star-outline"} 
-              size={24} 
-              color={userInfo?.isPremium ? "#FFD700" : "#666"} 
-            />
-            <Text style={styles.statusText}>
-              {userInfo?.isPremium ? 'Premium Member' : 'Free Member'}
-            </Text>
-          </View>
-        </View>
-
-        {!userInfo?.isPremium && (
-          <TouchableOpacity
-            style={styles.upgradePremiumButton}
-            onPress={() => setShowPremiumModal(true)}
-          >
-            <Ionicons name="flash" size={24} color="white" />
-            <Text style={styles.upgradeButtonText}>
-              Upgrade to Premium
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        <View style={styles.featuresCard}>
-          <Text style={styles.featuresTitle}>Premium Features</Text>
-          <View style={styles.featureItem}>
-            <Ionicons name="infinite" size={20} color="#4CAF50" />
-            <Text style={styles.featureText}>Unlimited Access to All Features</Text>
-          </View>
-          <View style={styles.featureItem}>
-            <Ionicons name="videocam" size={20} color="#2196F3" />
-            <Text style={styles.featureText}>Unlimited Video Lessons</Text>
-          </View>
-          <View style={styles.featureItem}>
-            <Ionicons name="document-text" size={20} color="#FF9800" />
-            <Text style={styles.featureText}>Unlimited Text Extraction</Text>
-          </View>
-          <View style={styles.featureItem}>
-            <Ionicons name="people" size={20} color="#9C27B0" />
-            <Text style={styles.featureText}>1-on-1 Sessions with Teachers</Text>
-          </View>
-        </View>
-
-        <FAQComponent />
+        {renderMainContent()}
       </ScrollView>
 
       <View style={styles.chatBotWrapper}>
@@ -452,15 +478,15 @@ export default function Profile() {
       </View>
 
       <View style={styles.bottomNav}>
-        <TouchableOpacity 
-          style={styles.navItem} 
+        <TouchableOpacity
+          style={styles.navItem}
           onPress={() => router.push('/chats')}
         >
           <Ionicons name="chatbubbles-outline" size={24} color="#666" />
           <Text style={styles.navText}>Chats</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push('/tools')}
         >
@@ -468,7 +494,7 @@ export default function Profile() {
           <Text style={styles.navText}>Tools</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.navItem, styles.activeNavItem]}
           onPress={() => router.push('/home')}
         >
@@ -478,7 +504,7 @@ export default function Profile() {
           <Text style={[styles.navText]}>Home</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push('/blogs')}
         >
@@ -486,7 +512,7 @@ export default function Profile() {
           <Text style={styles.navText}>Blogs</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push('/profile')}
         >
@@ -554,7 +580,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
     backgroundColor: 'rgba(33, 150, 243, 0.65)',
-    
+
   },
   welcomeText: {
     fontSize: 24,
@@ -1243,6 +1269,29 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   },
+  leaderboardModal: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  leaderboardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  leaderboardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  closeLeaderboardButton: {
+    padding: 5,
+  },
+  leaderboardContent: {
+    flex: 1,
+  },  
   premiumPlanCard: {
     backgroundColor: '#F5F5F5',
     borderRadius: 12,
