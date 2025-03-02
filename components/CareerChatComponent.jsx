@@ -10,12 +10,16 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  SafeAreaView,
 } from "react-native";
 import { ref, onValue, push, get, update } from "firebase/database";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { auth, database, db } from "@/lib/firebase";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 const CareerChatComponent = ({ 
   chatId, 
@@ -197,90 +201,125 @@ const CareerChatComponent = ({
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{otherUserName}</Text>
-        <Text style={styles.headerSubtitle}>
-          {isGuider ? "Student" : "Career Guidance"}
-        </Text>
-      </View>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#E3F2FD', '#BBDEFB', '#E3F2FD']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
 
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2196F3" />
-          <Text style={styles.loadingText}>Loading messages...</Text>
-        </View>
-      ) : messages.length === 0 ? (
-        <View style={styles.emptyChat}>
-          <Text style={styles.emptyChatText}>
-            Start a conversation with {otherUserName}
-          </Text>
-          <Text style={styles.emptyChatSubText}>
-            {isGuider 
-              ? "Provide career guidance and advice to help the student"
-              : "Ask questions about your career interests and future plans"}
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.messagesList}
-          onContentSizeChange={() => {
-            // Scroll to bottom when new messages arrive
-            flatListRef.current?.scrollToEnd({ animated: true });
-          }}
-          onLayout={() => {
-            // Scroll to bottom on initial render
-            flatListRef.current?.scrollToEnd({ animated: true });
-          }}
-          inverted={false}
-        />
-      )}
+      {/* Decorative blurred circles */}
+      <View style={[styles.blurCircle, styles.blurCircle1]} />
+      <View style={[styles.blurCircle, styles.blurCircle2]} />
+      <View style={[styles.blurCircle, styles.blurCircle3]} />
 
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          value={newMessage}
-          onChangeText={setNewMessage}
-          placeholder="Type a message..."
-          multiline
-          maxLength={500}
-        />
-        <TouchableOpacity 
-          style={[
-            styles.sendButton,
-            !newMessage.trim() && styles.disabledButton
-          ]} 
-          onPress={sendMessage}
-          disabled={!newMessage.trim()}
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView 
+          style={styles.keyboardAvoid} 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <Ionicons 
-            name="send" 
-            size={24} 
-            color={newMessage.trim() ? "#2196F3" : "#B0BEC5"} 
-          />
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+          {/* Glass effect header */}
+          <View style={styles.header}>
+            <BlurView intensity={0} tint="light" style={styles.headerBlur}>
+              <TouchableOpacity 
+                style={styles.backButton}
+                onPress={() => router.back()}
+              >
+                <Ionicons name="arrow-back" size={24} color="#333" />
+              </TouchableOpacity>
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.headerTitle}>{otherUserName}</Text>
+                <Text style={styles.headerSubtitle}>
+                  {isGuider ? "Student" : "Career Guidance"}
+                </Text>
+              </View>
+            </BlurView>
+          </View>
+
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#2196F3" />
+              <Text style={styles.loadingText}>Loading messages...</Text>
+            </View>
+          ) : messages.length === 0 ? (
+            <Animated.View 
+              entering={FadeInDown.duration(1000).springify()}
+              style={styles.emptyChat}
+            >
+              <Text style={styles.emptyChatText}>
+                Start a conversation with {otherUserName}
+              </Text>
+              <Text style={styles.emptyChatSubText}>
+                {isGuider 
+                  ? "Provide career guidance and advice to help the student"
+                  : "Ask questions about your career interests and future plans"}
+              </Text>
+            </Animated.View>
+          ) : (
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              renderItem={renderMessage}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.messagesList}
+              onContentSizeChange={() => {
+                // Scroll to bottom when new messages arrive
+                flatListRef.current?.scrollToEnd({ animated: true });
+              }}
+              onLayout={() => {
+                // Scroll to bottom on initial render
+                flatListRef.current?.scrollToEnd({ animated: true });
+              }}
+              inverted={false}
+            />
+          )}
+
+          <View style={styles.inputContainerWrapper}>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                value={newMessage}
+                onChangeText={setNewMessage}
+                placeholder="Type a message..."
+                placeholderTextColor="#666"
+                multiline
+                maxLength={500}
+              />
+              <TouchableOpacity 
+                style={[
+                  styles.sendButton,
+                  !newMessage.trim() && styles.disabledButton
+                ]} 
+                onPress={sendMessage}
+                disabled={!newMessage.trim()}
+              >
+                <Ionicons 
+                  name="send" 
+                  size={24} 
+                  color={newMessage.trim() ? "#2196F3" : "#B0BEC5"} 
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    position: 'relative',
+    backgroundColor: 'transparent',
+    overflow: 'hidden',
+  },
+  safeArea: {
+    flex: 1,
+  },
+  keyboardAvoid: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -293,36 +332,57 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   header: {
+    paddingTop: Platform.OS === 'ios' ? 10 : 40,
+    zIndex: 10,
+  },
+  headerBlur: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#2196F3",
     paddingVertical: 12,
     paddingHorizontal: 16,
-    elevation: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderBottomWidth: 1.5,
+    borderBottomColor: 'rgba(255, 255, 255, 0.4)',
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
+    // elevation: 3,
   },
   backButton: {
-    marginRight: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
-  headerTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
+  headerTextContainer: {
+    marginLeft: 12,
     flex: 1,
   },
+  headerTitle: {
+    color: "#1A237E",
+    fontSize: 18,
+    fontWeight: "600",
+  },
   headerSubtitle: {
-    color: "#E3F2FD",
+    color: "#666",
     fontSize: 14,
+    fontWeight: "600",
   },
   messagesList: {
     padding: 16,
     paddingBottom: 24,
   },
   messageContainer: {
-    marginBottom: 16,
+    marginBottom: 18,
     maxWidth: "80%",
   },
   ownMessage: {
@@ -344,14 +404,17 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 2,
-    elevation: 1,
+    // elevation: 1,
+    borderWidth: 1,
   },
   ownMessageContent: {
-    backgroundColor: "#E3F2FD",
+    backgroundColor: "rgba(227, 242, 253, 0.7)",
+    borderColor: 'rgba(255, 255, 255, 0.7)',
     borderBottomRightRadius: 4,
   },
   otherMessageContent: {
-    backgroundColor: "#FFF",
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    borderColor: 'rgba(255, 255, 255, 0.9)',
     borderBottomLeftRadius: 4,
   },
   messageText: {
@@ -369,28 +432,43 @@ const styles = StyleSheet.create({
     color: "#999",
     alignSelf: "flex-end",
   },
+  inputContainerWrapper: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 12,
+    paddingVertical: 16,
+    borderTopWidth: 0,
+  },
   inputContainer: {
     flexDirection: "row",
-    padding: 12,
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: "#E0E0E0",
+    alignItems: "center",
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.02,
+    shadowRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   input: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
-    borderRadius: 20,
-    paddingHorizontal: 16,
+    fontSize: Platform.OS === 'web' ? 16 : 14,
+    color: "#333",
     paddingVertical: 8,
+    paddingLeft: 8,
     maxHeight: 100,
-    fontSize: 16,
   },
   sendButton: {
-    width: 48,
-    height: 48,
+    width: 40,
+    height: 40,
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
   },
   disabledButton: {
     opacity: 0.6,
@@ -405,15 +483,54 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "500",
     marginTop: 16,
-    color: "#666",
+    color: "#1A237E",
     textAlign: "center",
   },
   emptyChatSubText: {
     fontSize: 14,
-    color: "#999",
+    color: "#666",
     marginTop: 8,
     textAlign: "center",
     paddingHorizontal: 24,
+  },
+  // Decorative blurred circles (same as in login component)
+  blurCircle: {
+    position: 'absolute',
+    borderRadius: 999,
+    zIndex: 0,
+  },
+  blurCircle1: {
+    width: Platform.OS === 'web' ? 250 : 200,
+    height: Platform.OS === 'web' ? 250 : 200,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    top: Platform.OS === 'web' ? 20 : 10,
+    left: Platform.OS === 'web' ? -80 : -60,
+    transform: [
+      { scale: 1.2 },
+      { rotate: '-15deg' }
+    ],
+  },
+  blurCircle2: {
+    width: Platform.OS === 'web' ? 220 : 180,
+    height: Platform.OS === 'web' ? 220 : 180,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    top: Platform.OS === 'web' ? 390 : 320,
+    right: Platform.OS === 'web' ? -40 : -30,
+    transform: [
+      { scale: 1.1 },
+      { rotate: '30deg' }
+    ],
+  },
+  blurCircle3: {
+    width: Platform.OS === 'web' ? 200 : 160,
+    height: Platform.OS === 'web' ? 200 : 160,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    bottom: Platform.OS === 'web' ? 30 : 60,
+    left: Platform.OS === 'web' ? -60 : -40,
+    transform: [
+      { scale: 1 },
+      { rotate: '15deg' }
+    ],
   },
 });
 

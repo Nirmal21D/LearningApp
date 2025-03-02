@@ -95,7 +95,30 @@ export default function Layout() {
         name="chat/subject-chat"
         options={{ headerShown: false }}
       /> 
-      
+      <Stack.Screen
+        name="chat/career-chat"
+        options={{ headerShown: false }}
+      /> 
+      <Stack.Screen
+        name="create-blog/index"
+        options={{ headerShown: false }}
+      /> 
+      <Stack.Screen
+        name="blogs/content/[id]"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="session/request"
+        options={{ headerShown: false }}
+      /> 
+      <Stack.Screen
+        name="subject/[id]"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="chapter/[id]"
+        options={{ headerShown: false }}
+      />
     </Stack>
   );
 } 

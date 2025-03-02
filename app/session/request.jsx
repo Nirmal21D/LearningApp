@@ -16,6 +16,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { collection, getDocs, addDoc, query, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getAuth } from 'firebase/auth';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 export default function SessionRequest() {
   const router = useRouter();
@@ -213,195 +216,290 @@ export default function SessionRequest() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Request One-to-One Session</Text>
-      </View>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#E3F2FD', '#BBDEFB', '#E3F2FD']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
 
-      <ScrollView style={styles.content}>
-        {/* Teacher Selection */}
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Select Teacher</Text>
+      <View style={[styles.blurCircle, styles.blurCircle1]} />
+      <View style={[styles.blurCircle, styles.blurCircle2]} />
+      <View style={[styles.blurCircle, styles.blurCircle3]} />
+
+      <SafeAreaView style={styles.safeArea}>
+        {/* Fixed Header */}
+        <View style={styles.topBarContainer}>
+          <BlurView intensity={0} tint="light" style={[styles.backButton, styles.glassEffect]}>
+            <TouchableOpacity onPress={() => router.back()}>
+              <Ionicons name="arrow-back" size={24} color="#333"/>
+            </TouchableOpacity>
+          </BlurView>
+          
+          <View style={styles.headerContainer}>
+            <Text style={styles.title}>Request Session</Text>
+            <Text style={styles.subtitle}>Schedule a one-to-one learning session</Text>
+          </View>
+        </View>
+
+        {/* Content Area */}
+        <View style={styles.contentContainer}>
           <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            style={styles.teacherList}
+            contentContainerStyle={styles.scrollViewContent}
+            showsVerticalScrollIndicator={false}
           >
-            {teachers.map((teacher) => (
-              <TouchableOpacity
-                key={teacher.id}
-                style={[
-                  styles.teacherCard,
-                  selectedTeacher?.id === teacher.id && styles.selectedTeacherCard
-                ]}
-                onPress={() => setSelectedTeacher(teacher)}
-              >
-                <View style={styles.teacherAvatarContainer}>
-                  <Ionicons 
-                    name="person-circle" 
-                    size={40} 
-                    color={selectedTeacher?.id === teacher.id ? "#fff" : "#2196F3"} 
-                  />
+            <Animated.View 
+              entering={FadeInDown.duration(1000).springify()} 
+              style={styles.main}
+            >
+              <View style={styles.formContainer}>
+                {/* Teacher Selection */}
+                <Text style={styles.label}>Select Teacher</Text>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.teacherList}
+                >
+                  {teachers.map((teacher) => (
+                    <TouchableOpacity
+                      key={teacher.id}
+                      style={[
+                        styles.teacherCard,
+                        selectedTeacher?.id === teacher.id && styles.selectedTeacherCard
+                      ]}
+                      onPress={() => setSelectedTeacher(teacher)}
+                    >
+                      <View style={styles.teacherAvatarContainer}>
+                        <Ionicons 
+                          name="person-circle" 
+                          size={40} 
+                          color={selectedTeacher?.id === teacher.id ? "#fff" : "#2196F3"} 
+                        />
+                      </View>
+                      <View style={styles.teacherInfo}>
+                        <Text style={[
+                          styles.teacherName,
+                          selectedTeacher?.id === teacher.id && styles.selectedTeacherText
+                        ]}>
+                          {teacher.name}
+                        </Text>
+                        <Text style={[
+                          styles.teacherSubject,
+                          selectedTeacher?.id === teacher.id && styles.selectedTeacherText
+                        ]}>
+                          {teacher.subject}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                <View style={styles.inputWrapper}>
+                  <Text style={styles.label}>Topic</Text>
+                  <View style={styles.inputContainer}>
+                    <Ionicons name="book-outline" size={20} color="#666" style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.input}
+                      value={topic}
+                      onChangeText={setTopic}
+                      placeholder="Enter session topic"
+                    />
+                  </View>
                 </View>
-                <View style={styles.teacherInfo}>
-                  <Text style={[
-                    styles.teacherName,
-                    selectedTeacher?.id === teacher.id && styles.selectedTeacherText
-                  ]}>
-                    {teacher.name}
-                  </Text>
-                  <Text style={[
-                    styles.teacherSubject,
-                    selectedTeacher?.id === teacher.id && styles.selectedTeacherText
-                  ]}>
-                    {teacher.subject}
-                  </Text>
+
+                <View style={styles.inputWrapper}>
+                  <Text style={styles.label}>Description</Text>
+                  <View style={[styles.inputContainer, styles.textAreaContainer]}>
+                    <Ionicons name="document-text-outline" size={20} color="#666" style={styles.inputIcon} />
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      value={description}
+                      onChangeText={setDescription}
+                      placeholder="Describe what you want to learn"
+                      multiline
+                      numberOfLines={4}
+                    />
+                  </View>
                 </View>
-              </TouchableOpacity>
-            ))}
+
+                <View style={styles.inputWrapper}>
+                  <Text style={styles.label}>Select Date & Time</Text>
+                  <TouchableOpacity 
+                    style={styles.dateButton}
+                    onPress={() => setShowDateModal(true)}
+                  >
+                    <Ionicons name="calendar" size={20} color="#666" style={styles.inputIcon} />
+                    <Text style={styles.dateButtonText}>
+                      {selectedDate.toLocaleDateString()}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={styles.dateButton}
+                    onPress={() => setShowTimeModal(true)}
+                  >
+                    <Ionicons name="time" size={20} color="#666" style={styles.inputIcon} />
+                    <Text style={styles.dateButtonText}>
+                      {selectedDate.toLocaleTimeString()}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity 
+                  style={styles.submitButton}
+                  onPress={handleSubmit}
+                >
+                  <Text style={styles.submitButtonText}>Submit Request</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
           </ScrollView>
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Topic</Text>
-          <TextInput
-            style={styles.input}
-            value={topic}
-            onChangeText={setTopic}
-            placeholder="Enter session topic"
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Description</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Describe what you want to learn"
-            multiline
-            numberOfLines={4}
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Select Date & Time</Text>
-          <TouchableOpacity 
-            style={styles.dateButton}
-            onPress={() => setShowDateModal(true)}
-          >
-            <Ionicons name="calendar" size={24} color="#2196F3" />
-            <Text style={styles.dateButtonText}>
-              {selectedDate.toLocaleDateString()}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.dateButton}
-            onPress={() => setShowTimeModal(true)}
-          >
-            <Ionicons name="time" size={24} color="#2196F3" />
-            <Text style={styles.dateButtonText}>
-              {selectedDate.toLocaleTimeString()}
-            </Text>
-          </TouchableOpacity>
         </View>
 
         {renderDatePicker()}
         {renderTimePicker()}
-
-        <TouchableOpacity 
-          style={styles.submitButton}
-          onPress={handleSubmit}
-        >
-          <Text style={styles.submitButtonText}>Submit Request</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    position: 'relative',
+    backgroundColor: 'transparent',
+    overflow: 'hidden',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 15,
-  },
-  content: {
+  safeArea: {
     flex: 1,
-    padding: 15,
   },
-  formGroup: {
+  // New content container to enable fixed header and scrollable content
+  contentContainer: {
+    flex: 1,
+    paddingTop: Platform.OS === 'web' ? 140 : 170, // Add padding to account for fixed header
+  },
+  scrollViewContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
+  main: {
+    flex: 1,
+    padding: Platform.OS === 'web' ? 20 : 16,
+    justifyContent: 'center',
+    maxWidth: 500,
+    width: '100%',
+    alignSelf: 'center',
+    zIndex: 1,
+  },
+  // Fixed position for the header with improved z-index
+  topBarContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    position: 'absolute',
+    top: Platform.OS === 'web' ? 20 : 40,
+    left: Platform.OS === 'web' ? 20 : 16,
+    right: 0,
+    zIndex: 10,
+    paddingHorizontal: 10,
+    backgroundColor: 'transparent',
+  },
+  headerContainer: {
+    marginLeft: 5,
+  },
+  title: {
+    fontSize: Platform.OS === 'web' ? 34 : 28,
+    fontWeight: 'bold',
+    color: '#1A237E',
+    marginBottom: 12,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: Platform.OS === 'web' ? 17 : 14,
+    color: '#666',
+    lineHeight: 15,
+    marginRight: 25,
+  },
+  formContainer: {
+    gap: 20,
+    padding: Platform.OS === 'web' ? 25 : 20,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(3px)' : undefined,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 24,
+    borderTopColor: 'rgba(255, 255, 255, 0.9)',
+    borderLeftColor: 'rgba(255, 255, 255, 0.9)',
+    borderRightColor: 'rgba(255, 255, 255, 0.7)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.7)',
+    marginHorizontal: Platform.OS === 'web' ? 0 : 10,
+  },
+  inputWrapper: {
     marginBottom: 20,
   },
   label: {
     fontSize: 16,
     fontWeight: '500',
     marginBottom: 8,
-    color: '#333',
+    color: '#1A237E',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 16,
+    shadowOpacity: 0.01,
+    padding: Platform.OS === 'web' ? 16 : 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.02,
+    shadowRadius: 12,
+  },
+  textAreaContainer: {
+    alignItems: 'flex-start',
+  },
+  inputIcon: {
+    marginRight: 10,
   },
   input: {
-    backgroundColor: 'white',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    flex: 1,
+    fontSize: Platform.OS === 'web' ? 16 : 14,
+    color: '#333',
+    marginLeft: 12,
   },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
   },
-  submitButton: {
-    backgroundColor: '#2196F3',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  submitButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   teacherList: {
     marginTop: 10,
-    marginBottom: 20,
+    marginBottom: 10,
   },
   teacherCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     padding: 15,
-    borderRadius: 12,
+    borderRadius: 16,
     marginRight: 15,
     marginBottom: 10,
     width: 180,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    // elevation: 3,
   },
   selectedTeacherCard: {
-    backgroundColor: '#2196F3',
+    backgroundColor: 'rgba(33, 150, 243, 0.75)',
+    borderColor: 'rgba(255, 255, 255, 0.6)',
   },
   teacherAvatarContainer: {
     marginRight: 12,
@@ -425,15 +523,35 @@ const styles = StyleSheet.create({
   dateButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    padding: Platform.OS === 'web' ? 16 : 12,
+    borderRadius: 16,
     marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   dateButtonText: {
-    marginLeft: 10,
     fontSize: 16,
     color: '#333',
+  },
+  submitButton: {
+    backgroundColor: 'rgba(33, 150, 243, 0.75)',
+    padding: Platform.OS === 'web' ? 16 : 14,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    // elevation: 5,
+    marginTop: 10,
+  },
+  submitButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalContainer: {
     flex: 1,
@@ -447,12 +565,19 @@ const styles = StyleSheet.create({
     padding: 20,
     width: '80%',
     maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 15,
     textAlign: 'center',
+    color: '#1A237E',
   },
   dateList: {
     maxHeight: 300,
@@ -461,6 +586,8 @@ const styles = StyleSheet.create({
     padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
+    borderRadius: 8,
+    marginBottom: 5,
   },
   selectedDateItem: {
     backgroundColor: '#2196F3',
@@ -479,6 +606,8 @@ const styles = StyleSheet.create({
     padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
+    borderRadius: 8,
+    marginBottom: 5,
   },
   timeText: {
     fontSize: 16,
@@ -491,12 +620,12 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 16,
     minWidth: 100,
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#ff4444',
+    backgroundColor: '#FF5252',
   },
   confirmButton: {
     backgroundColor: '#2196F3',
@@ -506,4 +635,59 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-}); 
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  glassEffect: {
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 9,
+  },
+  blurCircle: {
+    position: 'absolute',
+    borderRadius: 999,
+    zIndex: 0,
+  },
+  blurCircle1: {
+    width: Platform.OS === 'web' ? 250 : 200,
+    height: Platform.OS === 'web' ? 250 : 200,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    top: Platform.OS === 'web' ? 20 : 10,
+    left: Platform.OS === 'web' ? -80 : -60,
+    transform: [
+      { scale: 1.2 },
+      { rotate: '-15deg' }
+    ],
+  },
+  blurCircle2: {
+    width: Platform.OS === 'web' ? 220 : 180,
+    height: Platform.OS === 'web' ? 220 : 180,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    top: Platform.OS === 'web' ? 390 : 320,
+    right: Platform.OS === 'web' ? -40 : -30,
+    transform: [
+      { scale: 1.1 },
+      { rotate: '30deg' }
+    ],
+  },
+  blurCircle3: {
+    width: Platform.OS === 'web' ? 200 : 160,
+    height: Platform.OS === 'web' ? 200 : 160,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    bottom: Platform.OS === 'web' ? 30 : 60,
+    left: Platform.OS === 'web' ? -60 : -40,
+    transform: [
+      { scale: 1 },
+      { rotate: '15deg' }
+    ],
+  },
+});

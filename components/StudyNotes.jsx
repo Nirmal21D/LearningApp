@@ -10,6 +10,7 @@ import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { debounce } from 'lodash';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { LinearGradient } from 'expo-linear-gradient';
 // import * as MediaLibrary from 'expo-media-library';
 // import ViewShot from 'react-native-view-shot';
 import Svg, { Path, G } from 'react-native-svg';
@@ -1566,14 +1567,14 @@ export default React.memo(StudyNotes);
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'transparent',
   },
   minimizedContainer: {
-    maxHeight: 60,
+    maxHeight: 90,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
@@ -1606,7 +1607,8 @@ const styles = StyleSheet.create({
   },
   mainContainer: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    width: '%',
   },
   searchAndFilter: {
     padding: 15,
@@ -1617,7 +1619,7 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#7CB9E8',
     borderRadius: 10,
     padding: 10,
     marginBottom: 10,
@@ -1634,11 +1636,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#EEE',
+    backgroundColor: '#7CB9E8',
     marginRight: 10,
   },
   activeFilterChip: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#666',
   },
   filterChipText: {
     color: '#666',
@@ -1658,10 +1660,13 @@ const styles = StyleSheet.create({
   sortButtonText: {
     marginLeft: 5,
     color: '#666',
+    backgroundColor: 'ffA500',
   },
   notesContainer: {
     flex: 1,
     paddingBottom: Platform.OS === 'ios' ? 100 : 90, // Adjust padding to prevent content from being hidden
+    backgroundColor: 'rgba(207, 232, 252, 0.88)',
+    width: '100%',
   },
   notesContentContainer: {
     padding: 8,
