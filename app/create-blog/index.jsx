@@ -9,12 +9,17 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  StyleSheet
+  StyleSheet,
+  SafeAreaView
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from "firebase/firestore";
 import { getAuth } from 'firebase/auth';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { db } from "../../lib/firebase";
 
@@ -131,154 +136,246 @@ const CreateBlog = () => {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.header}>
-          <Text style={styles.headerText}>Create New Blog Post</Text>
+    <SafeAreaView style={styles.container}>
+      <LinearGradient
+        colors={['#E3F2FD', '#BBDEFB', '#E3F2FD']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <View style={[styles.blurCircle, styles.blurCircle1]} />
+        <View style={[styles.blurCircle, styles.blurCircle2]} />
+        <View style={[styles.blurCircle, styles.blurCircle3]} />
+      <View style={styles.glassEffectContainer}>
+        <View style={styles.headerContainer}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#1A237E" />
+          </TouchableOpacity>
+          <Text style={styles.header}>Create a New Blog</Text>
         </View>
+        <ScrollView 
+          contentContainerStyle={styles.scrollViewContent} 
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.main}>
+            <View style={styles.formContainer}>
+              {Object.values(errors).some(error => error) && (
+                <Text style={styles.errorText}>Please fix the errors below</Text>
+              )}
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Title</Text>
-          <TextInput
-            style={[styles.input, errors.title ? styles.inputError : null]}
-            placeholder="Enter an engaging title"
-            value={form.title}
-            onChangeText={text => setForm({...form, title: text})}
-            maxLength={100}
-          />
-          {errors.title ? <Text style={styles.errorText}>{errors.title}</Text> : null}
-          <Text style={styles.charCount}>{form.title.length}/100</Text>
-        </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Title</Text>
+                <View style={[styles.inputContainer, errors.title ? {borderColor: '#ff3333'} : null]}>
+                  <Ionicons name="create-outline" size={20} color="#666" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter an engaging title"
+                    value={form.title}
+                    onChangeText={text => setForm({...form, title: text})}
+                    maxLength={100}
+                  />
+                </View>
+                {errors.title ? <Text style={styles.fieldErrorText}>{errors.title}</Text> : null}
+                <Text style={styles.charCount}>{form.title.length}/100</Text>
+              </View>
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Category</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={form.category}
-              onValueChange={value => setForm({...form, category: value})}
-              style={styles.picker}
-            >
-              <Picker.Item label="Physics" value="Physics" />
-              <Picker.Item label="Chemistry" value="Chemistry" />
-              <Picker.Item label="Mathematics" value="Mathematics" />
-              <Picker.Item label="Biology" value="Biology" />
-              <Picker.Item label="Computer Science" value="ComputerScience" />
-              <Picker.Item label="Other" value="Other" />
-            </Picker>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Category</Text>
+                <View style={[styles.inputContainer, styles.pickerContainer]}>
+                  <Ionicons name="bookmark-outline" size={20} color="#666" style={styles.inputIcon} />
+                  <Picker
+                    selectedValue={form.category}
+                    onValueChange={value => setForm({...form, category: value})}
+                    style={styles.picker}
+                  >
+                    <Picker.Item label="Physics" value="Physics" />
+                    <Picker.Item label="Chemistry" value="Chemistry" />
+                    <Picker.Item label="Mathematics" value="Mathematics" />
+                    <Picker.Item label="Biology" value="Biology" />
+                    <Picker.Item label="Computer Science" value="ComputerScience" />
+                    <Picker.Item label="Other" value="Other" />
+                  </Picker>
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Content</Text>
+                <View style={[styles.inputContainer, styles.textAreaContainer, errors.content ? {borderColor: '#ff3333'} : null]}>
+                  <Ionicons name="document-text-outline" size={20} color="#666" style={[styles.inputIcon, {alignSelf: 'flex-start', marginTop: 12}]} />
+                  <TextInput
+                    style={styles.textArea}
+                    multiline
+                    placeholder="Write your blog content here..."
+                    value={form.content}
+                    onChangeText={text => setForm({...form, content: text})}
+                  />
+                </View>
+                {errors.content ? <Text style={styles.fieldErrorText}>{errors.content}</Text> : null}
+                <Text style={styles.charCount}>
+                  {form.content.length} characters | ~{form.readTime} min read
+                </Text>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Estimated Read Time (minutes)</Text>
+                <View style={[styles.inputContainer, errors.readTime ? {borderColor: '#ff3333'} : null]}>
+                  <Ionicons name="time-outline" size={20} color="#666" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Auto-calculated, but you can adjust"
+                    value={form.readTime}
+                    onChangeText={text => setForm({...form, readTime: text})}
+                    keyboardType="numeric"
+                  />
+                </View>
+                {errors.readTime ? <Text style={styles.fieldErrorText}>{errors.readTime}</Text> : null}
+              </View>
+
+              <TouchableOpacity
+                style={styles.publishButton}
+                onPress={confirmSubmit}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={styles.publishButtonText}>Publish Blog Post</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => router.back()}
+                disabled={isLoading}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Content</Text>
-          <TextInput
-            style={[styles.textArea, errors.content ? styles.inputError : null]}
-            multiline
-            placeholder="Write your blog content here..."
-            value={form.content}
-            onChangeText={text => setForm({...form, content: text})}
-          />
-          {errors.content ? <Text style={styles.errorText}>{errors.content}</Text> : null}
-          <Text style={styles.charCount}>
-            {form.content.length} characters | ~{form.readTime} min read
-          </Text>
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Estimated Read Time (minutes)</Text>
-          <TextInput
-            style={[styles.input, errors.readTime ? styles.inputError : null]}
-            placeholder="Auto-calculated, but you can adjust"
-            value={form.readTime}
-            onChangeText={text => setForm({...form, readTime: text})}
-            keyboardType="numeric"
-          />
-          {errors.readTime ? <Text style={styles.errorText}>{errors.readTime}</Text> : null}
-        </View>
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={confirmSubmit}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#ffffff" />
-          ) : (
-            <Text style={styles.buttonText}>Publish Blog Post</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={() => router.back()}
-          disabled={isLoading}
-        >
-          <Text style={styles.cancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: 'transparent',
   },
-  scrollView: {
+  glassEffectContainer: {
     flex: 1,
-    padding: 16,
+    padding: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    backdropFilter: 'blur(10px)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 24,
+    marginHorizontal: 3,
+    top: 10,
+    justifyContent: 'flex-start',
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  backButton: {
+    marginRight: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 50,
+    padding: 10,
   },
   header: {
-    marginBottom: 20,
-  },
-  headerText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1A237E',
   },
-  formGroup: {
-    marginBottom: 20,
+  scrollViewContent: {
+    paddingBottom: 20,
+  },
+  main: {
+    flex: 1,
+    padding: Platform.OS === 'web' ? 20 : 16,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
+    zIndex: 1,
+  },
+  formContainer: {
+    gap: 11,
+    padding: Platform.OS === 'web' ? 25 : 20,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    backdropFilter: Platform.OS === 'web' ? 'blur(3px)' : undefined,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 24,
+    borderTopColor: 'rgba(255, 255, 255, 0.9)',
+    borderLeftColor: 'rgba(255, 255, 255, 0.9)',
+    borderRightColor: 'rgba(255, 255, 255, 0.7)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: 30,
+  },
+  inputGroup: {
+    marginBottom: 15,
   },
   label: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
     marginBottom: 8,
-    color: '#333',
+    color: '#1A237E',
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  inputError: {
-    borderColor: '#ff3b30',
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 16,
+    shadowOpacity: 0.01,
+    padding: Platform.OS === 'web' ? 16 : 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.02,
+    shadowRadius: 12,
   },
   pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    backgroundColor: '#fff',
-    overflow: 'hidden',
+    padding: 0,
+    paddingLeft: Platform.OS === 'web' ? 16 : 12,
+    height: 54,
+  },
+  textAreaContainer: {
+    alignItems: 'flex-start',
+    padding: 0,
+    paddingLeft: Platform.OS === 'web' ? 16 : 12,
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
+    fontSize: Platform.OS === 'web' ? 16 : 14,
+    color: '#333',
   },
   picker: {
-    height: 50,
-    width: '100%',
+    flex: 1,
+    height: 54,
+    color: '#333',
+    fontSize: Platform.OS === 'web' ? 16 : 14,
   },
   textArea: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    flex: 1,
+    fontSize: Platform.OS === 'web' ? 16 : 14,
+    color: '#333',
     minHeight: 200,
     textAlignVertical: 'top',
-    backgroundColor: '#fff',
+    paddingTop: 12,
+    paddingRight: 12,
   },
   charCount: {
     fontSize: 12,
@@ -287,35 +384,89 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   errorText: {
-    color: '#ff3b30',
+    color: '#ff3333',
+    fontSize: 14,
+    marginBottom: 10,
+    backgroundColor: 'rgba(255, 51, 51, 0.05)',
+    padding: 10,
+    borderRadius: 8,
+    textAlign: 'center',
+  },
+  fieldErrorText: {
+    color: '#ff3333',
     fontSize: 12,
     marginTop: 4,
   },
-  button: {
-    backgroundColor: '#007aff',
-    borderRadius: 8,
-    padding: 16,
+  publishButton: {
+    backgroundColor: 'rgba(33, 150, 243, 0.75)',
+    padding: Platform.OS === 'web' ? 16 : 14,
+    borderRadius: 16,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 5,
     marginTop: 10,
   },
-  buttonText: {
-    color: '#fff',
+  publishButtonText: {
+    color: '#ffffff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   cancelButton: {
-    borderRadius: 8,
-    padding: 16,
+    padding: Platform.OS === 'web' ? 16 : 14,
+    borderRadius: 16,
     alignItems: 'center',
     marginTop: 10,
-    marginBottom: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#fff',
+    borderColor: 'rgba(255, 255, 255, 0.8)',
   },
   cancelButtonText: {
     color: '#666',
     fontSize: 16,
+    fontWeight: '500',
+  },
+  blurCircle: {
+    position: 'absolute',
+    borderRadius: 999,
+    zIndex: 0,
+  },
+  blurCircle1: {
+    width: 200,
+    height: 200,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    top: 10,
+    left: -60,
+    transform: [
+      { scale: 1.2 },
+      { rotate: '-15deg' }
+    ],
+  },
+  blurCircle2: {
+    width: 180,
+    height: 180,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    top: 320,
+    right: -30,
+    transform: [
+      { scale: 1.1 },
+      { rotate: '30deg' }
+    ],
+  },
+  blurCircle3: {
+    width: 160,
+    height: 160,
+    backgroundColor: 'rgba(173, 216, 255, 0.45)',
+    bottom: 60,
+    left: -40,
+    transform: [
+      { scale: 1 },
+      { rotate: '15deg' }
+    ],
   },
 });
 

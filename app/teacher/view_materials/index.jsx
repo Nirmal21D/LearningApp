@@ -9,6 +9,8 @@ import {
   Linking,
   Pressable,
   SafeAreaView,
+  StatusBar,
+  ImageBackground,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,44 +27,56 @@ import Animated, {
     useAnimatedStyle, 
     withSpring, 
     useSharedValue,
-    interpolate 
+    interpolate,
+    withTiming
 } from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const InteractiveCard = ({ children, style }) => {
+// Enhanced interactive card with glass effect
+const GlassCard = ({ children, style, onPress }) => {
     const scale = useSharedValue(1);
     const elevation = useSharedValue(2);
+    const opacity = useSharedValue(0.7);
     
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ scale: scale.value }],
-        shadowOpacity: interpolate(elevation.value, [2, 8], [0.1, 0.15]),
+        shadowOpacity: interpolate(elevation.value, [2, 8], [0.1, 0.2]),
         shadowRadius: elevation.value,
     }));
 
     return (
         <AnimatedPressable 
             style={[animatedStyle, style]}
+            onPress={onPress}
             onPressIn={() => {
                 scale.value = withSpring(0.98);
                 elevation.value = withSpring(8);
+                opacity.value = withTiming(0.85);
             }}
             onPressOut={() => {
                 scale.value = withSpring(1);
                 elevation.value = withSpring(2);
+                opacity.value = withTiming(0.7);
             }}
         >
-            {children}
+            <BlurView intensity={20} tint="light" style={styles.blurContainer}>
+                <Animated.View style={[{ opacity }, styles.glassOverlay]} />
+                {children}
+            </BlurView>
         </AnimatedPressable>
     );
 };
 
 const MaterialCard = ({ material, onView, onDelete }) => (
-  <InteractiveCard style={styles.card}>
+  <GlassCard style={styles.card}>
     <View style={styles.cardHeader}>
       <View style={styles.titleContainer}>
         <Text style={styles.materialTitle}>{material.title}</Text>
-        <View style={[styles.typeBadge, { backgroundColor: material.type === 'pdf' ? '#FF9800' : '#4CAF50' }]}>
+        <View style={[styles.typeBadge, { 
+          backgroundColor: material.type === 'pdf' ? 'rgba(255, 152, 0, 0.8)' : 'rgba(76, 175, 80, 0.8)' 
+        }]}>
           <Text style={styles.typeText}>{material.type.toUpperCase()}</Text>
         </View>
       </View>
@@ -72,10 +86,10 @@ const MaterialCard = ({ material, onView, onDelete }) => (
     <View style={styles.cardFooter}>
       <View style={styles.metadataContainer}>
         <Text style={styles.metadata}>
-          <Ionicons name="time-outline" size={16} color="#666" /> {material.uploadDate}
+          <Ionicons name="time-outline" size={16} color="rgba(51, 51, 51, 0.8)" /> {material.uploadDate}
         </Text>
         <Text style={styles.metadata}>
-          <Ionicons name="document-outline" size={16} color="#666" /> {material.size}
+          <Ionicons name="document-outline" size={16} color="rgba(51, 51, 51, 0.8)" /> {material.size}
         </Text>
       </View>
 
@@ -97,7 +111,7 @@ const MaterialCard = ({ material, onView, onDelete }) => (
         </TouchableOpacity>
       </View>
     </View>
-  </InteractiveCard>
+  </GlassCard>
 );
 
 export default function ViewMaterials() {
@@ -105,6 +119,7 @@ export default function ViewMaterials() {
   const [materials, setMaterials] = useState([]);
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('materials');
 
   useEffect(() => {
     fetchMaterials();
@@ -317,61 +332,103 @@ export default function ViewMaterials() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.emptyText}>Loading materials and videos...</Text>
-      </View>
+      <ImageBackground 
+        source={{ uri: 'https://images.unsplash.com/photo-1557682250-33bd709cbe85?q=80&w=1000' }} 
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        <BlurView intensity={60} tint="light" style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading materials and videos...</Text>
+        </BlurView>
+      </ImageBackground>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Navbar */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <InteractiveCard 
-            style={styles.backButton}
-            onPress={() => router.back()}
+      <StatusBar barStyle="dark-content" />
+      <ImageBackground 
+        source={{ uri: 'https://images.unsplash.com/photo-1557682250-33bd709cbe85?q=80&w=1000' }} 
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        {/* Glassmorphic Header */}
+        <BlurView intensity={60} tint="light" style={styles.header}>
+          <View style={styles.headerLeft}>
+            <GlassCard 
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <Ionicons name="arrow-back" size={24} color="#333" />
+            </GlassCard>
+            <Text style={styles.headerTitle}>Learning Materials</Text>
+          </View>
+        </BlurView>
+
+        {/* Tab Navigation */}
+        <BlurView intensity={40} tint="light" style={styles.tabContainer}>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'materials' && styles.activeTab]} 
+            onPress={() => setActiveTab('materials')}
           >
-            <Ionicons name="arrow-back" size={24} color="#333" />
-          </InteractiveCard>
-          <Text style={styles.headerTitle}>Materials</Text>
-        </View>
-      </View>
+            <Ionicons 
+              name="document-text" 
+              size={20} 
+              color={activeTab === 'materials' ? "#2196F3" : "#666"} 
+            />
+            <Text style={[styles.tabText, activeTab === 'materials' && styles.activeTabText]}>
+              Study Materials
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'videos' && styles.activeTab]} 
+            onPress={() => setActiveTab('videos')}
+          >
+            <Ionicons 
+              name="videocam" 
+              size={20} 
+              color={activeTab === 'videos' ? "#2196F3" : "#666"} 
+            />
+            <Text style={[styles.tabText, activeTab === 'videos' && styles.activeTabText]}>
+              Video Materials
+            </Text>
+          </TouchableOpacity>
+        </BlurView>
 
-      {/* Content Container */}
-      <View style={styles.listsContainer}>
-        {/* Section Headers */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Study Materials</Text>
+        {/* Content Container */}
+        <View style={styles.listsContainer}>
+          {activeTab === 'materials' ? (
+            <FlatList
+              contentContainerStyle={styles.listContent}
+              data={materials}
+              renderItem={renderMaterialItem}
+              keyExtractor={(item, index) => item.url || index.toString()}
+              ListEmptyComponent={
+                <BlurView intensity={40} tint="light" style={styles.emptyContainer}>
+                  <Ionicons name="document-text-outline" size={50} color="#666" />
+                  <Text style={styles.emptyText}>No study materials uploaded yet</Text>
+                </BlurView>
+              }
+              showsVerticalScrollIndicator={false}
+            />
+          ) : (
+            <FlatList
+              contentContainerStyle={styles.listContent}
+              data={videos}
+              renderItem={renderVideoItem}
+              keyExtractor={(item, index) => item.url || index.toString()}
+              ListEmptyComponent={
+                <BlurView intensity={40} tint="light" style={styles.emptyContainer}>
+                  <Ionicons name="videocam-outline" size={50} color="#666" />
+                  <Text style={styles.emptyText}>No video materials uploaded yet</Text>
+                </BlurView>
+              }
+              showsVerticalScrollIndicator={false}
+            />
+          )}
         </View>
-        
-        {/* Materials List */}
-        <FlatList
-          contentContainerStyle={styles.listContent}
-          data={materials}
-          renderItem={renderMaterialItem}
-          keyExtractor={(item, index) => item.url || index.toString()}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>No materials uploaded yet</Text>
-          }
-        />
-
-        {/* Videos Section Header */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Video Materials</Text>
-        </View>
-
-        {/* Videos List */}
-        <FlatList
-          contentContainerStyle={styles.listContent}
-          data={videos}
-          renderItem={renderVideoItem}
-          keyExtractor={(item, index) => item.url || index.toString()}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>No videos uploaded yet</Text>
-          }
-        />
-      </View>
+      </ImageBackground>
     </SafeAreaView>
   );
 }
@@ -379,20 +436,27 @@ export default function ViewMaterials() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f4f6f9",
+  },
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+  },
+  blurContainer: {
+    overflow: 'hidden',
+    borderRadius: 12,
+    flex: 1,
+  },
+  glassOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: 'white',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 15,
-    elevation: 2,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+    overflow: 'hidden',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -405,86 +469,111 @@ const styles = StyleSheet.create({
     borderRadius: 23,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'white',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 4,
+    overflow: 'hidden',
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: '700',
     color: '#333',
     letterSpacing: -0.5,
+    textShadowColor: 'rgba(255, 255, 255, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    marginTop: 10,
+    borderRadius: 15,
+    overflow: 'hidden',
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 8,
+  },
+  activeTab: {
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  tabText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#666',
+  },
+  activeTabText: {
+    color: '#2196F3',
+    fontWeight: '600',
   },
   listsContainer: {
     flex: 1,
-    padding: 10,
-  },
-  sectionHeader: {
-    marginBottom: 8,
-    marginTop: 8,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    letterSpacing: -0.5,
+    padding: 15,
   },
   listContent: {
-    paddingBottom: 10,
+    paddingBottom: 20,
   },
   card: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    marginBottom: 8,
-    padding: 12,
+    marginBottom: 15,
+    borderRadius: 16,
+    overflow: 'hidden',
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   cardHeader: {
-    marginBottom: 8,
+    padding: 16,
   },
   titleContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 10,
   },
   materialTitle: {
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#333",
     flex: 1,
     marginRight: 12,
   },
   typeBadge: {
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 20,
   },
   typeText: {
     color: "white",
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   description: {
     fontSize: 14,
-    color: "#666",
-    lineHeight: 20,
+    color: "#333",
+    lineHeight: 22,
+    opacity: 0.8,
   },
   cardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 15,
+    marginTop: 10,
     paddingTop: 15,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
     borderTopWidth: 1,
-    borderTopColor: "#eee",
+    borderTopColor: "rgba(255, 255, 255, 0.3)",
   },
   metadataContainer: {
     flexDirection: "column",
@@ -492,7 +581,8 @@ const styles = StyleSheet.create({
   },
   metadata: {
     fontSize: 13,
-    color: "#666",
+    color: "#333",
+    opacity: 0.8,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -505,24 +595,41 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     gap: 6,
   },
   viewButton: {
-    backgroundColor: "#2196F3",
+    backgroundColor: "rgba(33, 150, 243, 0.9)",
   },
   deleteButton: {
-    backgroundColor: "#FF5252",
+    backgroundColor: "rgba(255, 82, 82, 0.9)",
   },
   buttonText: {
     color: "white",
     fontSize: 14,
     fontWeight: "600",
   },
-  emptyText: {
-    textAlign: "center",
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 18,
+    color: '#333',
+    fontWeight: '500',
+  },
+  emptyContainer: {
     marginTop: 50,
+    padding: 30,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    marginTop: 15,
     fontSize: 16,
-    color: "#666",
+    color: '#666',
+    textAlign: 'center',
   },
 });
