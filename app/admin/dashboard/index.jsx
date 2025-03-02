@@ -7,6 +7,7 @@ import { signOut } from 'firebase/auth';
 import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
 
 export default function AdminDashboard() {
     const router = useRouter();
@@ -73,11 +74,10 @@ export default function AdminDashboard() {
         },
         {
             title: 'Manage Curriculum',
-            icon: 'people',
+            icon: 'book',
             route: '/admin/manage_curriculum',
-            color: '#9C27B0',
-            description: 'Approve and manage teacher accounts',
-            badge: stats.pendingApprovals > 0 ? stats.pendingApprovals : null
+            color: '#2196F3',
+            description: 'Create and organize course content'
         },
         {
             title: 'Content Management',
@@ -90,8 +90,8 @@ export default function AdminDashboard() {
             title: 'Create Curriculum',
             icon: 'create',
             route: '/admin/create_curriculum',
-            color: '#2196F3',
-            description: 'Create and organize course content'
+            color: '#4CAF50',
+            description: 'Design new curriculum structure'
         },
         {
             title: 'Upload Materials',
@@ -104,91 +104,60 @@ export default function AdminDashboard() {
             title: 'Analytics',
             icon: 'analytics',
             route: '/admin/app-analytics',
-            color: '#4CAF50',
+            color: '#673AB7',
             description: 'View app usage statistics'
         }
     ];
 
-    const renderMenuItem = (item) => (
-        <TouchableOpacity
-            key={item.title}
-            style={styles.menuItem}
-            onPress={() => router.push(item.route)}
-        >
-            <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
-                <Ionicons name={item.icon} size={24} color="white" />
-                {item.badge && (
-                    <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{item.badge}</Text>
-                    </View>
-                )}
-            </View>
-            <Text style={styles.menuTitle}>{item.title}</Text>
-            <Text style={styles.menuDescription}>{item.description}</Text>
-        </TouchableOpacity>
-    );
-
     return (
-        <ScrollView>
         <View style={styles.container}>
-            <View style={styles.header}>
-                <View>
-                    <Text style={styles.title}>Admin Dashboard</Text>
-                    <Text style={styles.subtitle}>Manage your learning platform</Text>
-                </View>
-                <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                    <Ionicons name="log-out" size={24} color="#E91E63" />
-                </TouchableOpacity>
-            </View>
+            <LinearGradient
+                colors={['#E3F2FD', '#BBDEFB', '#E3F2FD']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFillObject}
+            />
+
             {/* Decorative blur circles */}
             <View style={[styles.blurCircle, styles.blurCircle1]} />
             <View style={[styles.blurCircle, styles.blurCircle2]} />
             <View style={[styles.blurCircle, styles.blurCircle3]} />
-            <ScrollView style={styles.content}>
-                <View style={styles.statsContainer}>
-                    <View style={styles.statCard}>
-                        <Text style={styles.statNumber}>{stats.totalTeachers}</Text>
-                        <Text style={styles.statLabel}>Total Teachers</Text>
-                    </View>
-                    <View style={styles.statCard}>
-                        <Text style={styles.statNumber}>{stats.pendingApprovals}</Text>
-                        <Text style={styles.statLabel}>Pending Approvals</Text>
-                    </View>
-                    <View style={styles.statCard}>
-                        <Text style={styles.statNumber}>{stats.totalContent}</Text>
-                        <Text style={styles.statLabel}>Total Content</Text>
-                    </View>
-                </View>
-
-                <View style={styles.menuGrid}>
-                    {menuItems.map(renderMenuItem)}
-                </View>
-            </ScrollView>
-        </View>
 
             <SafeAreaView style={styles.safeArea}>
+                <View style={styles.topBarContainer}>
+                    <View style={styles.headerContainer}>
+                        <Text style={styles.title}>Admin Dashboard</Text>
+                        <Text style={styles.subtitle}>Manage your learning platform</Text>
+                    </View>
+                    <BlurView intensity={0} tint="light" style={[styles.logoutButton, styles.glassEffect]}>
+                        <TouchableOpacity onPress={handleLogout}>
+                            <Ionicons name="log-out-outline" size={24} color="#E91E63"/>
+                        </TouchableOpacity>
+                    </BlurView>
+                </View>
+
                 <ScrollView 
                     style={styles.scrollView}
                     showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.scrollViewContent}
                 >
-                    <View style={styles.header}>
-                        <Text style={styles.title}>Admin Dashboard</Text>
-                        <Text style={styles.subtitle}>Manage your educational content</Text>
-                    </View>
-
                     <Animated.View 
-                        entering={FadeInDown.duration(800).springify()} 
-                        style={styles.content}
+                        entering={FadeInDown.duration(1000).springify()} 
+                        style={styles.main}
                     >
                         {/* Stats Section */}
                         <View style={styles.statsContainer}>
                             <View style={styles.statCard}>
-                                <Text style={styles.statNumber}>{stats.totalSubjects}</Text>
-                                <Text style={styles.statLabel}>Total Subjects</Text>
+                                <Text style={styles.statNumber}>{stats.totalTeachers}</Text>
+                                <Text style={styles.statLabel}>Total Teachers</Text>
                             </View>
                             <View style={styles.statCard}>
-                                <Text style={styles.statNumber}>{stats.totalChapters}</Text>
-                                <Text style={styles.statLabel}>Total Chapters</Text>
+                                <Text style={styles.statNumber}>{stats.pendingApprovals}</Text>
+                                <Text style={styles.statLabel}>Pending Approvals</Text>
+                            </View>
+                            <View style={styles.statCard}>
+                                <Text style={styles.statNumber}>{stats.totalContent}</Text>
+                                <Text style={styles.statLabel}>Total Content</Text>
                             </View>
                         </View>
 
@@ -201,7 +170,12 @@ export default function AdminDashboard() {
                                     onPress={() => router.push(item.route)}
                                 >
                                     <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
-                                        <Ionicons name={item.icon} size={32} color="#fff" />
+                                        <Ionicons name={item.icon} size={24} color="white" />
+                                        {item.badge && (
+                                            <View style={styles.badge}>
+                                                <Text style={styles.badgeText}>{item.badge}</Text>
+                                            </View>
+                                        )}
                                     </View>
                                     <Text style={styles.menuTitle}>{item.title}</Text>
                                     <Text style={styles.menuDescription}>{item.description}</Text>
@@ -212,16 +186,16 @@ export default function AdminDashboard() {
                         {/* Recent Activities */}
                         <View style={styles.recentActivities}>
                             <Text style={styles.sectionTitle}>Recent Activities</Text>
-                            {stats.recentActivities.length > 0 ? (
+                            {stats.recentActivities && stats.recentActivities.length > 0 ? (
                                 stats.recentActivities.map((activity, index) => (
                                     <View key={index} style={styles.activityItem}>
                                         <Ionicons name="time-outline" size={20} color="#666" />
                                         <View style={styles.activityContent}>
                                             <Text style={styles.activityText}>
-                                                New subject created: {activity.name}
+                                                {activity.text}
                                             </Text>
                                             <Text style={styles.activityDate}>
-                                                {new Date(activity.date).toLocaleDateString()}
+                                                {activity.date}
                                             </Text>
                                         </View>
                                     </View>
@@ -233,56 +207,13 @@ export default function AdminDashboard() {
                     </Animated.View>
                 </ScrollView>
             </SafeAreaView>
-        </ScrollView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
-    },
-    header: {
-        padding: 20,
-        backgroundColor: '#fff',
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        borderBottomWidth: 1,
-        borderBottomColor: '#e0e0e0',
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#333',
-    },
-    subtitle: {
-        fontSize: 14,
-        color: '#666',
-        marginTop: 4,
-    },
-    logoutButton: {
-        padding: 8,
-    },
-    content: {
-        flex: 1,
-    },
-    statsContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        padding: 20,
-        backgroundColor: '#fff',
-        marginVertical: 10,
-        borderRadius: 12,
-        marginHorizontal: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    statCard: {
-        alignItems: 'center',
         position: 'relative',
         backgroundColor: 'transparent',
         overflow: 'hidden',
@@ -293,18 +224,35 @@ const styles = StyleSheet.create({
     scrollView: {
         flex: 1,
     },
-    content: {
-        padding: 16,
+    scrollViewContent: {
+        flexGrow: 1,
+        paddingBottom: 20,
     },
-    header: {
-        padding: 20,
-        marginTop: Platform.OS === 'ios' ? 20 : 40,
+    main: {
+        flex: 1,
+        padding: 16,
+        maxWidth: Platform.OS === 'web' ? 1200 : undefined,
+        width: '100%',
+        alignSelf: 'center',
+    },
+    // Fixed position for the header
+    topBarContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        position: 'relative',
+        paddingTop: Platform.OS === 'web' ? 20 : 40,
+        paddingHorizontal: 16,
+        zIndex: 10,
+    },
+    headerContainer: {
+        flex: 1,
     },
     title: {
         fontSize: Platform.OS === 'web' ? 34 : 28,
         fontWeight: 'bold',
         color: '#1A237E',
-        marginBottom: 8,
+        marginBottom: 6,
         letterSpacing: -0.5,
     },
     subtitle: {
@@ -312,71 +260,64 @@ const styles = StyleSheet.create({
         color: '#666',
         lineHeight: 20,
     },
+    // Stats Section
     statsContainer: {
         flexDirection: 'row',
-        paddingVertical: 15,
         justifyContent: 'space-between',
+        marginTop: 24,
+        marginBottom: 16,
     },
     statCard: {
-        backgroundColor: 'rgba(255, 255, 255, 0.3)',
-        padding: 20,
-        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.10)',
+        paddingVertical: 20,
+        paddingHorizontal: 16,
+        borderRadius: 24,
+        width: '31%',
         alignItems: 'center',
-        width: '48%',
+        backdropFilter: Platform.OS === 'web' ? 'blur(3px)' : undefined,
         borderWidth: 1.5,
-        borderColor: 'rgba(255, 255, 255, 0.5)',
+        borderColor: 'rgba(255, 255, 255, 0.4)',
         shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
-        shadowOpacity: 0.15,
-        shadowRadius: 10,
-        elevation: 5,
+        shadowOpacity: 0.06,
+        shadowRadius: 24,
+        borderTopColor: 'rgba(255, 255, 255, 0.9)',
+        borderLeftColor: 'rgba(255, 255, 255, 0.9)',
+        borderRightColor: 'rgba(255, 255, 255, 0.7)',
+        borderBottomColor: 'rgba(255, 255, 255, 0.7)',
     },
     statNumber: {
-        fontSize: 26,
+        fontSize: 24,
         fontWeight: 'bold',
         color: '#1A237E',
+        marginBottom: 6,
     },
     statLabel: {
         fontSize: 14,
         color: '#666',
-        marginTop: 5,
     },
+    // Menu Grid
     menuGrid: {
-        padding: 10,
-        paddingVertical: 15,
         flexDirection: 'row',
         flexWrap: 'wrap',
         justifyContent: 'space-between',
+        marginBottom: 16,
     },
     menuItem: {
         width: '48%',
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: 15,
-        marginBottom: 15,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+        backgroundColor: 'rgba(255, 255, 255, 0.10)',
+        backdropFilter: Platform.OS === 'web' ? 'blur(3px)' : undefined,
+        borderRadius: 24,
         padding: 20,
-        borderRadius: 20,
-        marginBottom: 15,
-        alignItems: 'center',
+        marginBottom: 16,
         borderWidth: 1.5,
-        borderColor: 'rgba(255, 255, 255, 0.5)',
+        borderColor: 'rgba(255, 255, 255, 0.4)',
         shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
-        shadowOpacity: 0.15,
-        shadowRadius: 10,
-        elevation: 5,
+        shadowOpacity: 0.06,
+        shadowRadius: 24,
+        borderTopColor: 'rgba(255, 255, 255, 0.9)',
+        borderLeftColor: 'rgba(255, 255, 255, 0.9)',
+        borderRightColor: 'rgba(255, 255, 255, 0.7)',
+        borderBottomColor: 'rgba(255, 255, 255, 0.7)',
     },
     iconContainer: {
         width: 48,
@@ -387,10 +328,10 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.6)',
-        shadowColor: '#2196F3',
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.25,
         shadowRadius: 5,
+        position: 'relative',
     },
     menuTitle: {
         fontSize: 16,
@@ -399,9 +340,9 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     menuDescription: {
-        fontSize: 12,
+        fontSize: 13,
         color: '#666',
-        lineHeight: 16,
+        lineHeight: 18,
     },
     badge: {
         position: 'absolute',
@@ -412,35 +353,44 @@ const styles = StyleSheet.create({
         minWidth: 20,
         height: 20,
         justifyContent: 'center',
+        alignItems: 'center',
+    },
+    badgeText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: 'bold',
+        paddingHorizontal: 6,
+    },
+    // Recent Activities
     recentActivities: {
-        marginTop: 10,
+        backgroundColor: 'rgba(255, 255, 255, 0.10)',
+        backdropFilter: Platform.OS === 'web' ? 'blur(3px)' : undefined,
+        borderRadius: 24,
         padding: 20,
-        backgroundColor: 'rgba(255, 255, 255, 0.3)',
-        borderRadius: 20,
+        marginTop: 8,
         borderWidth: 1.5,
-        borderColor: 'rgba(255, 255, 255, 0.5)',
+        borderColor: 'rgba(255, 255, 255, 0.4)',
         shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
-        shadowOpacity: 0.15,
-        shadowRadius: 10,
-        elevation: 5,
+        shadowOpacity: 0.06,
+        shadowRadius: 24,
+        borderTopColor: 'rgba(255, 255, 255, 0.9)',
+        borderLeftColor: 'rgba(255, 255, 255, 0.9)',
+        borderRightColor: 'rgba(255, 255, 255, 0.7)',
+        borderBottomColor: 'rgba(255, 255, 255, 0.7)',
     },
     sectionTitle: {
         fontSize: 20,
         fontWeight: 'bold',
         color: '#1A237E',
-        marginBottom: 15,
+        marginBottom: 16,
     },
     activityItem: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 12,
-        backgroundColor: 'rgba(255, 255, 255, 0.4)',
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
         marginBottom: 8,
-        borderRadius: 12,
+        borderRadius: 16,
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.5)',
     },
@@ -458,14 +408,67 @@ const styles = StyleSheet.create({
         color: '#666',
         marginTop: 4,
     },
-    analyticsButton: {
-        flexDirection: 'row',
+    emptyText: {
+        fontSize: 14,
+        color: '#666',
+        fontStyle: 'italic',
+        textAlign: 'center',
+        padding: 16,
+    },
+    // Logout button with glass effect
+    logoutButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         alignItems: 'center',
+        justifyContent: 'center',
     },
-    badgeText: {
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: 'bold',
-        paddingHorizontal: 6,
+    glassEffect: {
+        backgroundColor: 'rgba(255, 255, 255, 0.6)',
+        borderColor: 'rgba(255, 255, 255, 0.9)',
+        borderWidth: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.8,
+        shadowRadius: 9,
     },
-}});
+    // Decorative blur circles
+    blurCircle: {
+        position: 'absolute',
+        borderRadius: 999,
+        zIndex: 0,
+    },
+    blurCircle1: {
+        width: Platform.OS === 'web' ? 250 : 200,
+        height: Platform.OS === 'web' ? 250 : 200,
+        backgroundColor: 'rgba(173, 216, 255, 0.45)',
+        top: Platform.OS === 'web' ? 20 : 10,
+        left: Platform.OS === 'web' ? -80 : -60,
+        transform: [
+            { scale: 1.2 },
+            { rotate: '-15deg' }
+        ],
+    },
+    blurCircle2: {
+        width: Platform.OS === 'web' ? 220 : 180,
+        height: Platform.OS === 'web' ? 220 : 180,
+        backgroundColor: 'rgba(173, 216, 255, 0.45)',
+        top: Platform.OS === 'web' ? 390 : 320,
+        right: Platform.OS === 'web' ? -40 : -30,
+        transform: [
+            { scale: 1.1 },
+            { rotate: '30deg' }
+        ],
+    },
+    blurCircle3: {
+        width: Platform.OS === 'web' ? 200 : 160,
+        height: Platform.OS === 'web' ? 200 : 160,
+        backgroundColor: 'rgba(173, 216, 255, 0.45)',
+        bottom: Platform.OS === 'web' ? 30 : 60,
+        left: Platform.OS === 'web' ? -60 : -40,
+        transform: [
+            { scale: 1 },
+            { rotate: '15deg' }
+        ],
+    },
+});

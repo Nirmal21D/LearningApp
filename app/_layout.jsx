@@ -123,7 +123,6 @@ export default function Layout() {
         name="test/index"
         options={{ headerShown: false }}
       />
-      
     </Stack>
   );
 }
