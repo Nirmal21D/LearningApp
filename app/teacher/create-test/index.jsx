@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert, ScrollView, TouchableOpacity, SafeAreaView, Pressable } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Alert, ScrollView, TouchableOpacity, SafeAreaView, Pressable, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -8,10 +8,12 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { 
     useAnimatedStyle, 
     withSpring, 
-    useSharedValue 
+    useSharedValue,
+    FadeInDown
 } from 'react-native-reanimated';
-import ExcelUpload from '../../../components/ExcelUpload'; // Adjust path as needed
-
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import ExcelUpload from '../../../components/ExcelUpload';
 
 // Create an animated pressable component
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -99,8 +101,8 @@ export default function CreateTest() {
                 type: 'multiple_choice',
                 question: '',
                 options: ['', '', '', ''],
-                answer: '', // This will store the correct option
-                correctOption: '' // This is for UI tracking, will be removed before saving
+                answer: '',
+                correctOption: ''
             }
             : {
                 type: 'text',
@@ -109,6 +111,7 @@ export default function CreateTest() {
               };
         setQuestions([...questions, newQuestion]);
     };
+    
     const handleQuestionsLoaded = (loadedQuestions) => {
         setQuestions(loadedQuestions);
     };
@@ -332,364 +335,440 @@ export default function CreateTest() {
     if (loading) {
         return (
             <View style={styles.container}>
-                <Text>Loading...</Text>
+                <LinearGradient
+                    colors={['#E3F2FD', '#BBDEFB', '#E3F2FD']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFillObject}
+                />
+                <Text style={styles.loadingText}>Loading...</Text>
             </View>
         );
     }
 
     return (
-        <SafeAreaView style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity 
-                    style={styles.backButton}
-                    onPress={() => router.back()}
-                >
-                    <Ionicons name="arrow-back" size={24} color="#333" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Create New Test</Text>
-            </View>
+        <View style={styles.container}>
+            <LinearGradient
+                colors={['#E3F2FD', '#BBDEFB', '#E3F2FD']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFillObject}
+            />
 
-            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-                {/* Subject Selection */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Test Details</Text>
-                    
-                    <InteractiveContainer style={styles.pickerContainer}>
-                        <Ionicons name="book-outline" size={24} color="#666" style={styles.pickerIcon} />
-                        <Picker
-                            selectedValue={selectedSubject}
-                            onValueChange={(itemValue) => {
-                                setSelectedSubject(itemValue);
-                                setSelectedChapter('');
-                            }}
-                            style={styles.picker}
-                        >
-                            <Picker.Item label="Select a subject" value="" />
-                            {subjects.map((subject) => (
-                                <Picker.Item 
-                                    key={subject.id} 
-                                    label={subject.name} 
-                                    value={subject.id}
-                                />
-                            ))}
-                        </Picker>
-                    </InteractiveContainer>
+            {/* Decorative blur circles */}
+            <View style={[styles.blurCircle, styles.blurCircle1]} />
+            <View style={[styles.blurCircle, styles.blurCircle2]} />
+            <View style={[styles.blurCircle, styles.blurCircle3]} />
 
-                    <InteractiveContainer style={styles.pickerContainer}>
-                        <Ionicons name="library-outline" size={24} color="#666" style={styles.pickerIcon} />
-                        <Picker
-                            selectedValue={selectedChapter}
-                            onValueChange={setSelectedChapter}
-                            style={styles.picker}
-                            enabled={selectedSubject !== ''}
-                        >
-                            <Picker.Item label="Select a chapter" value="" />
-                            {chapters.map((chapter, index) => (
-                                <Picker.Item 
-                                    key={index}
-                                    label={chapter}
-                                    value={chapter}
-                                />
-                            ))}
-                        </Picker>
-                    </InteractiveContainer>
-
-                    <InteractiveContainer style={styles.inputContainer}>
-                        <Ionicons name="create-outline" size={24} color="#666" style={styles.inputIcon} />
-                        <TextInput 
-                            style={styles.input}
-                            value={title}
-                            onChangeText={setTitle}
-                            placeholder="Test Title"
-                            placeholderTextColor="#999"
-                        />
-                    </InteractiveContainer>
-
-                    <InteractiveContainer style={styles.inputContainer}>
-                        <Ionicons name="information-circle-outline" size={24} color="#666" style={styles.inputIcon} />
-                        <TextInput 
-                            style={[styles.input, styles.textArea]}
-                            value={description}
-                            onChangeText={setDescription}
-                            placeholder="Test Description"
-                            placeholderTextColor="#999"
-                            multiline
-                            numberOfLines={4}
-                        />
-                    </InteractiveContainer>
-
-                    {/* Duration field */}
-                    <InteractiveContainer style={styles.inputContainer}>
-                        <Ionicons name="time-outline" size={24} color="#666" style={styles.inputIcon} />
-                        <TextInput 
-                            style={styles.input}
-                            value={duration}
-                            onChangeText={setDuration}
-                            placeholder="Test Duration (minutes)"
-                            placeholderTextColor="#999"
-                            keyboardType="numeric"
-                        />
-                    </InteractiveContainer>
-
-                    {/* Gamification Preview */}
-                    <View style={styles.gamificationPreview}>
-                        <Text style={styles.gamificationTitle}>Rewards Preview</Text>
-                        <View style={styles.rewardItem}>
-                            <Ionicons name="star-outline" size={20} color="#FFD700" />
-                            <Text style={styles.rewardText}>XP Reward: {parseInt(duration || 0) * 2} XP</Text>
-                        </View>
-                        <View style={styles.rewardItem}>
-                            <Ionicons name="trophy-outline" size={20} color="#FF9800" />
-                            <Text style={styles.rewardText}>Points per Question: 10 pts</Text>
-                        </View>
-                        <View style={styles.rewardItem}>
-                            <Ionicons name="flame-outline" size={20} color="#FF5722" />
-                            <Text style={styles.rewardText}>Streak Bonus: 5 pts per correct answer in a row</Text>
-                        </View>
+            <SafeAreaView style={styles.safeArea}>
+                {/* Header */}
+                <View style={styles.header}>
+                    <BlurView intensity={0} tint="light" style={[styles.backButton, styles.glassEffect]}>
+                        <TouchableOpacity onPress={() => router.back()}>
+                            <Ionicons name="arrow-back" size={24} color="#333"/>
+                        </TouchableOpacity>
+                    </BlurView>
+                    <View style={styles.headerContainer}>
+                        <Text style={styles.headerTitle}>Create New Test</Text>
+                        <Text style={styles.headerSubtitle}>Add questions and configure your test settings</Text>
                     </View>
                 </View>
 
-                {/* Questions Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Questions</Text>
-                    
-                    {/* Questions List */}
-                    {questions.length > 0 && (
-                        <View style={styles.questionsList}>
-                            {questions.map((question, index) => (
-                                <View key={index} style={styles.questionCard}>
-                                    <View style={styles.questionHeader}>
-                                        <Text style={styles.questionNumber}>Question {index + 1}</Text>
+                {/* Main Content */}
+                <View style={styles.contentContainer}>
+                    <ScrollView 
+                        style={styles.scrollView} 
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={styles.scrollViewContent}
+                    >
+                        <Animated.View 
+                            entering={FadeInDown.duration(1000).springify()} 
+                            style={styles.formContainer}
+                        >
+                            {/* Test Details Section */}
+                            <View style={styles.glassCard}>
+                                <Text style={styles.sectionTitle}>Test Details</Text>
+                                
+                                <View style={styles.inputContainer}>
+                                    <Ionicons name="book-outline" size={24} color="#666" style={styles.inputIcon} />
+                                    <Picker
+                                        selectedValue={selectedSubject}
+                                        onValueChange={(itemValue) => {
+                                            setSelectedSubject(itemValue);
+                                            setSelectedChapter('');
+                                        }}
+                                        style={styles.input}
+                                    >
+                                        <Picker.Item label="Select a subject" value="" />
+                                        {subjects.map((subject) => (
+                                            <Picker.Item 
+                                                key={subject.id} 
+                                                label={subject.name} 
+                                                value={subject.id}
+                                            />
+                                        ))}
+                                    </Picker>
+                                </View>
+
+                                <View style={styles.inputContainer}>
+                                    <Ionicons name="library-outline" size={24} color="#666" style={styles.inputIcon} />
+                                    <Picker
+                                        selectedValue={selectedChapter}
+                                        onValueChange={setSelectedChapter}
+                                        style={styles.input}
+                                        enabled={selectedSubject !== ''}
+                                    >
+                                        <Picker.Item label="Select a chapter" value="" />
+                                        {chapters.map((chapter, index) => (
+                                            <Picker.Item 
+                                                key={index}
+                                                label={chapter}
+                                                value={chapter}
+                                            />
+                                        ))}
+                                    </Picker>
+                                </View>
+
+                                <View style={styles.inputContainer}>
+                                    <Ionicons name="create-outline" size={24} color="#666" style={styles.inputIcon} />
+                                    <TextInput 
+                                        style={styles.input}
+                                        value={title}
+                                        onChangeText={setTitle}
+                                        placeholder="Test Title"
+                                        placeholderTextColor="#999"
+                                    />
+                                </View>
+
+                                <View style={styles.inputContainer}>
+                                    <Ionicons name="information-circle-outline" size={24} color="#666" style={styles.inputIcon} />
+                                    <TextInput 
+                                        style={[styles.input, styles.textArea]}
+                                        value={description}
+                                        onChangeText={setDescription}
+                                        placeholder="Test Description"
+                                        placeholderTextColor="#999"
+                                        multiline
+                                        numberOfLines={4}
+                                    />
+                                </View>
+
+                                <View style={styles.inputContainer}>
+                                    <Ionicons name="time-outline" size={24} color="#666" style={styles.inputIcon} />
+                                    <TextInput 
+                                        style={styles.input}
+                                        value={duration}
+                                        onChangeText={setDuration}
+                                        placeholder="Test Duration (minutes)"
+                                        placeholderTextColor="#999"
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+
+                                {/* Gamification Preview */}
+                                <View style={styles.gamificationPreview}>
+                                    <Text style={styles.gamificationTitle}>Rewards Preview</Text>
+                                    <View style={styles.rewardItem}>
+                                        <Ionicons name="star-outline" size={20} color="#FFD700" />
+                                        <Text style={styles.rewardText}>XP Reward: {parseInt(duration || 0) * 2} XP</Text>
+                                    </View>
+                                    <View style={styles.rewardItem}>
+                                        <Ionicons name="trophy-outline" size={20} color="#FF9800" />
+                                        <Text style={styles.rewardText}>Points per Question: 10 pts</Text>
+                                    </View>
+                                    <View style={styles.rewardItem}>
+                                        <Ionicons name="flame-outline" size={20} color="#FF5722" />
+                                        <Text style={styles.rewardText}>Streak Bonus: 5 pts per correct answer in a row</Text>
+                                    </View>
+                                </View>
+                            </View>
+
+                            {/* Questions Section */}
+                            <View style={styles.glassCard}>
+                                <Text style={styles.sectionTitle}>Questions</Text>
+                                
+                                {/* Questions List */}
+                                {questions.length > 0 && (
+                                    <View style={styles.questionsList}>
+                                        {questions.map((question, index) => (
+                                            <View key={index} style={styles.questionCard}>
+                                                <View style={styles.questionHeader}>
+                                                    <Text style={styles.questionNumber}>Question {index + 1}</Text>
+                                                    <TouchableOpacity 
+                                                        style={styles.deleteButton}
+                                                        onPress={() => {
+                                                            const newQuestions = questions.filter((_, i) => i !== index);
+                                                            setQuestions(newQuestions);
+                                                        }}
+                                                    >
+                                                        <Ionicons name="trash-outline" size={20} color="#FF4444" />
+                                                    </TouchableOpacity>
+                                                </View>
+                                                {renderQuestion(question, index)}
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+                                
+                                {/* Add Question Buttons */}
+                                <View style={styles.addQuestionSection}>
+                                    <Text style={styles.addQuestionTitle}>Add New Question</Text>
+                                    <View style={styles.questionButtons}>
                                         <TouchableOpacity 
-                                            style={styles.deleteButton}
-                                            onPress={() => {
-                                                const newQuestions = questions.filter((_, i) => i !== index);
-                                                setQuestions(newQuestions);
-                                            }}
+                                            style={[styles.addButton, styles.textButton]}
+                                            onPress={() => handleAddQuestion('text')}
                                         >
-                                            <Ionicons name="trash-outline" size={20} color="#FF4444" />
+                                            <Ionicons name="add-circle-outline" size={20} color="white" />
+                                            <Text style={styles.buttonText}>Add Text Question</Text>
+                                        </TouchableOpacity>
+                                        
+                                        <TouchableOpacity 
+                                            style={[styles.addButton, styles.mcqButton]}
+                                            onPress={() => handleAddQuestion('multiple_choice')}
+                                        >
+                                            <Ionicons name="list-outline" size={20} color="white" />
+                                            <Text style={styles.buttonText}>Add MCQ</Text>
                                         </TouchableOpacity>
                                     </View>
-                                    {renderQuestion(question, index)}
                                 </View>
-                            ))}
-                        </View>
-                    )}
-                    
-                    {/* Add Question Buttons */}
-                    <View style={styles.addQuestionSection}>
-                        <Text style={styles.addQuestionTitle}>Add New Question</Text>
-                        <View style={styles.questionButtons}>
-                            <InteractiveContainer 
-                                style={[styles.addButton, styles.textButton]}
-                                onPress={() => handleAddQuestion('text')}
-                            >
-                                <Ionicons name="add-circle-outline" size={20} color="white" />
-                                <Text style={styles.buttonText}>Add Text Question</Text>
-                            </InteractiveContainer>
-                            
-                            <InteractiveContainer 
-                                style={[styles.addButton, styles.mcqButton]}
-                                onPress={() => handleAddQuestion('multiple_choice')}
-                            >
-                                <Ionicons name="list-outline" size={20} color="white" />
-                                <Text style={styles.buttonText}>Add MCQ</Text>
-                            </InteractiveContainer>
-
-                            
-                        </View>
-                        <View style={styles.section}>
-                                <Text style={styles.sectionTitle}>Import Questions</Text>
-                                <ExcelUpload 
-                                    onQuestionsLoaded={handleQuestionsLoaded}
-                                    setSelectedSubject={(subjectId) => {
-                                        // Find the subject that matches this ID
-                                        const subject = subjects.find(s => s.id === subjectId);
-                                        if (subject) {
-                                            setSelectedSubject(subjectId);
-                                        }
-                                    }}
-                                    setSelectedChapter={setSelectedChapter}
-                                    setTitle={setTitle}
-                                    setDescription={setDescription}
-                                    setDuration={setDuration}
-                                />
+                                
+                                {/* Import Questions Section */}
+                                <View style={styles.importSection}>
+                                    <Text style={styles.sectionTitle}>Import Questions</Text>
+                                    <ExcelUpload 
+                                        onQuestionsLoaded={handleQuestionsLoaded}
+                                        setSelectedSubject={(subjectId) => {
+                                            const subject = subjects.find(s => s.id === subjectId);
+                                            if (subject) {
+                                                setSelectedSubject(subjectId);
+                                            }
+                                        }}
+                                        setSelectedChapter={setSelectedChapter}
+                                        setTitle={setTitle}
+                                        setDescription={setDescription}
+                                        setDuration={setDuration}
+                                    />
+                                </View>
                             </View>
-                    </View>
-                </View>
 
-                {/* Submit Button */}
-                <TouchableOpacity 
-                    style={styles.submitButton}
-                    onPress={handleSaveTest}
-                    disabled={isSaving}
-                >
-                    <Text style={styles.submitButtonText}>
-                        {isSaving ? "Creating Test..." : "Create Test"}
-                    </Text>
-                </TouchableOpacity>
-            </ScrollView>
-        </SafeAreaView>
+                            {/* Submit Button */}
+                            <TouchableOpacity 
+                                style={styles.submitButton}
+                                onPress={handleSaveTest}
+                                disabled={isSaving}
+                            >
+                                <Text style={styles.submitButtonText}>
+                                    {isSaving ? "Creating Test..." : "Create Test"}
+                                </Text>
+                            </TouchableOpacity>
+                        </Animated.View>
+                    </ScrollView>
+                </View>
+            </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8f9fa',
+        position: 'relative',
+        backgroundColor: 'transparent',
+        overflow: 'hidden',
     },
+    safeArea: {
+        flex: 1,
+    },
+    loadingText: {
+        fontSize: 18,
+        color: '#1A237E',
+        textAlign: 'center',
+        marginTop: 50,
+    },
+    // Header styles
     header: {
         flexDirection: 'row',
-        alignItems: 'center',
-        padding: 20,
-        backgroundColor: 'white',
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
+        alignItems: 'flex-start',
+        position: 'absolute',
+        top: Platform.OS === 'web' ? 20 : 40,
+        left: Platform.OS === 'web' ? 20 : 16,
+        zIndex: 10,
+        paddingHorizontal: 10,
     },
     backButton: {
-        padding: 8,
-        borderRadius: 8,
-        marginRight: 12,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    headerTitle: {
-        fontSize: 24,
-        fontWeight: '600',
-        color: '#333',
-    },
-    content: {
-        flex: 1,
-        padding: 20,
-    },
-    section: {
-        backgroundColor: 'white',
-        borderRadius: 15,
-        padding: 20,
-        marginBottom: 25,
+    glassEffect: {
+        backgroundColor: 'rgba(255, 255, 255, 0.6)',
+        borderColor: 'rgba(255, 255, 255, 0.9)',
+        borderWidth: 1,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-        elevation: 3,
+        shadowOpacity: 0.08,
+        shadowRadius: 9,
+    },
+    headerContainer: {
+        marginLeft: 10,
+    },
+    headerTitle: {
+        fontSize: Platform.OS === 'web' ? 34 : 28,
+        fontWeight: 'bold',
+        color: '#1A237E',
+        marginBottom: 8,
+        letterSpacing: -0.5,
+    },
+    headerSubtitle: {
+        fontSize: Platform.OS === 'web' ? 17 : 14,
+        color: '#666',
+        lineHeight: 18,
+        marginRight: 25,
+    },
+    // Content container
+    contentContainer: {
+        flex: 1,
+        paddingTop: Platform.OS === 'web' ? 100 : 120,
+    },
+    scrollView: {
+        flex: 1,
+    },
+    scrollViewContent: {
+        paddingHorizontal: Platform.OS === 'web' ? 20 : 16,
+        paddingBottom: 40,
+    },
+    formContainer: {
+        maxWidth: 850,
+        width: '100%',
+        alignSelf: 'center',
+    },
+    // Glass card effect
+    glassCard: {
+        marginBottom: 25,
+        padding: Platform.OS === 'web' ? 30 : 20,
+        borderRadius: 28,
+        backgroundColor: 'rgba(255, 255, 255, 0.10)',
+        backdropFilter: Platform.OS === 'web' ? 'blur(3px)' : undefined,
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.4)',
+        shadowColor: '#000',
+        shadowOpacity: 0.06,
+        shadowRadius: 24,
+        borderTopColor: 'rgba(255, 255, 255, 0.9)',
+        borderLeftColor: 'rgba(255, 255, 255, 0.9)',
+        borderRightColor: 'rgba(255, 255, 255, 0.7)',
+        borderBottomColor: 'rgba(255, 255, 255, 0.7)',
     },
     sectionTitle: {
         fontSize: 20,
         fontWeight: '600',
-        color: '#333',
+        color: '#1A237E',
         marginBottom: 20,
     },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    pickerContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#f8f9fa',
-        borderRadius: 12,
-        marginBottom: 15,
-        borderWidth: 1,
-        borderColor: '#eee',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-        elevation: 2,
-    },
-    pickerIcon: {
-        padding: 12,
-    },
-    picker: {
-        flex: 1,
-        height: 50,
-    },
+    // Input styling
     inputContainer: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
-        backgroundColor: '#f8f9fa',
-        borderRadius: 12,
-        marginBottom: 15,
-        borderWidth: 1,
-        borderColor: '#eee',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+        borderRadius: 16,
+        shadowOpacity: 0.01,
+        padding: Platform.OS === 'web' ? 16 : 12,
+        borderWidth: 1.5,
+        borderColor: 'rgba(255, 255, 255, 0.5)',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-        elevation: 2,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.02,
+        shadowRadius: 12,
+        marginBottom: 15,
     },
     inputIcon: {
-        padding: 12,
+        marginRight: 10,
+        marginLeft: 5,
     },
     input: {
         flex: 1,
-        padding: 12,
-        fontSize: 16,
+        fontSize: Platform.OS === 'web' ? 16 : 14,
         color: '#333',
     },
     textArea: {
         minHeight: 100,
         textAlignVertical: 'top',
     },
-    questionButtons: {
-        flexDirection: 'row',
-        gap: 10,
+    // Gamification Preview
+    gamificationPreview: {
+        marginTop: 20,
+        padding: 15,
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.5)',
     },
-    addButton: {
-        flex: 1,
+    gamificationTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#1A237E',
+        marginBottom: 12,
+    },
+    rewardItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: 12,
-        borderRadius: 8,
-        gap: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 3,
-        elevation: 3,
+        marginBottom: 10,
+        gap: 10,
     },
-    textButton: {
-        backgroundColor: '#4CAF50',
+    rewardText: {
+        fontSize: 14,
+        color: '#555',
     },
-    mcqButton: {
-        backgroundColor: '#2196F3',
-    },
-    buttonText: {
-        color: 'white',
-        fontWeight: '500',
+    // Question Cards
+    questionsList: {
+        marginBottom: 25,
     },
     questionCard: {
-        backgroundColor: 'white',
-        borderRadius: 15,
-        padding: 20,
         marginBottom: 20,
+        padding: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.4)',
+        borderRadius: 20,
         borderWidth: 1,
-        borderColor: '#eee',
+        borderColor: 'rgba(255, 255, 255, 0.6)',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
     },
-    questionNumber: {
-        fontSize: 20,
-        fontWeight: '600',
-        color: '#333',
+    questionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: 15,
     },
+    questionNumber: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#1A237E',
+    },
+    deleteButton: {
+        padding: 8,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255, 69, 58, 0.1)',
+    },
+    // Question content
     questionContent: {
-        marginTop: 15,
+        padding: 15,
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.5)',
     },
     questionInputContainer: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        backgroundColor: 'white',
+        backgroundColor: 'rgba(255, 255, 255, 0.4)',
         borderRadius: 12,
+        marginBottom: 15,
         borderWidth: 1,
-        borderColor: '#eee',
-        marginBottom: 20,
+        borderColor: 'rgba(255, 255, 255, 0.7)',
     },
     questionIcon: {
         padding: 12,
@@ -702,48 +781,24 @@ const styles = StyleSheet.create({
         minHeight: 60,
         textAlignVertical: 'top',
     },
+    // Options for multiple-choice
     optionsContainer: {
-        marginTop: 10,
-        backgroundColor: 'white',
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
         borderRadius: 12,
         padding: 15,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.5)',
     },
     optionsLabel: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#333',
+        color: '#1A237E',
         marginBottom: 15,
     },
     optionWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 12,
-    },
-    optionInputContainer: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#f8f9fa',
-        borderRadius: 8,
-        marginLeft: 12,
-        borderWidth: 1,
-        borderColor: '#eee',
-    },
-    optionNumber: {
-        width: 30,
-        textAlign: 'center',
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#666',
-        borderRightWidth: 1,
-        borderRightColor: '#eee',
-        paddingVertical: 10,
-    },
-    optionInput: {
-        flex: 1,
-        padding: 10,
-        fontSize: 16,
-        color: '#333',
     },
     radioButton: {
         width: 24,
@@ -757,22 +812,54 @@ const styles = StyleSheet.create({
     radioButtonSelected: {
         backgroundColor: '#2196F3',
     },
+    optionInputContainer: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.4)',
+        borderRadius: 12,
+        marginLeft: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.7)',
+    },
+    optionNumber: {
+        width: 30,
+        textAlign: 'center',
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#666',
+        borderRightWidth: 1,
+        borderRightColor: 'rgba(255, 255, 255, 0.8)',
+        paddingVertical: 10,
+    },
+    optionInput: {
+        flex: 1,
+        padding: 10,
+        fontSize: 16,
+        color: '#333',
+    },
+    // Answer container for text questions
     answerContainer: {
-        marginTop: 10,
+        marginTop: 15,
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+        borderRadius: 12,
+        padding: 15,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.5)',
     },
     answerLabel: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#333',
-        marginBottom: 10,
+        color: '#1A237E',
+        marginBottom: 12,
     },
     answerInputContainer: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        backgroundColor: 'white',
+        backgroundColor: 'rgba(255, 255, 255, 0.4)',
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#eee',
+        borderColor: 'rgba(255, 255, 255, 0.7)',
     },
     answerIcon: {
         padding: 12,
@@ -785,47 +872,35 @@ const styles = StyleSheet.create({
         minHeight: 60,
         textAlignVertical: 'top',
     },
-    submitButton: {
-        backgroundColor: '#2196F3',
-        padding: 15,
-        borderRadius: 12,
-        alignItems: 'center',
-        marginBottom: 30,
-    },
-    submitButtonText: {
-        color: 'white',
-        fontSize: 18,
-        fontWeight: '600',
-    },
-    questionsList: {
-        marginBottom: 25,
-    },
-    questionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 15,
-    },
-    deleteButton: {
-        padding: 8,
-        borderRadius: 8,
-        backgroundColor: '#FFF5F5',
-    },
+    // Add Question buttons section
     addQuestionSection: {
-        backgroundColor: '#f8f9fa',
-        borderRadius: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+        borderRadius: 16,
         padding: 20,
-        marginTop: 10,
+        marginTop: 25,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.5)',
     },
     addQuestionTitle: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: '600',
-        color: '#666',
+        color: '#1A237E',
         marginBottom: 15,
     },
     questionButtons: {
         flexDirection: 'row',
-        gap: 12,
+        justifyContent: 'space-between',
+        gap: 15,
+    },
+    addButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 14,
+        borderRadius: 12,
+        gap: 8,
     },
     textButton: {
         backgroundColor: '#4CAF50',
@@ -836,69 +911,62 @@ const styles = StyleSheet.create({
     buttonText: {
         color: 'white',
         fontSize: 15,
-        fontWeight: '500',
+        fontWeight: '600',
     },
-    questionCard: {
-        backgroundColor: 'white',
-        borderRadius: 15,
+    // Import Section
+    importSection: {
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+        borderRadius: 16,
         padding: 20,
-        marginBottom: 15,
         borderWidth: 1,
-        borderColor: '#eee',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
+        borderColor: 'rgba(255, 255, 255, 0.5)',
     },
-    questionNumber: {
+    // Submit Button
+    submitButton: {
+        backgroundColor: '#2196F3',
+        paddingVertical: 18,
+        paddingHorizontal: 24,
+        borderRadius: 16,
+        alignItems: 'center',
+        marginTop: 10,
+        marginBottom: 30,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.5)',
+    },
+    submitButtonText: {
+        color: 'white',
         fontSize: 18,
         fontWeight: '600',
-        color: '#333',
     },
-    questionContent: {
-        marginTop: 15,
-        backgroundColor: '#f8f9fa',
-        borderRadius: 12,
-        padding: 15,
+    // Decorative blur circles
+    blurCircle: {
+        position: 'absolute',
+        borderRadius: 999,
+        opacity: 0.5,
     },
-    questionInputContainer: {
-        backgroundColor: 'white',
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: '#eee',
-        marginBottom: 20,
+    blurCircle1: {
+        width: 300,
+        height: 300,
+        backgroundColor: 'rgba(33, 150, 243, 0.1)',
+        top: -100,
+        right: -50,
     },
-    optionsContainer: {
-        backgroundColor: 'white',
-        borderRadius: 8,
-        padding: 15,
-        borderWidth: 1,
-        borderColor: '#eee',
+    blurCircle2: {
+        width: 250,
+        height: 250,
+        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+        bottom: 100,
+        left: -100,
     },
-    // New styles for gamification and duration
-    gamificationPreview: {
-        marginTop: 10,
-        backgroundColor: '#f8f9fa',
-        borderRadius: 12,
-        padding: 15,
-        borderWidth: 1,
-        borderColor: '#eee',
-    },
-    gamificationTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#333',
-        marginBottom: 12,
-    },
-    rewardItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 8,
-        gap: 8,
-    },
-    rewardText: {
-        fontSize: 14,
-        color: '#555',
-    },
+    blurCircle3: {
+        width: 200,
+        height: 200,
+        backgroundColor: 'rgba(156, 39, 176, 0.08)',
+        bottom: -50,
+        right: 100,
+    }
 });
