@@ -345,7 +345,7 @@ const additionalStyles = StyleSheet.create({
         marginLeft: 'auto',
     },
     freeUsesText: {
-        color: '#4CAF50',
+        color: 'rgba(245, 247, 250, 0.86)',
         fontWeight: 'bold',
         fontSize: 12,
     }
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
     container: {
       flex: 1,
       position: 'relative',
-      backgroundColor: 'transparent',
+      backgroundColor: 'rgba(245, 247, 250, 0.86)',
       overflow: 'hidden',
     },
     navbar: {
@@ -606,7 +606,7 @@ const styles = StyleSheet.create({
     className: {
       fontSize: Platform.OS === 'web' ? 18 : 16,
       fontWeight: '600',
-      color: '#1A237E',
+      color: 'rgba(22, 102, 222, 0.45)',
       left: Platform.OS === 'web' ? 160 : 140,
     },
     notificationButton: {
@@ -632,7 +632,7 @@ const styles = StyleSheet.create({
       backgroundColor: '#2196F3',
       borderBottomLeftRadius: 20,
       borderBottomRightRadius: 20,
-      backgroundColor: 'rgba(33, 150, 243, 0.65)',
+      backgroundColor: 'rgba(9, 126, 221, 0.68)',
     },
     welcomeText: {
       fontSize: 24,
