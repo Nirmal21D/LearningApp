@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getFirestore, collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import LoadingScreen from './LoadingScreen';
 
 const RecommendedVideos = ({ subjectId = null }) => {
   const [videos, setVideos] = useState([]);
@@ -69,7 +70,7 @@ const RecommendedVideos = ({ subjectId = null }) => {
       console.log(allVideos)
           setVideos(allVideos);
         } catch (error) {
-          console.error("Error fetching recommended videos:", error);
+         /*  console.error("Error fetching recommended videos:", error); */
         } finally {
           setLoading(false);
         }
@@ -93,7 +94,7 @@ const RecommendedVideos = ({ subjectId = null }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text>Loading recommended videos...</Text>
+        <LoadingScreen/>
       </View>
     );
   }

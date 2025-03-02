@@ -10,12 +10,14 @@ import {
     where, 
     deleteDoc,
     doc,
-    writeBatch
+    writeBatch,
+    LoadBundleTask
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import LoadingScreen from '../../../components/LoadingScreen';
 
 export default function ManageCurriculum() {
     const router = useRouter();
@@ -161,21 +163,7 @@ export default function ManageCurriculum() {
 
     if (loading && !refreshing) {
         return (
-            <View style={styles.container}>
-                <LinearGradient
-                    colors={['#E3F2FD', '#BBDEFB', '#E3F2FD']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={StyleSheet.absoluteFillObject}
-                />
-                <View style={[styles.blurCircle, styles.blurCircle1]} />
-                <View style={[styles.blurCircle, styles.blurCircle2]} />
-                <View style={[styles.blurCircle, styles.blurCircle3]} />
-                
-                <View style={styles.loaderContainer}>
-                    <ActivityIndicator size="large" color="#2196F3" />
-                </View>
-            </View>
+           <LoadingScreen/>
         );
     }
 

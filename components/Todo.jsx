@@ -18,6 +18,7 @@ import * as Notifications from 'expo-notifications';
 import auth from '@/lib/firebase';
 import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
+import LoadingScreen from './LoadingScreen';
 
 // Configure notifications
 Notifications.setNotificationHandler({
@@ -206,8 +207,8 @@ const TodoListComponent = ({ storageKey = 'studentTasks', title = 'My Tasks', us
       setCompletedTasks(completedData);
       setLoading(false);
     } catch (error) {
-      console.error("Error loading tasks:", error);
-      Alert.alert('Error', 'Failed to load your tasks');
+    /*   console.error("Error loading tasks:", error); */
+     /*  Alert.alert('Error', 'Failed to load your tasks'); */
       setLoading(false);
     }
   };
@@ -230,8 +231,8 @@ const TodoListComponent = ({ storageKey = 'studentTasks', title = 'My Tasks', us
       
       console.log("Tasks saved to Firestore");
     } catch (error) {
-      console.error("Error saving tasks:", error);
-      Alert.alert('Error', 'Failed to save your tasks');
+     /*  console.error("Error saving tasks:", error); */
+    /*   Alert.alert('Error', 'Failed to save your tasks'); */
     }
   };
 
@@ -302,7 +303,7 @@ const TodoListComponent = ({ storageKey = 'studentTasks', title = 'My Tasks', us
       await setDoc(taskDocRef, task);
       console.log("Task added to Firestore:", task.id);
     } catch (error) {
-      console.error("Error adding task to Firestore:", error);
+    /*   console.error("Error adding task to Firestore:", error); */
     }
   };
 
@@ -312,7 +313,7 @@ const TodoListComponent = ({ storageKey = 'studentTasks', title = 'My Tasks', us
       await updateDoc(taskDocRef, task);
       console.log("Task updated in Firestore:", task.id);
     } catch (error) {
-      console.error("Error updating task in Firestore:", error);
+     /*  console.error("Error updating task in Firestore:", error); */
     }
   };
 
@@ -322,7 +323,7 @@ const TodoListComponent = ({ storageKey = 'studentTasks', title = 'My Tasks', us
       await deleteDoc(taskDocRef);
       console.log("Task deleted from Firestore:", taskId);
     } catch (error) {
-      console.error("Error deleting task from Firestore:", error);
+    /*   console.error("Error deleting task from Firestore:", error); */
     }
   };
 
@@ -339,7 +340,7 @@ const TodoListComponent = ({ storageKey = 'studentTasks', title = 'My Tasks', us
       });
       console.log("Task marked as completed in Firestore:", task.id);
     } catch (error) {
-      console.error("Error completing task in Firestore:", error);
+     /*  console.error("Error completing task in Firestore:", error); */
     }
   };
 
@@ -357,7 +358,7 @@ const TodoListComponent = ({ storageKey = 'studentTasks', title = 'My Tasks', us
       });
       console.log("Task restored in Firestore:", task.id);
     } catch (error) {
-      console.error("Error restoring task in Firestore:", error);
+     /*  console.error("Error restoring task in Firestore:", error); */
     }
   };
 
@@ -785,9 +786,7 @@ const TodoListComponent = ({ storageKey = 'studentTasks', title = 'My Tasks', us
           <>
             <Text style={styles.sectionTitle}>Completed Tasks</Text>
             {loading ? (
-              <View style={styles.loadingContainer}>
-                <Text style={styles.loadingText}>Loading completed tasks...</Text>
-              </View>
+              <LoadingScreen/>
             ) : filteredCompletedTasks.length === 0 ? (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyStateText}>

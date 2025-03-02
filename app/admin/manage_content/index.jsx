@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, getDocs, query, where, doc, deleteDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import LoadingScreen from '@/components/LoadingScreen';
 
 export default function ManageContent() {
     const router = useRouter();
@@ -197,10 +198,7 @@ export default function ManageContent() {
 
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#2196F3" />
-                <Text style={styles.loadingText}>Loading content...</Text>
-            </View>
+            <LoadingScreen />
         );
     }
 

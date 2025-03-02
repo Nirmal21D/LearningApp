@@ -15,6 +15,7 @@ import {
     writeBatch 
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import LoadingScreen from '../../../../components/LoadingScreen';
 
 export default function ManageSubject() {
     const { curriculumId } = useLocalSearchParams();
@@ -235,9 +236,7 @@ const fetchCurriculumData = async () => {
 
     if (loading && !refreshing) {
         return (
-            <View style={styles.loaderContainer}>
-                <ActivityIndicator size="large" color="#2196F3" />
-            </View>
+            <LoadingScreen/>
         );
     }
 

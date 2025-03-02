@@ -8,7 +8,7 @@ import { BlurView } from 'expo-blur';
 import { auth } from '../../lib/firebase';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -19,8 +19,7 @@ export default function Login() {
   useEffect(() => {
     const checkStoredCredentials = async () => {
       try {
-        const storedEmail = await AsyncStorage.getItem('email');
-        const storedPassword = await AsyncStorage.getItem('password');
+       
         if (storedEmail && storedPassword) {
           setEmail(storedEmail);
           setPassword(storedPassword);
@@ -55,8 +54,7 @@ export default function Login() {
     try {
       // Admin login
       if (loginEmail === 'admin' && loginPassword === 'admin123') {
-        await AsyncStorage.setItem('email', loginEmail);
-        await AsyncStorage.setItem('password', loginPassword);
+      
         router.push('/admin/dashboard');
         return;
       }
@@ -65,9 +63,7 @@ export default function Login() {
       console.log('Login successful');
 
       // Save credentials
-      await AsyncStorage.setItem('email', loginEmail);
-      await AsyncStorage.setItem('password', loginPassword);
-
+    
       // Get user type from Firestore
       const db = getFirestore();
       const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));

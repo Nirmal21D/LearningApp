@@ -14,6 +14,7 @@ import { getAuth } from 'firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
 import ChatComponent from '@/components/ChatComponent';
 import { auth, db } from '@/lib/firebase';
+import LoadingScreen from './LoadingScreen';
 
 export default function TeacherChats() {
   const [students, setStudents] = useState([]);
@@ -110,10 +111,7 @@ export default function TeacherChats() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>Loading student chats...</Text>
-      </View>
+     <LoadingScreen/>
     );
   }
 

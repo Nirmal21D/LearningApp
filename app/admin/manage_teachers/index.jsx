@@ -23,6 +23,7 @@ import {
     orderBy
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import LoadingScreen from '../../../components/LoadingScreen';
 
 export default function ManageTeachers() {
     const router = useRouter();
@@ -147,10 +148,7 @@ export default function ManageTeachers() {
 
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#2196F3" />
-                <Text style={styles.loadingText}>Loading teachers...</Text>
-            </View>
+            <LoadingScreen/>
         );
     }
 

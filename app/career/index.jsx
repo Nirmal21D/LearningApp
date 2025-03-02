@@ -12,6 +12,7 @@ import { Alert } from 'react-native';
 import LearningStyleAssessment from '@/components/LearningStyleAssessment';
 import { auth } from '@/lib/firebase';
 import CareerAssessment from '../../components/Career';
+import LoadingScreen from '../../components/LoadingScreen';
 const { width } = Dimensions.get('window');
 
 
@@ -66,7 +67,7 @@ export default function Career() {
   if (isLoading) {
   return (
     <SafeAreaView >
-        <Text >Loading...</Text>
+        <LoadingScreen/>
       </SafeAreaView>
     );
   }

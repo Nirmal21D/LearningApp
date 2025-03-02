@@ -32,7 +32,7 @@ const CommentSection = ({ videoId }) => {
       videoId,
       text: newComment,
       userId: user.uid,
-      userName: user.displayName || 'Anonymous',
+      userName: user.email || 'Anonymous',
       createdAt: serverTimestamp(),
       replyTo: replyTo ? replyTo.id : null,
     };

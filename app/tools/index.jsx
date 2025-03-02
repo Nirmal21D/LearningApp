@@ -10,6 +10,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { signOut } from 'firebase/auth';
 import LearningStyleAssessment from '@/components/LearningStyleAssessment';
 import { auth } from '@/lib/firebase';
+import { Calendar } from 'react-native-calendars';
+import { Modal, TextInput } from 'react-native';
+
+
 const { width } = Dimensions.get('window');
 
 // Define premium tools and their usage limits for free users
@@ -29,6 +33,11 @@ export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [usageData, setUsageData] = useState({});
+  const [selectedDate, setSelectedDate] = useState('');
+  const [tasks, setTasks] = useState({});
+  const [markedDates, setMarkedDates] = useState({});
+  const [modalVisible, setModalVisible] = useState(false);
+  const [newTaskText, setNewTaskText] = useState('');
   
   const colors = {
     primary: '#2196F3',
@@ -77,7 +86,7 @@ export default function Home() {
               setUsageData(initialUsage);
             }
           } catch (error) {
-            console.error("Error getting usage data:", error);
+           /*  console.error("Error getting usage data:", error); */
             // Initialize default usage if document doesn't exist
             setUsageData(Object.keys(PREMIUM_TOOLS).reduce((acc, tool) => {
               acc[tool] = 0;
@@ -98,6 +107,113 @@ export default function Home() {
 
     return () => unsubscribe();
   }, [router]);
+
+  useEffect(() => {
+    const fetchTasks = async () => {
+      if (auth.currentUser) {
+        try {
+          const db = getFirestore();
+          const tasksRef = collection(db, "users", auth.currentUser.uid, "tasks");
+          const querySnapshot = await getDocs(tasksRef);
+          
+          const fetchedTasks = {};
+          const dates = {};
+          
+          querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            if (!fetchedTasks[data.date]) {
+              fetchedTasks[data.date] = [];
+            }
+            fetchedTasks[data.date].push({
+              id: doc.id,
+              ...data
+            });
+            
+            dates[data.date] = {
+              marked: true,
+              dotColor: '#2196F3'
+            };
+          });
+          
+          setTasks(fetchedTasks);
+          setMarkedDates(dates);
+        } catch (error) {
+       /*    console.error("Error fetching tasks:", error); */
+        }
+      }
+    };
+    
+    fetchTasks();
+  }, [isLoggedIn]);
+
+  const handleDateSelect = (day) => {
+    setSelectedDate(day.dateString);
+  };
+  
+  const addTask = async () => {
+    if (!newTaskText.trim() || !selectedDate) return;
+    
+    try {
+      const db = getFirestore();
+      const taskRef = doc(collection(db, "users", auth.currentUser.uid, "tasks"));
+      
+      const taskData = {
+        text: newTaskText,
+        date: selectedDate,
+        completed: false,
+        createdAt: new Date().toISOString()
+      };
+      
+      await setDoc(taskRef, taskData);
+      
+      // Update local state
+      setTasks(prevTasks => {
+        const newTasks = {...prevTasks};
+        if (!newTasks[selectedDate]) {
+          newTasks[selectedDate] = [];
+        }
+        newTasks[selectedDate].push({id: taskRef.id, ...taskData});
+        return newTasks;
+      });
+      
+      // Update marked dates
+      setMarkedDates(prev => ({
+        ...prev,
+        [selectedDate]: {marked: true, dotColor: '#2196F3'}
+      }));
+      
+      setNewTaskText('');
+      setModalVisible(false);
+    } catch (error) {
+     /*  console.error("Error adding task:", error); */
+      Alert.alert("Error", "Failed to add task. Please try again.");
+    }
+  };
+  
+  const toggleTaskCompletion = async (taskId, date, currentStatus) => {
+    try {
+      const db = getFirestore();
+      const taskRef = doc(db, "users", auth.currentUser.uid, "tasks", taskId);
+      
+      await updateDoc(taskRef, {
+        completed: !currentStatus
+      });
+      
+      // Update local state
+      setTasks(prevTasks => {
+        const newTasks = {...prevTasks};
+        const taskIndex = newTasks[date].findIndex(task => task.id === taskId);
+        
+        if (taskIndex !== -1) {
+          newTasks[date][taskIndex].completed = !currentStatus;
+        }
+        
+        return newTasks;
+      });
+    } catch (error) {
+    /*   console.error("Error updating task:", error); */
+    }
+  };
 
   const handleLogout = async () => {
     const auth = getAuth();
@@ -154,7 +270,7 @@ export default function Home() {
           setUsageData(newUsage);
           router.push(`/${toolName.toLowerCase()}`);
         } catch (error) {
-          console.error("Error updating usage:", error);
+         /*  console.error("Error updating usage:", error); */
           router.push(`/${toolName.toLowerCase()}`);
         }
       }
@@ -275,7 +391,7 @@ export default function Home() {
             return false;
         }
     } catch (error) {
-        console.error('Error checking access:', error);
+        /* console.error('Error checking access:', error); */
         Alert.alert('Error', 'Failed to verify access');
         return false;
     }
@@ -295,7 +411,7 @@ const getRemainingFreeUses = async () => {
         const currentUsage = usageData.textExtractor || 0;
         return Math.max(0, 3 - currentUsage);
     } catch (error) {
-        console.error('Error getting remaining uses:', error);
+        /* console.error('Error getting remaining uses:', error); */
         return 0;
     }
 };
@@ -504,89 +620,222 @@ const additionalStyles = StyleSheet.create({
             <Ionicons name="arrow-forward" size={20} color="white" />
           </TouchableOpacity>
         </View>
-      </ScrollView>
 
-      {/* ChatBot with usage restriction */}
-      <View style={styles.chatBotWrapper}>
-        <TouchableOpacity
-          onPress={() => {
-            if (userInfo?.isPremium) {
-              // Premium users get unlimited access
-              return;
-            }
-            
-            const currentUsage = usageData.chatbot || 0;
-            if (currentUsage >= PREMIUM_TOOLS.chatbot.limit) {
-              Alert.alert(
-                'Chat Limit Reached',
-                `You've reached the free limit for AI Chatbot. Upgrade to Premium for unlimited access.`,
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Upgrade', onPress: () => router.push('/upgrade') }
-                ]
-              );
-            } else {
-              // Increment usage on first interaction (handle in ChatBot component)
-              // The tracking should be inside the ChatBot component
-            }
-          }}
-        >
-          <ChatBot 
-            isPremium={userInfo?.isPremium} 
-            usageLimit={PREMIUM_TOOLS.chatbot.limit}
-            currentUsage={usageData.chatbot || 0}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity 
-          style={styles.navItem} 
-          onPress={() => router.push('/chats')}
-        >
-          <Ionicons name="chatbubbles-outline" size={24} color="#666" />
-          <Text style={styles.navText}>Chats</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={() => router.push('/tools')}
-        >
-          <Ionicons name="build-outline" size={24} color="#666" />
-          <Text style={styles.navText}>Tools</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.navItem, styles.activeNavItem]}
-          onPress={() => router.push('/home')}
-        >
-          <View style={styles.homeIconContainer}>
-            <Ionicons name="home" size={24} color="#2196F3" />
+        {/* Calendar Section */}
+        <View style={styles.calendarContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Your Schedule</Text>
+            <TouchableOpacity>
+              <Text style={styles.seeAllButton}>View All</Text>
+            </TouchableOpacity>
           </View>
-          <Text style={[styles.navText, styles.activeNavText]}>Home</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={() => router.push('/blogs')}
-        >
-          <Ionicons name="newspaper-outline" size={24} color="#666" />
-          <Text style={styles.navText}>Blogs</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={() => router.push('/profile')}
-        >
-          <Ionicons name="person-outline" size={24} color="#666" />
-          <Text style={styles.navText}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+          
+          <Calendar
+            onDayPress={handleDateSelect}
+            markedDates={{
+              ...markedDates,
+              [selectedDate]: {
+                selected: true,
+                selectedColor: '#2196F3',
+                marked: markedDates[selectedDate]?.marked || false,
+                dotColor: 'white'
+              }
+            }}
+            theme={{
+              backgroundColor: 'transparent',
+              calendarBackground: 'rgba(255, 255, 255, 0.4)',
+              textSectionTitleColor: '#1A237E',
+              selectedDayBackgroundColor: '#2196F3',
+              selectedDayTextColor: 'white',
+              todayTextColor: '#2196F3',
+              dayTextColor: '#333',
+              textDisabledColor: '#d9e1e8',
+              dotColor: '#2196F3',
+              selectedDotColor: '#ffffff',
+              arrowColor: '#2196F3',
+              monthTextColor: '#1A237E',
+              indicatorColor: '#2196F3',
+              textDayFontWeight: '300',
+              textMonthFontWeight: 'bold',
+              textDayHeaderFontWeight: '500',
+              textDayFontSize: 14,
+              textMonthFontSize: 16,
+              textDayHeaderFontSize: 12,
+              'stylesheet.calendar.header': {
+                header: {
+                  backgroundColor: 'rgba(255, 255, 255, 0.5)',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingVertical: 10,
+                  paddingHorizontal: 10,
+                  borderRadius: 12,
+                }
+              }
+            }}
+            style={{
+              borderRadius: 16,
+              overflow: 'hidden',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.8)',
+            }}
+          />
+          
+          {/* Task List for Selected Date */}
+          {selectedDate && (
+            <View style={styles.tasksContainer}>
+              <View style={styles.taskHeader}>
+                <Text style={styles.taskHeaderTitle}>
+                  Tasks for {new Date(selectedDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}
+                </Text>
+                <TouchableOpacity 
+                  style={styles.addTaskButton}
+                  onPress={() => setModalVisible(true)}
+                >
+                  <Ionicons name="add" size={20} color="white" />
+                </TouchableOpacity>
+              </View>
+              
+              {tasks[selectedDate] && tasks[selectedDate].length > 0 ? (
+                tasks[selectedDate].map((task) => (
+                  <TouchableOpacity 
+                    key={task.id}
+                    style={styles.taskItem}
+                    onPress={() => toggleTaskCompletion(task.id, selectedDate, task.completed)}
+                  >
+                    <View style={[
+                      styles.taskCheckbox, 
+                      task.completed && styles.taskCheckboxCompleted
+                    ]}>
+                      {task.completed && <Ionicons name="checkmark" size={14} color="white" />}
+                    </View>
+                    <Text style={[
+                      styles.taskText,
+                      task.completed && styles.taskTextCompleted
+                    ]}>
+                      {task.text}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <View style={styles.emptyTasksContainer}>
+                  <Text style={styles.emptyTasksText}>No tasks scheduled for this day</Text>
+                  <TouchableOpacity 
+                    style={styles.emptyTasksButton}
+                    onPress={() => setModalVisible(true)}
+                  >
+                    <Text style={styles.emptyTasksButtonText}>Add Task</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+        
+        
+        {/* ...existing footer and other components... */}
+        <View style={styles.footer}>
+          {/* ...existing code... */}
+        </View>
+      </ScrollView>
+      
+      {/* Add Task Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add New Task</Text>
+            <Text style={styles.modalDate}>
+              {selectedDate ? new Date(selectedDate).toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long', 
+                day: 'numeric'
+              }) : ''}
+            </Text>
+            
+            <TextInput
+              style={styles.taskInput}
+              placeholder="Enter your task..."
+              value={newTaskText}
+              onChangeText={setNewTaskText}
+              multiline
+              maxLength={100}
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.addButton]}
+                onPress={addTask}
+              >
+                <Text style={styles.addButtonText}>Add Task</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      
+      <View style={styles.bottomNav}>
+              <TouchableOpacity
+                style={styles.navItem}
+                onPress={() => router.push('/chats')}
+              >
+                <Ionicons name="chatbubbles-outline" size={24} color="#666" />
+                <Text style={styles.navText}>Chats</Text>
+              </TouchableOpacity>
+      
+              <TouchableOpacity
+                style={styles.navItem}
+                onPress={() => router.push('/tools')}
+              >
+                <Ionicons name="build-outline" size={24} color="#666" />
+                <Text style={styles.navText}>Tools</Text>
+              </TouchableOpacity>
+      
+              <TouchableOpacity
+                style={[styles.navItem, styles.activeNavItem]}
+              >
+                <View style={styles.homeIconContainer}>
+                  <Ionicons name="home" size={24} color="#2196F3" />
+                </View>
+                <Text style={[styles.navText, styles.activeNavText]}>Home</Text>
+              </TouchableOpacity>
+      
+              <TouchableOpacity
+                style={styles.navItem}
+                onPress={() => router.push('/blogs')}
+              >
+                <Ionicons name="newspaper-outline" size={24} color="#666" />
+                <Text style={styles.navText}>Blogs</Text>
+              </TouchableOpacity>
+      
+              <TouchableOpacity
+                style={styles.navItem}
+                onPress={() => router.push('/profile')}
+              >
+                <Ionicons name="person-outline" size={24} color="#666" />
+                <Text style={styles.navText}>Profile</Text>
+              </TouchableOpacity>
+            
+            
+            
+            </View>
     </SafeAreaView>
+    
   );
 }
 
+// Add these styles to your existing StyleSheet
 const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -946,5 +1195,179 @@ const styles = StyleSheet.create({
       color: '#2196F3',
       textAlign: 'center',
       marginTop: 50,
+    },
+    calendarContainer: {
+      marginHorizontal: 20,
+      marginVertical: 20,
+      backgroundColor: 'rgba(255, 255, 255, 0.4)',
+      borderRadius: 16,
+      overflow: 'hidden',
+      padding: 15,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.8)',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+    },
+    
+    tasksContainer: {
+      marginTop: 15,
+      backgroundColor: 'rgba(255, 255, 255, 0.6)',
+      borderRadius: 12,
+      padding: 15,
+    },
+    
+    taskHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 15,
+    },
+    
+    taskHeaderTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#1A237E',
+    },
+    
+    addTaskButton: {
+      backgroundColor: '#2196F3',
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    
+    taskItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+    },
+    
+    taskCheckbox: {
+      width: 20,
+      height: 20,
+      borderRadius: 4,
+      borderWidth: 2,
+      borderColor: '#2196F3',
+      marginRight: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    
+    taskCheckboxCompleted: {
+      backgroundColor: '#2196F3',
+    },
+    
+    taskText: {
+      fontSize: 14,
+      color: '#333',
+      flex: 1,
+    },
+    
+    taskTextCompleted: {
+      textDecorationLine: 'line-through',
+      color: '#999',
+    },
+    
+    emptyTasksContainer: {
+      alignItems: 'center',
+      paddingVertical: 20,
+    },
+    
+    emptyTasksText: {
+      color: '#666',
+      marginBottom: 10,
+    },
+    
+    emptyTasksButton: {
+      backgroundColor: 'rgba(33, 150, 243, 0.1)',
+      paddingVertical: 8,
+      paddingHorizontal: 15,
+      borderRadius: 20,
+    },
+    
+    emptyTasksButtonText: {
+      color: '#2196F3',
+      fontWeight: '600',
+    },
+    
+    modalContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    
+    modalContent: {
+      backgroundColor: 'white',
+      borderRadius: 16,
+      padding: 20,
+      width: '80%',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+    },
+    
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: '#1A237E',
+      marginBottom: 5,
+    },
+    
+    modalDate: {
+      fontSize: 14,
+      color: '#666',
+      marginBottom: 20,
+    },
+    
+    taskInput: {
+      width: '100%',
+      backgroundColor: '#f5f5f5',
+      borderRadius: 8,
+      paddingHorizontal: 15,
+      paddingVertical: 12,
+      fontSize: 16,
+      minHeight: 100,
+    },
+    
+    modalButtons: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      width: '100%',
+      marginTop: 20,
+    },
+    
+    modalButton: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderRadius: 8,
+    },
+    
+    cancelButton: {
+      backgroundColor: '#f5f5f5',
+      marginRight: 10,
+    },
+    
+    cancelButtonText: {
+      color: '#333',
+      fontWeight: '600',
+    },
+    
+    addButton: {
+      backgroundColor: '#2196F3',
+    },
+    
+    addButtonText: {
+      color: 'white',
+      fontWeight: '600',
     },
 });

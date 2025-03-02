@@ -15,6 +15,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { ref, get } from 'firebase/database';
 import { db, database, auth } from '../../lib/firebase';
 import { LineChart, PieChart, BarChart } from 'react-native-chart-kit';
+import LoadingScreen from '../../components/LoadingScreen';
 
 export default function AppAnalytics() {
     const router = useRouter();
@@ -232,10 +233,7 @@ export default function AppAnalytics() {
 
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#9C27B0" />
-                <Text style={styles.loadingText}>Loading analytics...</Text>
-            </View>
+            <LoadingScreen/>
         );
     }
 

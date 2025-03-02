@@ -6,6 +6,7 @@ import { doc, onSnapshot, updateDoc, increment } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import Comments from '@/components/Comment';
 import { db } from '@/lib/firebase';
+import LoadingScreen from '../../../components/LoadingScreen';
 const colors = {
   primary: '#2196F3',
   background: '#f8f9fa',
@@ -71,9 +72,7 @@ const BlogDetail = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <LoadingScreen/>
     );
   }
 

@@ -13,6 +13,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 // import * as MediaLibrary from 'expo-media-library';
 // import ViewShot from 'react-native-view-shot';
 import Svg, { Path, G } from 'react-native-svg';
+import LoadingScreen from './LoadingScreen';
 
 const StudyNotes = ({ subjectFilter }) => {
   const router = useRouter();
@@ -1227,9 +1228,7 @@ const StudyNotes = ({ subjectFilter }) => {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={[styles.container, isNotesMinimized ? styles.minimizedContainer : {}]}>
         {isLoading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#2196F3" />
-          </View>
+          <LoadingScreen/>
         )}
         
         <View style={styles.header}>

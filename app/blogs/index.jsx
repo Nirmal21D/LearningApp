@@ -7,6 +7,7 @@ import { Feather, AntDesign, Ionicons } from '@expo/vector-icons';
 import { format, formatDistanceToNow } from 'date-fns';
 
 import { db } from "../../lib/firebase";
+import LoadingScreen from '../../components/LoadingScreen';
 
 const Blogs = () => {
   const router = useRouter();
@@ -66,10 +67,7 @@ const Blogs = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
-        <Text style={styles.loadingText}>Loading posts...</Text>
-      </View>
+      <LoadingScreen/>
     );
   }
 

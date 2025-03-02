@@ -132,20 +132,7 @@ export default function TeacherDashboard() {
             onPress: () => router.push("/teacher/upload_materials"),
             color: "#4CAF50",
         },
-        {
-            id: "update-material",
-            title: "Update Material",
-            icon: "create",
-            onPress: () => router.push("/teacher/organize_materials"),
-            color: "#FF9800",
-        },
-        {
-            id: "add-video",
-            title: "Upload Video",
-            icon: "cloud-upload",
-            onPress: () => router.push("/teacher/upload_video"),
-            color: "#2196F3",
-        },
+       
         {
             id: "create-test",
             title: "Create Test",
@@ -606,7 +593,7 @@ export default function TeacherDashboard() {
         return (
             <View style={styles.sessionsHeader}>
                 <View style={styles.sessionsTitleContainer}>
-                    <Text style={styles.sectionTitle}>Upcoming Sessions</Text>
+                    
                     <TouchableOpacity 
                         style={styles.reloadButton}
                         onPress={() => {
@@ -1022,7 +1009,7 @@ export default function TeacherDashboard() {
 
                 {/* Materials and Videos Quick Access */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Recent Uploads</Text>
+                    
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                         {teacherInfo?.recentUploads?.map((upload, index) => (
                             <TouchableOpacity

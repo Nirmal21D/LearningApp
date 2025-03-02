@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, SafeAreaView
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getFirestore, collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import LoadingScreen from './LoadingScreen';
 
 export default function Videos() {
   const [videos, setVideos] = useState([]);
@@ -262,10 +263,7 @@ export default function Videos() {
       </View>
       
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2196F3" />
-          <Text style={styles.loadingText}>Loading videos...</Text>
-        </View>
+        <LoadingScreen/>
       ) : filteredVideos.length > 0 ? (
         <FlatList
           data={filteredVideos}

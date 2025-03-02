@@ -93,7 +93,7 @@ export default function Home() {
       const progress = await getUserProgress(userId, '3m');
       setProgressData(progress);
     } catch (error) {
-      console.error('Error fetching progress:', error);
+     /*  console.error('Error fetching progress:', error); */
     }
   };
 
@@ -110,7 +110,7 @@ export default function Home() {
         setSubjects(subjectsList);
 
       } catch (error) {
-        console.error("Error fetching subjects:", error);
+      /*   console.error("Error fetching subjects:", error); */
       }
     };
 
@@ -131,7 +131,7 @@ export default function Home() {
   }, [timeSpent]);
   const handleReviewSubmit = async () => {
     if (!reviewContent.trim() || reviewRating === 0) {
-      Alert.alert('Error', 'Please provide a review and rating.');
+    /*   Alert.alert('Error', 'Please provide a review and rating.'); */
       return;
     }
 
@@ -150,8 +150,8 @@ export default function Home() {
       setReviewRating(0);
       Alert.alert('Thank you!', 'Your review has been submitted.');
     } catch (error) {
-      console.error('Error submitting review:', error);
-      Alert.alert('Error', 'Failed to submit review. Please try again.');
+      /* console.error('Error submitting review:', error); */
+    /*   Alert.alert('Error', 'Failed to submit review. Please try again.'); */
     }
   };
 
@@ -166,7 +166,7 @@ export default function Home() {
         const userDocSnap = await getDoc(userDocRef);
 
         if (!userDocSnap.exists()) {
-          throw new Error("User data not found");
+      /*     throw new Error("User data not found"); */
         }
 
         const data = userDocSnap.data();
@@ -197,7 +197,7 @@ export default function Home() {
       await signOut(auth);
       router.replace('/');
     } catch (error) {
-      Alert.alert('Error', 'Failed to logout. Please try again.');
+     /*  Alert.alert('Error', 'Failed to logout. Please try again.'); */
     }
   };
 
@@ -405,13 +405,15 @@ export default function Home() {
               <Text style={styles.seeAllButton}>All Reviews</Text>
             </TouchableOpacity>
           </View>
-          <FlatList
+          
+          {/* Use ScrollView for horizontal scrolling reviews - this is okay */}
+          <ScrollView 
             horizontal
             showsHorizontalScrollIndicator={false}
-            data={reviews}
-            keyExtractor={(item) => item.id.toString()} 
-            renderItem={({ item }) => (
-              <View style={styles.reviewCard}>
+            contentContainerStyle={styles.reviewsScrollContainer}
+          >
+            {reviews.map((item) => (
+              <View key={item.id.toString()} style={styles.reviewCard}>
                 <View style={styles.reviewHeader}>
                   <View style={styles.reviewerInfo}>
                     <View style={styles.reviewerAvatar}>
@@ -437,11 +439,11 @@ export default function Home() {
                 </View>
                 <Text style={styles.reviewContent}>{item.content}</Text>
               </View>
-            )}
-          />
+            ))}
+          </ScrollView>
         </View>
 
-        <ScrollView>
+        <View>
           {/* Learning Recommendations Section */}
           {progressData && (
             <View style={styles.recommendationsContainer}>
@@ -674,7 +676,7 @@ export default function Home() {
               </View>
             </View>
           </View>
-        </ScrollView>
+        </View>
 
         <View style={styles.footer}>
           <Text style={styles.footerTitle}>Connect With Us</Text>
@@ -1531,6 +1533,11 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     color: '#333',
+  },
+  reviewsScrollContainer: {
+    paddingLeft: 20,
+    paddingRight: 5,
+    paddingBottom: 5,
   },
 });
 

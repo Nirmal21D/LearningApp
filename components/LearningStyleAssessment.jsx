@@ -431,8 +431,8 @@ const LearningStyleAssessment = ({ onClose, userId, visible }) => {
         // Automatically close when data is saved
         onClose();
       } catch (error) {
-        console.error('Error updating learning style:', error);
-        alert('Failed to save your learning profile. Please try again.');
+        /* console.error('Error updating learning style:', error);
+        alert('Failed to save your learning profile. Please try again.'); */
       } finally {
         setIsSubmitting(false);
       }

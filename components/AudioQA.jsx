@@ -75,7 +75,7 @@ const AudioQA = () => {
         }
       }
     } catch (error) {
-      console.error('Error loading audio questions:', error);
+      /* console.error('Error loading audio questions:', error); */
     }
   };
 
@@ -83,7 +83,7 @@ const AudioQA = () => {
     try {
       await AsyncStorage.setItem('audioQuestions', JSON.stringify(newQuestions));
     } catch (error) {
-      console.error('Error saving audio questions:', error);
+     /*  console.error('Error saving audio questions:', error); */
     }
   };
 
@@ -100,7 +100,7 @@ const AudioQA = () => {
         });
       }
     } catch (error) {
-      console.error('Error saving to Firestore:', error);
+     /*  console.error('Error saving to Firestore:', error); */
     }
   };
 
@@ -119,8 +119,8 @@ const AudioQA = () => {
       setRecording(recording);
       setIsRecording(true);
     } catch (error) {
-      console.error('Failed to start recording:', error);
-      Alert.alert('Error', 'Failed to start recording. Please check permissions.');
+     /*  console.error('Failed to start recording:', error);
+      Alert.alert('Error', 'Failed to start recording. Please check permissions.'); */
     }
   };
 
@@ -137,8 +137,8 @@ const AudioQA = () => {
       // Process the recording
       await processAudioQuestion(uri);
     } catch (error) {
-      console.error('Failed to stop recording:', error);
-      Alert.alert('Error', 'Failed to process recording.');
+      /* console.error('Failed to stop recording:', error);
+      Alert.alert('Error', 'Failed to process recording.'); */
     } finally {
       setRecording(null);
       setIsProcessing(false);
@@ -174,14 +174,14 @@ const AudioQA = () => {
           
           console.log('Firestore documents deleted successfully');
         } catch (error) {
-          console.error('Error deleting Firestore documents:', error);
+          /* console.error('Error deleting Firestore documents:', error); */
         }
       }
       
       Alert.alert('Success', 'Audio question history has been cleared.');
     } catch (error) {
-      console.error('Error clearing audio questions:', error);
-      Alert.alert('Error', 'Failed to clear audio question history.');
+     /*  console.error('Error clearing audio questions:', error);
+      Alert.alert('Error', 'Failed to clear audio question history.'); */
     }
   };
   
@@ -317,7 +317,7 @@ const AudioQA = () => {
       };
       
     } catch (error) {
-      console.error('AssemblyAI transcription error:', error);
+   /*    console.error('AssemblyAI transcription error:', error); */
       return {
         success: false,
         error: error.message
@@ -355,7 +355,7 @@ Keep your answers concise, accurate and targeted for 10th grade level understand
       const result = await model.generateContent(question, generationConfig);
       return result.response.text();
     } catch (error) {
-      console.error("Error generating AI response:", error);
+     /*  console.error("Error generating AI response:", error); */
       return "I couldn't generate an answer for this question. Please try asking in a different way.";
     }
   };
@@ -417,10 +417,10 @@ Keep your answers concise, accurate and targeted for 10th grade level understand
       setCurrentQuestion(null);
       
     } catch (error) {
-      console.error('Error processing audio question:', error);
+      /* console.error('Error processing audio question:', error); */
       setIsGeneratingAnswer(false);
       setCurrentQuestion(null);
-      Alert.alert('Error', 'Failed to process audio question.');
+      /* Alert.alert('Error', 'Failed to process audio question.'); */
     }
   };
 
@@ -449,8 +449,8 @@ Keep your answers concise, accurate and targeted for 10th grade level understand
       
       await newSound.playAsync();
     } catch (error) {
-      console.error('Error playing audio:', error);
-      Alert.alert('Error', 'Failed to play audio.');
+     /*  console.error('Error playing audio:', error);
+      Alert.alert('Error', 'Failed to play audio.'); */
     }
   };
 
@@ -475,7 +475,7 @@ Keep your answers concise, accurate and targeted for 10th grade level understand
       });
       
     } catch (error) {
-      console.error('Error speaking answer:', error);
+     /*  console.error('Error speaking answer:', error); */
       setCurrentPlayingId(null);
     }
   };
