@@ -119,6 +119,10 @@ export default function Layout() {
         name="chapter/[id]"
         options={{ headerShown: false }}
       />
+      <Stack.Screen
+        name="test/index"
+        options={{ headerShown: false }}
+      />
     </Stack>
   );
-} 
+}
