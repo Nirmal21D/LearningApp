@@ -16,22 +16,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const checkStoredCredentials = async () => {
-      try {
-       
-        if (storedEmail && storedPassword) {
-          setEmail(storedEmail);
-          setPassword(storedPassword);
-          handleLogin(storedEmail, storedPassword);
-        }
-      } catch (e) {
-        console.error('Failed to load stored credentials:', e);
-      }
-    };
-
-    checkStoredCredentials();
-  }, []);
+  
 
   const colors = {
     primary: '#2196F3',
@@ -86,7 +71,7 @@ export default function Login() {
         router.push('/home');
       }
     } catch (error) {
-      console.error('Login error:', error);
+     /*  console.error('Login error:', error); */
       let errorMessage = 'Failed to log in. Please check your credentials.';
       
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
