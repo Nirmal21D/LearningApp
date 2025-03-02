@@ -98,14 +98,14 @@ const Labs = () => {
                 style={[styles.subjectCard, styles.glassEffect]}
                 onPress={() => {
                   router.push({
-                    pathname: `/labs/EquivalentResistanceofResistors`,
+                    pathname: `/labs/ohms`,
                   });
                 }}
               >
                 <View style={[styles.subjectIconContainer, { backgroundColor: "rgba(33, 150, 243, 0.75)" }]}>
                   <Ionicons name="flash-outline" size={32} color="white" />
                 </View>
-                <Text style={styles.subjectName}>Breadboard</Text>
+                <Text style={styles.subjectName}>Ohm's Law</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
